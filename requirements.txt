@@ -1,0 +1,6 @@
+﻿dash
+pandas
+requests
+plotly
+openai
+cryptography

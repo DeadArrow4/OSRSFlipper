@@ -1,4 +1,4 @@
-# OSRSFlipper - keep private runtime data out of GitHub
+﻿# OSRSFlipper - keep private runtime data out of GitHub
 
 # Python
 __pycache__/
@@ -32,6 +32,7 @@ runelite_imports/
 *.sqlite
 *.sqlite3
 osrs_flip_scanner.db
+rs_flip_scanner.db*
 
 # Secrets and local environment
 .env
@@ -44,27 +45,25 @@ secrets/
 account_api_keys*
 current_user.json
 
-# OS / editor
+# OS/editor
 .DS_Store
 Thumbs.db
 desktop.ini
 .vscode/
 .idea/
 
-# Large/local reports
+# Reports / generated outputs
 *_report.txt
 release_check.txt
 migration_report.txt
 update_install_report.txt
-
-# Temporary files
-*.tmp
-*.bak
-*.old
-
-# OSRSFlipper generated runtime/output files
 osrs_ai_advice.txt
 osrs_dual_flips.csv
 osrs_older_flips.csv
 osrs_recent_flips.csv
 release_manifest.json
+
+# Temporary files
+*.tmp
+*.bak
+*.old
