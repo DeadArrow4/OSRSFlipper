@@ -20,18 +20,10 @@ except Exception:
 
 
 # Health checks should inspect the real installed project folder, not a test
-# install folder or any BASE_DIR exported by account_context.
-#
-# Priority:
-# 1. OSRSFLIPPER_PROJECT_DIR environment variable, if you intentionally set it.
-# 2. C:\\OSRSFlipper, your normal installed project folder.
-# 3. The folder containing this health_check.py file.
-PROJECT_DIR_OVERRIDE = os.getenv("OSRSFLIPPER_PROJECT_DIR", "").strip()
+# install folder, current working directory, or environment override.
 NORMAL_PROJECT_DIR = Path(r"C:\OSRSFlipper")
 
-if PROJECT_DIR_OVERRIDE:
-    BASE_DIR = Path(PROJECT_DIR_OVERRIDE).expanduser().resolve()
-elif NORMAL_PROJECT_DIR.exists():
+if NORMAL_PROJECT_DIR.exists():
     BASE_DIR = NORMAL_PROJECT_DIR.resolve()
 else:
     BASE_DIR = Path(__file__).resolve().parent
@@ -55,6 +47,12 @@ REQUIRED_PROJECT_FILES = [
     "recommender.py",
     "advisor.py",
     "dashboard.py",
+    "dashboard_callbacks/__init__.py",
+    "dashboard_tabs/__init__.py",
+    "dashboard_components.py",
+    "dashboard_data.py",
+    "dashboard_formatters.py",
+    "dashboard_theme.py",
     "trend_analyzer.py",
     "trade_tracker.py",
     "trade_importer.py",

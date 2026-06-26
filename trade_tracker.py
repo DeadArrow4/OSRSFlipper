@@ -5,9 +5,9 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 
-from account_context import get_account_scope, apply_account_env
+from account_context import BASE_DIR as APP_BASE_DIR, get_account_scope, apply_account_env
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(APP_BASE_DIR)
 DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
 IMPORT_DIR = os.path.join(BASE_DIR, "runelite_imports")
 

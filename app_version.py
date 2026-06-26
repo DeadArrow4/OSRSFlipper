@@ -1,9 +1,14 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from account_context import BASE_DIR
+except Exception:
+    BASE_DIR = Path(__file__).resolve().parent
+
 
 APP_NAME = "OSRSFlipper"
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 BUILD_CHANNEL = "stable"
 PROJECT_URL = ""
 APP_DESCRIPTION = (
@@ -15,11 +20,11 @@ APP_DESCRIPTION = (
 
 
 def get_build_time():
-    return "2026-06-25T20:24:26Z"
+    return "2026-06-26T17:24:02Z"
 
 
 def get_project_root():
-    return Path(__file__).resolve().parent
+    return Path(BASE_DIR)
 
 
 def get_version_info():

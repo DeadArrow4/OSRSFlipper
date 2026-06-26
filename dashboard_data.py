@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from account_context import get_account_scope
+from account_context import BASE_DIR as APP_BASE_DIR, get_account_scope
 from account_manager import get_current_session, list_users
 from advisor import OUTPUT_FILE
 from database import init_db
@@ -30,7 +30,7 @@ except Exception:
     init_trade_db = None
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(APP_BASE_DIR)
 DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 EXPORT_DIR = os.path.join(BASE_DIR, "exports")
@@ -663,9 +663,12 @@ def get_status_summary():
     latest_import_message = ""
 
     if table_exists("imported_trade_files"):
+        # Use SELECT * so the dashboard remains compatible with older/newer
+        # imported_trade_files schemas. The canonical column from trade_importer
+        # is matched_rows, but older development builds used other names.
         import_df = query_df(
             """
-            SELECT imported_at, imported_rows, skipped_rows, matched_trades, status, message, file_name
+            SELECT *
             FROM imported_trade_files
             WHERE app_username = ?
               AND osrs_account_name = ?
@@ -680,12 +683,26 @@ def get_status_summary():
 
         if not import_df.empty:
             row = import_df.iloc[0]
+            matched_count = (
+                row.get("matched_rows", None)
+                if "matched_rows" in row.index else None
+            )
+
+            if matched_count is None and "matched_trades" in row.index:
+                matched_count = row.get("matched_trades", 0)
+
+            if matched_count is None and "matched" in row.index:
+                matched_count = row.get("matched", 0)
+
+            if matched_count is None:
+                matched_count = 0
+
             latest_trade_import = row.get("imported_at", "No trade import yet")
             latest_import_status = (
                 f"{row.get('status', 'Unknown')} | "
                 f"rows {row.get('imported_rows', 0)} | "
                 f"skipped {row.get('skipped_rows', 0)} | "
-                f"matched {row.get('matched_trades', 0)} | "
+                f"matched {matched_count} | "
                 f"file {row.get('file_name', '')}"
             )
             latest_import_message = str(row.get("message", "") or "")
@@ -1055,16 +1072,15 @@ def import_runelite_now():
 
 
 def run_health_check_report():
-    """
-    Run the health check against the real C:\OSRSFlipper project folder.
+    r"""
+    Run health_check.py from the resolved OSRSFlipper project folder.
 
-    This intentionally loads C:\OSRSFlipper\health_check.py by exact file path
-    instead of using a normal `import health_check`, because a test install or
-    an already-running dashboard process can otherwise reuse the wrong module.
+    Loading by exact file path avoids accidentally reusing a health_check module
+    from a test install or stale process path.
     """
     import importlib.util
 
-    health_check_path = Path(r"C:\OSRSFlipper\health_check.py")
+    health_check_path = Path(BASE_DIR) / "health_check.py"
 
     if not health_check_path.exists():
         return (
@@ -1073,7 +1089,7 @@ def run_health_check_report():
         )
 
     spec = importlib.util.spec_from_file_location(
-        "osrsflipper_real_health_check",
+        "osrsflipper_project_health_check",
         health_check_path
     )
 

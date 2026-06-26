@@ -7,6 +7,7 @@ from api import load_market_data, load_trend_data_for_items
 from scanner import parse_gp, scan_market, format_gp
 from recommender import apply_recommendations
 from trend_analyzer import enrich_rows_with_trends, TREND_DATA_MAX_ITEMS
+from account_context import BASE_DIR
 from database import (
     init_db,
     create_scan_run,
@@ -136,7 +137,7 @@ def save_csv_safely(df, filename):
         print(f"No rows to save for {filename}.")
         return None
 
-    target_path = os.path.join(os.getcwd(), filename)
+    target_path = os.path.join(str(BASE_DIR), filename)
 
     try:
         df.to_csv(target_path, index=False)
@@ -145,7 +146,7 @@ def save_csv_safely(df, filename):
     except PermissionError:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = filename.replace(".csv", f"_{timestamp}.csv")
-        backup_path = os.path.join(os.getcwd(), backup_name)
+        backup_path = os.path.join(str(BASE_DIR), backup_name)
 
         df.to_csv(backup_path, index=False)
 
@@ -557,7 +558,7 @@ def main():
         print(f"Saved older flips to:  {older_csv}")
 
     print(f"Saved {saved_count} rows to SQLite database.")
-    print(f"Database file: {os.path.join(os.getcwd(), 'osrs_flip_scanner.db')}")
+    print(f"Database file: {BASE_DIR / 'osrs_flip_scanner.db'}")
 
     print_recent_database_rows()
 

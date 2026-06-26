@@ -5,9 +5,9 @@ import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from account_context import get_account_scope
+from account_context import BASE_DIR as APP_BASE_DIR, get_account_scope
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = str(APP_BASE_DIR)
 DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
 
 RUNELITE_FLIPPING_DIR = os.path.join(

@@ -1,9 +1,10 @@
-import os
 import sqlite3
 from datetime import datetime, timezone
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
+from account_context import BASE_DIR
+
+
+DB_FILE = str(BASE_DIR / "osrs_flip_scanner.db")
 
 
 def get_connection():

@@ -5,8 +5,7 @@ import sys
 import time
 from pathlib import Path
 
-
-BASE_DIR = Path(__file__).resolve().parent
+from account_context import BASE_DIR
 VENV_ACTIVATE = BASE_DIR / ".venv" / "Scripts" / "activate.bat"
 RUNTIME_DIR = BASE_DIR / ".osrs_runtime"
 

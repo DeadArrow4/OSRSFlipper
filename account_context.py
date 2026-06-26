@@ -6,30 +6,42 @@ from pathlib import Path
 
 DEFAULT_APP_USERNAME = "default"
 DEFAULT_OSRS_ACCOUNT = "default"
+NORMAL_INSTALL_DIR = Path(r"C:\OSRSFlipper")
+
+
+def _has_project_markers(path):
+    markers = [
+        path / "dashboard.py",
+        path / "osrs_control_center.py",
+        path / "database.py",
+        path / "account_context.py",
+        path / "assets" / "style.css",
+    ]
+    return any(marker.exists() for marker in markers)
 
 
 def resolve_app_base_dir():
     """
-    Finds the real C:\\OSRSFlipper folder.
+    Resolve the real OSRSFlipper project folder.
 
-    This matters for the .exe build because PyInstaller extracts bundled
-    modules to a temporary folder. We do not want sessions/settings/database
-    stored in that temporary folder.
+    This app is expected to run from C:\\OSRSFlipper. Prefer that folder first
+    so copied test folders, PyInstaller temporary folders, and old working
+    directories do not accidentally become the runtime database/log/session path.
+
+    Fallbacks are only used if C:\\OSRSFlipper does not exist.
     """
-    env_dir = os.getenv("OSRSFLIPPER_BASE_DIR")
+    if NORMAL_INSTALL_DIR.exists():
+        return NORMAL_INSTALL_DIR.resolve()
+
+    env_dir = os.getenv("OSRSFLIPPER_BASE_DIR", "").strip()
 
     if env_dir:
         path = Path(env_dir).expanduser().resolve()
 
-        if path.exists():
+        if path.exists() and _has_project_markers(path):
             return path
 
     candidates = []
-
-    try:
-        candidates.append(Path.cwd().resolve())
-    except Exception:
-        pass
 
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
@@ -48,28 +60,17 @@ def resolve_app_base_dir():
     except Exception:
         pass
 
+    try:
+        candidates.append(Path.cwd().resolve())
+    except Exception:
+        pass
+
     for candidate in candidates:
-        if not candidate:
-            continue
-
-        markers = [
-            candidate / "dashboard.py",
-            candidate / "osrs_control_center.py",
-            candidate / "osrs_flip_scanner.db",
-            candidate / ".venv"
-        ]
-
-        if any(marker.exists() for marker in markers):
+        if candidate and candidate.exists() and _has_project_markers(candidate):
             return candidate
 
-    # Final fallback for your current install location.
-    default_path = Path("C:/OSRSFlipper")
-
-    if default_path.exists():
-        return default_path
-
     # Last resort.
-    return Path.cwd().resolve()
+    return Path(__file__).resolve().parent
 
 
 BASE_DIR = resolve_app_base_dir()
