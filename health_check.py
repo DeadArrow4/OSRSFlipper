@@ -10,15 +10,31 @@ from pathlib import Path
 from security_runtime import scrub_shared_openai_env, scrub_status_text, dotenv_contains_openai_api_key, get_non_secret_env_value
 
 try:
-    from account_context import get_account_scope, BASE_DIR
+    from account_context import get_account_scope
 except Exception:
-    BASE_DIR = Path(__file__).resolve().parent
-
     def get_account_scope():
         return {
             "app_username": os.getenv("OSRSFLIPPER_USERNAME", "default"),
             "osrs_account_name": os.getenv("RUNELITE_ACCOUNT", "default")
         }
+
+
+# Health checks should inspect the real installed project folder, not a test
+# install folder or any BASE_DIR exported by account_context.
+#
+# Priority:
+# 1. OSRSFLIPPER_PROJECT_DIR environment variable, if you intentionally set it.
+# 2. C:\\OSRSFlipper, your normal installed project folder.
+# 3. The folder containing this health_check.py file.
+PROJECT_DIR_OVERRIDE = os.getenv("OSRSFLIPPER_PROJECT_DIR", "").strip()
+NORMAL_PROJECT_DIR = Path(r"C:\OSRSFlipper")
+
+if PROJECT_DIR_OVERRIDE:
+    BASE_DIR = Path(PROJECT_DIR_OVERRIDE).expanduser().resolve()
+elif NORMAL_PROJECT_DIR.exists():
+    BASE_DIR = NORMAL_PROJECT_DIR.resolve()
+else:
+    BASE_DIR = Path(__file__).resolve().parent
 
 
 DB_FILE = BASE_DIR / "osrs_flip_scanner.db"

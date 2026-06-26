@@ -1,41 +1,65 @@
-OSRSFlipper 0.9.0-rc1 (release-candidate)
+OSRSFlipper 1.0.1
 
-Release type: release-candidate
-Created: 2026-06-25T19:26:47.481187+00:00
+Release type: maintenance update
+Created: 2026-06-26
+
+Summary:
+This update refactors the dashboard into smaller Python modules to improve maintainability and make future edits easier. The goal of this release is cleaner project structure without changing the core dashboard workflow.
 
 Included:
-- Control center EXE if already built
-- Dashboard and support scripts
-- First-run setup wizard
-- Account manager
-- Per-account encrypted OpenAI API key support
-- AI usage logging and daily request limits
-- API key test tool
-- Database migrations
-- Health check
-- Release check
-- Trade safety review
-- RuneLite Flipping Utilities importer
+
+Refactored dashboard code into smaller support modules
+Added shared dashboard component support
+Updated dashboard callback organization
+Updated dashboard tab/module organization
+Updated dashboard formatting helpers
+Updated dashboard theme helpers
+Updated health check support for the refactored dashboard structure
+Dashboard and support scripts
+First-run setup wizard
+Account manager
+Per-account encrypted OpenAI API key support
+AI usage logging and daily request limits
+API key test tool
+Database migrations
+Health check
+Release check
+Trade safety review
+RuneLite Flipping Utilities importer
+
+Changed:
+
+Reduced dashboard.py complexity
+Improved code organization for easier maintenance
+Improved separation between dashboard layout, callbacks, formatting, data helpers, and theme helpers
+Updated application version to 1.0.1
 
 Not included:
-- Private database
-- Saved account data
-- Saved encrypted API key records
-- .env
-- Logs
-- Backups
-- Exports
-- Python virtual environment
+
+Private database
+Saved account data
+Saved encrypted API key records
+.env
+Logs
+Backups
+Exports
+Python virtual environment
+Local dashboard refactor backup folders
+Build folders
+Dist folders
 
 Install notes:
-1. Extract this release folder to the target machine.
-2. Install Python if needed.
-3. Install requirements with: python -m pip install -r requirements.txt
-4. Run: python first_run_setup.py
-5. Build or launch with: python osrs_control_center.py
-6. If using the EXE, run OSRSFlipper.exe from the dist folder or rebuild with build_exe.bat.
+
+Clone or download the repository.
+Install Python if needed.
+Install requirements with: python -m pip install -r requirements.txt
+Run: python first_run_setup.py
+Launch with: python osrs_control_center.py
+If using the EXE, rebuild with build_exe.bat and publish the generated package through GitHub Releases instead of committing build output.
 
 Security notes:
-- Do not enter your Jagex/OSRS password into OSRSFlipper.
-- Each user must save their own OpenAI API key.
-- Shared .env OPENAI_API_KEY fallback is disabled.
+
+Do not enter your Jagex/OSRS password into OSRSFlipper.
+Each user must save their own OpenAI API key locally.
+Shared .env OPENAI_API_KEY fallback is disabled.
+Do not commit databases, logs, backups, .env files, API keys, build folders, or release packages.
