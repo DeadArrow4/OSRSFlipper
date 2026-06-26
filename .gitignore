@@ -1,0 +1,70 @@
+# OSRSFlipper - keep private runtime data out of GitHub
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build outputs
+build/
+dist/
+*.spec
+
+# Installer/release outputs
+releases/
+backups/
+exports/
+logs/
+runelite_imports/
+.osrs_runtime/
+
+# Local databases and private app data
+*.db
+*.sqlite
+*.sqlite3
+osrs_flip_scanner.db
+
+# Secrets and local environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+account_api_keys*
+current_user.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Large/local reports
+*_report.txt
+release_check.txt
+migration_report.txt
+update_install_report.txt
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+
+# OSRSFlipper generated runtime/output files
+osrs_ai_advice.txt
+osrs_dual_flips.csv
+osrs_older_flips.csv
+osrs_recent_flips.csv
+release_manifest.json

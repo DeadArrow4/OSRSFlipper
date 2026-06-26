@@ -1,0 +1,41 @@
+OSRSFlipper 0.9.0-rc1 (release-candidate)
+
+Release type: release-candidate
+Created: 2026-06-25T19:26:47.481187+00:00
+
+Included:
+- Control center EXE if already built
+- Dashboard and support scripts
+- First-run setup wizard
+- Account manager
+- Per-account encrypted OpenAI API key support
+- AI usage logging and daily request limits
+- API key test tool
+- Database migrations
+- Health check
+- Release check
+- Trade safety review
+- RuneLite Flipping Utilities importer
+
+Not included:
+- Private database
+- Saved account data
+- Saved encrypted API key records
+- .env
+- Logs
+- Backups
+- Exports
+- Python virtual environment
+
+Install notes:
+1. Extract this release folder to the target machine.
+2. Install Python if needed.
+3. Install requirements with: python -m pip install -r requirements.txt
+4. Run: python first_run_setup.py
+5. Build or launch with: python osrs_control_center.py
+6. If using the EXE, run OSRSFlipper.exe from the dist folder or rebuild with build_exe.bat.
+
+Security notes:
+- Do not enter your Jagex/OSRS password into OSRSFlipper.
+- Each user must save their own OpenAI API key.
+- Shared .env OPENAI_API_KEY fallback is disabled.
