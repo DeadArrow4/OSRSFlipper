@@ -31,5 +31,6 @@ if __name__ == "__main__":
     app.run(
         debug=True,
         dev_tools_ui=False,
-        use_reloader=False
+        use_reloader=False,
+        dev_tools_hot_reload=False
     )

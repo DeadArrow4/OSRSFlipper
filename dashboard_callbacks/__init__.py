@@ -274,12 +274,20 @@ def register_dashboard_callbacks(app):
         )
 
 
+
+
+
+
     @app.callback(
         Output("item-history-chart", "figure"),
         Input("item-dropdown", "value"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_item_history(selected_item, _):
+    def update_item_history(selected_item, _, active_tab):
+        if active_tab != "item-history":
+            return no_update
+
         if not selected_item:
             return empty_figure("Select an item to view margin history")
 
@@ -328,6 +336,7 @@ def register_dashboard_callbacks(app):
 
 
 
+
     @app.callback(
         Output("trade-import-status", "children"),
         Output("trade-kpi-cards", "children"),
@@ -339,10 +348,42 @@ def register_dashboard_callbacks(app):
         Output("open-trades-table", "columns"),
         Input("refresh-trades-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
         State("my-trades-limit", "value")
     )
-    def update_trade_dashboard(refresh_clicks, intervals, row_limit):
-        import_status = refresh_runelite_trades_for_dashboard()
+    def update_trade_dashboard(refresh_clicks, intervals, active_tab, row_limit):
+        if active_tab != "my-trades":
+            return (
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update,
+                no_update
+            )
+
+        triggered_id = ctx.triggered_id
+
+        if triggered_id == "refresh-trades-button":
+            import_status = refresh_runelite_trades_for_dashboard()
+
+            try:
+                clear_trade_dashboard_cache()
+            except Exception:
+                pass
+
+            try:
+                clear_dashboard_cache()
+            except Exception:
+                pass
+
+        elif triggered_id == "auto-refresh":
+            import_status = "Auto refreshed saved trade data. RuneLite import only runs when you click Import RuneLite & Refresh Trades."
+        else:
+            import_status = "Loaded saved trade data. Click Import RuneLite & Refresh Trades to import the latest RuneLite file."
+
         limit = parse_positive_int(row_limit, default=100, minimum=10, maximum=500)
 
         summary = get_trade_summary()
@@ -448,9 +489,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("trade-account-scope", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_trade_account_scope(_):
+    def update_trade_account_scope(_, active_tab):
+        if active_tab != "my-trades":
+            return no_update
+
         scope = get_current_trade_scope()
         return f"Showing trades for local user: {scope['app_username']} | OSRS/RuneLite account: {scope['osrs_account_name']}"
 
@@ -459,9 +504,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("openai-key-status", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_openai_key_status(_):
+    def update_openai_key_status(_, active_tab):
+        if active_tab != "settings":
+            return no_update
+
         status = get_api_key_status()
 
         if not status.get("has_key"):
@@ -479,9 +528,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("openai-usage-status", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_openai_usage_status(_):
+    def update_openai_usage_status(_, active_tab):
+        if active_tab != "settings":
+            return no_update
+
         init_ai_usage_db()
         summary = get_ai_usage_summary()
 
@@ -535,9 +588,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("settings-account-scope", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_settings_account_scope(_):
+    def update_settings_account_scope(_, active_tab):
+        if active_tab != "settings":
+            return no_update
+
         scope = get_current_trade_scope()
         return f"Settings are saved for local user: {scope['app_username']} | OSRS/RuneLite account: {scope['osrs_account_name']}"
 
@@ -615,9 +672,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("status-log-cards", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_status_log_cards(_):
+    def update_status_log_cards(_, active_tab):
+        if active_tab != "status-logs":
+            return no_update
+
         summary = get_status_summary()
         return build_status_cards(summary)
 
@@ -626,9 +687,13 @@ def register_dashboard_callbacks(app):
         Output("log-file-output", "children"),
         Input("log-file-select", "value"),
         Input("log-line-count", "value"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_log_file_output(log_file_name, line_count, _):
+    def update_log_file_output(log_file_name, line_count, _, active_tab):
+        if active_tab != "status-logs":
+            return no_update
+
         if not log_file_name:
             return "No log file selected."
 
@@ -814,9 +879,13 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("setup-checklist-table", "data"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_setup_checklist(_):
+    def update_setup_checklist(_, active_tab):
+        if active_tab != "accounts":
+            return no_update
+
         return get_setup_summary_items()
 
 
@@ -874,9 +943,13 @@ def register_dashboard_callbacks(app):
     @app.callback(
         Output("account-manager-users-table", "data"),
         Output("account-manager-current-user", "children"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
     )
-    def update_account_manager_table(_):
+    def update_account_manager_table(_, active_tab):
+        if active_tab != "accounts":
+            return no_update, no_update
+
         current = get_current_session() or {}
         current_text = (
             f"Current session: {current.get('username', 'none')} / "
@@ -1049,11 +1122,15 @@ def register_dashboard_callbacks(app):
         Output("safety-review-status", "children"),
         Input("refresh-safety-review-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
+        Input("main-tabs", "value"),
         State("safety-review-limit", "value"),
         State("safety-max-cash-percent", "value"),
         State("safety-max-test-quantity", "value")
     )
-    def update_safety_review_table(refresh_clicks, intervals, limit, max_cash_percent, max_test_quantity):
+    def update_safety_review_table(refresh_clicks, intervals, active_tab, limit, max_cash_percent, max_test_quantity):
+        if active_tab != "safety-review":
+            return no_update, no_update, no_update
+
         try:
             set_setting("max_single_item_cash_percent", float(max_cash_percent or 10.0), "float")
             set_setting("max_test_quantity", int(max_test_quantity or 25), "int")

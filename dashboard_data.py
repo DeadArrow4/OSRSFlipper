@@ -61,6 +61,110 @@ SQLITE_TIMEOUT_SECONDS = 30
 SQLITE_BUSY_TIMEOUT_MS = 30000
 SQLITE_LOCK_RETRIES = 3
 
+# 1.0.4 dashboard performance cache.
+# Keep this intentionally short-lived so the dashboard stays responsive while
+# still picking up new scan results quickly.
+DASHBOARD_CACHE_TTL_SECONDS = 30
+ITEM_OPTIONS_CACHE_TTL_SECONDS = 900
+RECURRING_SCAN_RUN_WINDOW = 90
+MAX_HISTORY_ROWS_DEFAULT = 50000
+
+_dashboard_cache = {}
+
+
+def _cache_get(cache_key, ttl_seconds):
+    cached = _dashboard_cache.get(cache_key)
+
+    if not cached:
+        return None
+
+    created_at, value = cached
+
+    if time.time() - created_at > ttl_seconds:
+        _dashboard_cache.pop(cache_key, None)
+        return None
+
+    if isinstance(value, pd.DataFrame):
+        return value.copy()
+
+    if isinstance(value, list):
+        return list(value)
+
+    return value
+
+
+def _cache_set(cache_key, value):
+    if isinstance(value, pd.DataFrame):
+        value = value.copy()
+
+    if isinstance(value, list):
+        value = list(value)
+
+    _dashboard_cache[cache_key] = (time.time(), value)
+
+    if isinstance(value, pd.DataFrame):
+        return value.copy()
+
+    if isinstance(value, list):
+        return list(value)
+
+    return value
+
+
+def clear_dashboard_cache():
+    _dashboard_cache.clear()
+
+
+
+# 1.0.4 My Trades cache.
+# RuneLite imports can be slow, so the dashboard should not run the importer on
+# initial load or every auto-refresh. These cached reads keep the tab responsive.
+TRADE_DASHBOARD_CACHE_TTL_SECONDS = 30
+
+_trade_dashboard_cache = {}
+
+
+def _trade_cache_get(cache_key, ttl_seconds=TRADE_DASHBOARD_CACHE_TTL_SECONDS):
+    cached = _trade_dashboard_cache.get(cache_key)
+
+    if not cached:
+        return None
+
+    created_at, value = cached
+
+    if time.time() - created_at > ttl_seconds:
+        _trade_dashboard_cache.pop(cache_key, None)
+        return None
+
+    if isinstance(value, pd.DataFrame):
+        return value.copy()
+
+    if isinstance(value, dict):
+        return dict(value)
+
+    return value
+
+
+def _trade_cache_set(cache_key, value):
+    if isinstance(value, pd.DataFrame):
+        value = value.copy()
+
+    if isinstance(value, dict):
+        value = dict(value)
+
+    _trade_dashboard_cache[cache_key] = (time.time(), value)
+
+    if isinstance(value, pd.DataFrame):
+        return value.copy()
+
+    if isinstance(value, dict):
+        return dict(value)
+
+    return value
+
+
+def clear_trade_dashboard_cache():
+    _trade_dashboard_cache.clear()
 
 def open_dashboard_connection(read_only=True):
     conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
@@ -117,6 +221,11 @@ def query_df(query, params=None):
 
 
 def get_latest_run_id():
+    cached = _cache_get("latest_run_id", DASHBOARD_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
+
     df = query_df("""
         SELECT MAX(run_id) AS latest_run_id
         FROM scan_results
@@ -125,7 +234,7 @@ def get_latest_run_id():
     if df.empty or pd.isna(df.loc[0, "latest_run_id"]):
         return None
 
-    return int(df.loc[0, "latest_run_id"])
+    return _cache_set("latest_run_id", int(df.loc[0, "latest_run_id"]))
 
 
 def get_latest_rows():
@@ -133,6 +242,12 @@ def get_latest_rows():
 
     if latest_run_id is None:
         return pd.DataFrame()
+
+    cache_key = ("latest_rows", latest_run_id)
+    cached = _cache_get(cache_key, DASHBOARD_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
 
     df = query_df("""
         SELECT *
@@ -146,53 +261,83 @@ def get_latest_rows():
     if not df.empty and "scanned_at" in df.columns:
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
 
-    return df
+    return _cache_set(cache_key, df)
 
 
-def get_all_history():
+def get_all_history(limit=MAX_HISTORY_ROWS_DEFAULT):
+    # Return recent scan history without loading the entire database.
+    # Use get_item_history_for_item() when a chart needs one item's full history.
+    limit = parse_positive_int(
+        limit,
+        default=MAX_HISTORY_ROWS_DEFAULT,
+        minimum=1000,
+        maximum=200000
+    )
+
+    cache_key = ("all_history_recent", limit)
+    cached = _cache_get(cache_key, DASHBOARD_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
+
     df = query_df("""
         SELECT *
         FROM scan_results
-    """)
+        ORDER BY scanned_at DESC, id DESC
+        LIMIT ?
+    """, (limit,))
 
     if not df.empty and "scanned_at" in df.columns:
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
+        df = df.sort_values("scanned_at")
 
-    return df
+    return _cache_set(cache_key, df)
 
-def get_item_history_for_item(item_name):
-    """Return scan history for one selected item only.
 
-    This avoids loading the entire scan_results table every time the Item
-    History chart refreshes.
-    """
+def get_item_history_for_item(item_name, limit=5000):
+    # Fast path for Item History charts.
     item_name = str(item_name or "").strip()
 
     if not item_name:
         return pd.DataFrame()
 
+    limit = parse_positive_int(limit, default=5000, minimum=100, maximum=50000)
+    cache_key = ("item_history", item_name.lower(), limit)
+    cached = _cache_get(cache_key, DASHBOARD_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
+
     df = query_df("""
         SELECT *
         FROM scan_results
         WHERE item_name = ?
-        ORDER BY scanned_at
-    """, (item_name,))
+        ORDER BY scanned_at ASC, id ASC
+        LIMIT ?
+    """, (item_name, limit))
 
     if not df.empty and "scanned_at" in df.columns:
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
 
-    return df
-
+    return _cache_set(cache_key, df)
 
 
 def get_best_recurring_flips(limit=25):
-    """
-    Finds items/windows that keep appearing as profitable candidates.
-    Older logic required 3+ appearances and could show a blank table on
-    small databases. This version tries 2+ appearances first, then falls
-    back to the best historical candidates so the tab remains useful.
-    """
-    limit = parse_positive_int(limit, default=25, minimum=5, maximum=500) if "parse_positive_int" in globals() else int(limit or 25)
+    # Find recurring profitable items using a recent scan window instead of
+    # grouping the full historical scan_results table on every dashboard refresh.
+    limit = parse_positive_int(limit, default=25, minimum=5, maximum=500)
+
+    latest_run_id = get_latest_run_id()
+
+    if latest_run_id is None:
+        return pd.DataFrame()
+
+    min_run_id = max(1, int(latest_run_id) - RECURRING_SCAN_RUN_WINDOW + 1)
+    cache_key = ("best_recurring_flips", min_run_id, latest_run_id, limit)
+    cached = _cache_get(cache_key, DASHBOARD_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
 
     base_select = """
         SELECT
@@ -209,8 +354,11 @@ def get_best_recurring_flips(limit=25):
             ROUND(AVG(COALESCE(recommendation_score, score, 0)), 2) AS Avg_Recommendation_Score,
             MAX(scanned_at) AS Last_Seen
         FROM scan_results
-        WHERE COALESCE(result_type, '') = 'profitable'
-           OR COALESCE(total_profit, 0) > 0
+        WHERE run_id >= ?
+          AND (
+                COALESCE(result_type, '') = 'profitable'
+             OR COALESCE(total_profit, 0) > 0
+          )
         GROUP BY item_id, item_name, window_name
     """
 
@@ -220,36 +368,43 @@ def get_best_recurring_flips(limit=25):
         LIMIT ?
     """
 
-    df = query_df(query_two_plus, (limit,))
+    df = query_df(query_two_plus, (min_run_id, limit))
 
-    if not df.empty:
-        return format_recurring_display_df(df)
+    if df.empty:
+        query_fallback = base_select + """
+            ORDER BY Avg_Recommendation_Score DESC, Avg_Total_Profit DESC, Appearances DESC
+            LIMIT ?
+        """
 
-    query_fallback = base_select + """
-        ORDER BY Avg_Recommendation_Score DESC, Avg_Total_Profit DESC, Appearances DESC
-        LIMIT ?
-    """
+        df = query_df(query_fallback, (min_run_id, limit))
 
-    df = query_df(query_fallback, (limit,))
-    return format_recurring_display_df(df)
+    formatted_df = format_recurring_display_df(df)
+    return _cache_set(cache_key, formatted_df)
 
 
 def get_item_options():
+    cached = _cache_get("item_options", ITEM_OPTIONS_CACHE_TTL_SECONDS)
+
+    if cached is not None:
+        return cached
+
     df = query_df("""
         SELECT DISTINCT item_name
         FROM scan_results
+        WHERE item_name IS NOT NULL
+          AND TRIM(item_name) <> ''
         ORDER BY item_name
     """)
 
     if df.empty or "item_name" not in df.columns:
         return []
 
-    return [
+    options = [
         {"label": item_name, "value": item_name}
         for item_name in df["item_name"].dropna().tolist()
     ]
 
-
+    return _cache_set("item_options", options)
 
 
 def read_saved_ai_advice():
@@ -452,6 +607,8 @@ def get_filtered_latest(
     return df.head(limit)
 
 
+
+
 def get_current_trade_scope():
     return get_account_scope()
 
@@ -471,8 +628,15 @@ def table_exists(table_name):
 
 
 def get_trade_summary():
+    scope = get_current_trade_scope()
+    cache_key = ("trade_summary", scope["app_username"], scope["osrs_account_name"])
+    cached = _trade_cache_get(cache_key)
+
+    if cached is not None:
+        return cached
+
     if not table_exists("completed_trades"):
-        return {
+        summary = {
             "completed_count": 0,
             "realized_profit": 0,
             "avg_roi": 0,
@@ -481,8 +645,7 @@ def get_trade_summary():
             "open_event_count": 0,
             "open_buy_value": 0
         }
-
-    scope = get_current_trade_scope()
+        return _trade_cache_set(cache_key, summary)
 
     completed_df = query_df("""
         SELECT
@@ -532,14 +695,21 @@ def get_trade_summary():
     else:
         summary.update(open_df.iloc[0].to_dict())
 
-    return summary
+    return _trade_cache_set(cache_key, summary)
 
 
 def get_completed_trade_rows(limit=100):
+    limit = parse_positive_int(limit, default=100, minimum=10, maximum=500)
+
     if not table_exists("completed_trades"):
         return pd.DataFrame()
 
     scope = get_current_trade_scope()
+    cache_key = ("completed_trade_rows", scope["app_username"], scope["osrs_account_name"], limit)
+    cached = _trade_cache_get(cache_key)
+
+    if cached is not None:
+        return cached
 
     df = query_df("""
         SELECT
@@ -566,14 +736,21 @@ def get_completed_trade_rows(limit=100):
         limit
     ))
 
-    return df
+    return _trade_cache_set(cache_key, df)
 
 
 def get_open_trade_rows(limit=100):
+    limit = parse_positive_int(limit, default=100, minimum=10, maximum=500)
+
     if not table_exists("trade_events"):
         return pd.DataFrame()
 
     scope = get_current_trade_scope()
+    cache_key = ("open_trade_rows", scope["app_username"], scope["osrs_account_name"], limit)
+    cached = _trade_cache_get(cache_key)
+
+    if cached is not None:
+        return cached
 
     df = query_df("""
         SELECT
@@ -599,14 +776,21 @@ def get_open_trade_rows(limit=100):
         limit
     ))
 
-    return df
+    return _trade_cache_set(cache_key, df)
 
 
-def get_completed_trade_history():
+def get_completed_trade_history(limit=5000):
+    limit = parse_positive_int(limit, default=5000, minimum=100, maximum=50000)
+
     if not table_exists("completed_trades"):
         return pd.DataFrame()
 
     scope = get_current_trade_scope()
+    cache_key = ("completed_trade_history", scope["app_username"], scope["osrs_account_name"], limit)
+    cached = _trade_cache_get(cache_key)
+
+    if cached is not None:
+        return cached
 
     df = query_df("""
         SELECT
@@ -614,20 +798,31 @@ def get_completed_trade_history():
             item_name,
             total_profit,
             roi_percent
-        FROM completed_trades
-        WHERE app_username = ?
-          AND osrs_account_name = ?
+        FROM (
+            SELECT
+                id,
+                sell_time,
+                item_name,
+                total_profit,
+                roi_percent
+            FROM completed_trades
+            WHERE app_username = ?
+              AND osrs_account_name = ?
+            ORDER BY sell_time DESC, id DESC
+            LIMIT ?
+        )
         ORDER BY sell_time ASC, id ASC
     """, (
         scope["app_username"],
-        scope["osrs_account_name"]
+        scope["osrs_account_name"],
+        limit
     ))
 
     if not df.empty:
         df["sell_time"] = pd.to_datetime(df["sell_time"], errors="coerce")
         df["cumulative_profit"] = df["total_profit"].fillna(0).cumsum()
 
-    return df
+    return _trade_cache_set(cache_key, df)
 
 
 def refresh_runelite_trades_for_dashboard():

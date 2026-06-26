@@ -249,6 +249,8 @@ def build_filters():
     )
 
 
+
+
 def build_ai_panel():
     return html.Div(
         className="panel ai-panel",
@@ -1735,10 +1737,15 @@ def build_app_layout():
             html.Div(id="kpi-cards", className="kpi-grid"),
 
             dcc.Tabs(
+                id="main-tabs",
+                value="overview",
+                persistence=True,
+                persistence_type="session",
                 className="dash-tabs",
                 children=[
                     dcc.Tab(
                         label="Accounts",
+                        value="accounts",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_account_manager_tab()]
@@ -1746,6 +1753,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Overview",
+                        value="overview",
                         className="tab",
                         selected_className="tab--selected",
                         children=[
@@ -1775,6 +1783,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="My Trades",
+                        value="my-trades",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_my_trades_tab()]
@@ -1782,6 +1791,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="AI Advisor",
+                        value="ai-advisor",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_ai_panel()]
@@ -1789,6 +1799,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Safety Review",
+                        value="safety-review",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_safety_review_tab()]
@@ -1796,6 +1807,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Latest Flips",
+                        value="latest-flips",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_latest_table()]
@@ -1803,6 +1815,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Item History",
+                        value="item-history",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_item_history_tab()]
@@ -1810,6 +1823,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Recurring Flips",
+                        value="recurring-flips",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_recurring_table()]
@@ -1817,6 +1831,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Status / Logs",
+                        value="status-logs",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_status_logs_tab()]
@@ -1824,6 +1839,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Maintenance",
+                        value="maintenance",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_maintenance_tab()]
@@ -1831,6 +1847,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="About",
+                        value="about",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_about_tab()]
@@ -1838,6 +1855,7 @@ def build_app_layout():
 
                     dcc.Tab(
                         label="Settings",
+                        value="settings",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_settings_tab()]

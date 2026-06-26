@@ -1084,14 +1084,125 @@ def format_excluded_candidates_summary(excluded_items, max_items=30):
     return "\n".join(lines)
 
 
+MAX_TRADE_MEMORY_CHARS = int(get_setting("ai_trade_memory_chars", 8000))
+MAX_AI_PROMPT_CANDIDATES = int(get_setting("ai_prompt_candidate_limit", 35))
+
+
+def _trim_text(value, max_chars=180):
+    text = "" if value is None else str(value)
+
+    if len(text) <= max_chars:
+        return text
+
+    return text[:max_chars].rstrip() + "..."
+
+
+def _trim_block(text, max_chars):
+    text = "" if text is None else str(text)
+
+    if len(text) <= max_chars:
+        return text
+
+    return (
+        text[:max_chars].rstrip()
+        + "\n\n[Trimmed for faster AI response. Use My Trades tab for full history.]"
+    )
+
+
+def compact_candidates_for_ai(candidates_df, max_rows=MAX_AI_PROMPT_CANDIDATES):
+    # Reduce scanner rows to the fields the AI actually needs.
+    if candidates_df is None or candidates_df.empty:
+        return []
+
+    preferred_columns = [
+        "ai_bucket",
+        "item_name",
+        "window_name",
+        "target_buy",
+        "target_sell",
+        "quantity",
+        "raw_margin",
+        "profit_per_item",
+        "total_profit",
+        "roi_percent",
+        "volume",
+        "hourly_volume",
+        "liquidity_score",
+        "liquidity_rating",
+        "expected_fill_time",
+        "expected_fill_hours",
+        "quick_score",
+        "overnight_score",
+        "recommendation_score",
+        "confidence",
+        "signal",
+        "daily_trend",
+        "weekly_trend",
+        "trend_confidence",
+        "price_warning",
+        "margin_warning",
+        "trend_warning",
+        "flip_category",
+        "category_reason",
+        "ai_bucket_reason",
+    ]
+
+    available_columns = [
+        column for column in preferred_columns
+        if column in candidates_df.columns
+    ]
+
+    work_df = candidates_df[available_columns].head(max_rows).copy()
+
+    numeric_columns = [
+        "target_buy",
+        "target_sell",
+        "quantity",
+        "raw_margin",
+        "profit_per_item",
+        "total_profit",
+        "roi_percent",
+        "volume",
+        "hourly_volume",
+        "liquidity_score",
+        "expected_fill_hours",
+        "quick_score",
+        "overnight_score",
+        "recommendation_score",
+    ]
+
+    for column in numeric_columns:
+        if column in work_df.columns:
+            work_df[column] = pd.to_numeric(work_df[column], errors="coerce").round(2)
+
+    text_columns = [
+        "category_reason",
+        "ai_bucket_reason",
+        "price_warning",
+        "margin_warning",
+        "trend_warning",
+        "signal",
+        "confidence",
+    ]
+
+    for column in text_columns:
+        if column in work_df.columns:
+            work_df[column] = work_df[column].apply(lambda value: _trim_text(value, 180))
+
+    return work_df.fillna("").to_dict("records")
+
+
 def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, todays_trade_summary=None, excluded_summary=None):
-    candidate_json = candidates_df.to_json(
+    compact_candidates = compact_candidates_for_ai(candidates_df)
+    candidate_json = pd.DataFrame(compact_candidates).to_json(
         orient="records",
         indent=2
     )
 
     if trade_memory is None:
         trade_memory = "No local trade memory was provided."
+
+    trade_memory = _trim_block(trade_memory, MAX_TRADE_MEMORY_CHARS)
 
     if todays_trade_summary is None:
         todays_trade_summary = "No today's-trade summary was provided."
@@ -1105,21 +1216,81 @@ def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, to
     scanned_at = run_info["scanned_at"]
 
     return f"""
-You are an OSRS Grand Exchange flipping assistant.
+You are an OSRS Grand Exchange flipping analyst.
 
-The user has:
+Goal:
+Give the user the best practical trades to make now. Focus on action, risk, and why each trade is worth trying.
+
+User context:
 - Cash stack: {cash_stack:,} gp
 - Minimum desired profit: {minimum_profit:,} gp
 - Risk profile: {risk_profile}
-- Latest scan run ID: {run_id}
+- Latest scan run: {run_id}
 - Latest scan time: {scanned_at}
-- AI quick choices setting: {QUICK_FLIP_TARGET_COUNT}
-- AI overnight choices setting: {OVERNIGHT_FLIP_TARGET_COUNT}
-- AI additional value choices setting: {VALUE_FLIP_TARGET_COUNT}
 - Same-day traded item exclusion enabled: {EXCLUDE_TODAYS_TRADED_ITEMS}
 
-Trade memory from the user's actual completed and open trades:
-{trade_memory}
+Hard rules:
+- Do not guarantee profit.
+- Use only the supplied scanner data and trade memory.
+- Do not invent current prices.
+- GE tax is already included in profit_per_item.
+- Prefer realistic fills, strong liquidity, stable trend, good ROI, and repeatable profit.
+- Avoid or downgrade rows with price_warning, margin_warning, trend_warning, poor liquidity, or weak confidence.
+- Do not recommend items already traded today.
+- If a candidate was skipped because it was traded today, mention it only in the skipped section.
+- Overnight picks must have raw_margin >= {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,}, profit_per_item > 0, and roi_percent >= {MIN_OVERNIGHT_ROI_PERCENT}%.
+- For live SELLING offers only, you may suggest accepting a controlled small loss when the position is stale and slot pressure justifies freeing a GE slot.
+- For live BUYING offers, suggest canceling or repricing only.
+
+How to decide:
+- Best immediate trades should have high quick_score, positive net profit, good liquidity, and short expected fill.
+- Best overnight trades should have high overnight_score, enough raw margin per item, positive net/item, acceptable ROI, and stable trend.
+- Test-first trades may have good upside but weaker liquidity, warnings, low confidence, or unstable trend.
+- Avoid trades with suspicious margins, bad trend, poor liquidity, or low confidence.
+- Use the user's trade history to adjust confidence. Repeated wins matter more than one-off wins.
+
+Return Markdown only. Do not use tables.
+
+Use this exact structure:
+
+## Best Trades Right Now
+Give 5 to 8 ranked picks. For each:
+- Item
+- Action: Buy now / Test small / Wait / Avoid
+- Buy target
+- Sell target
+- Quantity
+- Expected profit
+- ROI
+- Fill/liquidity
+- Main reason
+- Main caution
+
+## Quick Flips
+Give up to {QUICK_FLIP_TARGET_COUNT} active quick flips.
+
+## Overnight Flips
+Give only qualifying overnight flips. For each show raw margin/item, net profit/item, and ROI.
+
+## Test Small
+List candidates that are promising but should start with a small quantity.
+
+## Avoid
+List risky candidates and why.
+
+## Current Open Trade / Slot Actions
+Use trade memory only. Recommend hold, cancel, reprice, or controlled-loss exit where appropriate.
+
+## My Trade History Feedback
+Give:
+- What is working
+- Repeated risk/mistake
+- Best recent item/style pattern
+- Worst recent item/style pattern
+- Whether open exposure is safe
+
+## Simple Plan
+Give a short step-by-step plan for what to buy first, what to leave overnight, and what to avoid.
 
 Today's trade exclusion memory:
 {todays_trade_summary}
@@ -1127,222 +1298,10 @@ Today's trade exclusion memory:
 Excluded scanner candidates:
 {excluded_summary}
 
-Analyze the latest scanner results together with the user's trade memory.
+User trade memory:
+{trade_memory}
 
-Important trade-memory rules:
-- Use the user's realized profit/loss, ROI, open positions, recent wins/losses, and best/worst items when making recommendations.
-- Prefer item types and flip styles that have worked well for the user historically.
-- Warn the user about repeated losing items, bad holding patterns, poor ROI patterns, or too much GP tied up in open buys.
-- If current open exposure is high, recommend fewer new buys and prioritize exits.
-- If recent realized ROI is poor, suggest safer test quantities and lower-risk flips.
-- If a scanner candidate matches an item the user has lost money on in the past, call that out clearly.
-- If a scanner candidate matches an item the user has performed well on historically, explain why it may fit the user's history.
-- Use LIVE GE SLOT ANALYSIS only when discussing current GE slots, currently buying offers, currently selling offers, repricing, or controlled loss exits.
-- Do not treat LOCAL UNMATCHED BUY HISTORY as currently buying, currently selling, or occupying a GE slot.
-- Use stale live-slot analysis to decide whether it may be better to accept a controlled loss and free one of the 8 Grand Exchange slots.
-- Treat a GE slot as valuable opportunity cost. If a live SELLING offer has been sitting too long and the estimated loss is small, it may be better to exit and redeploy the slot.
-- Never recommend accepting a large loss casually. Explain the estimated loss, held time, slot pressure, and why the exit may or may not be worth it.
-- If live slot pressure is high, be more willing to recommend repricing or controlled small-loss exits for live SELLING offers only.
-- For live BUYING offers, suggest canceling or repricing if stale; do not suggest selling at a loss because the item may not be bought yet.
-- If live slot pressure is low, prefer patience or repricing unless the live offer is very stale or trend/liquidity is poor.
-- Do not overfit to one trade. Use repeated patterns more strongly than single one-off wins/losses.
-- Do not invent trades not present in the trade memory.
-
-Critical same-day repeat rule:
-- Do not recommend items listed in Today's trade exclusion memory.
-- Do not recommend candidates listed in Excluded scanner candidates.
-- The user does not want to be offered items they have already traded today.
-- If a same-day traded item looks good, mention only that it was intentionally skipped because it was already traded today.
-- If the candidate list has fewer choices because of this filter, explain that today's trade filter reduced the list.
-
-Important scanner rules:
-- Do not claim a flip is guaranteed.
-- Consider GE tax already included in profit_per_item.
-- Use the provided data only. Do not invent current OSRS prices.
-- Prioritize realistic fills, liquidity, confidence, historical signal, trend stability, and total profit.
-- Expected fill time is an estimate based on recent volume, not a guarantee.
-- Price Warning means latest target prices differ sharply from average prices.
-- Margin Warning means the margin is far above historical average and may be unstable.
-- Trend Warning means daily/weekly trend data shows extra risk such as volatility, weekly decline, or price near 7-day high.
-- Quick Score is the scanner's score for active short-term flipping.
-- Overnight Score is the scanner's score for leaving offers in the GE while away or logged out.
-- raw_margin is target_sell minus target_buy for one item before GE tax.
-- profit_per_item is the post-tax profit for one item.
-- roi_percent is the post-tax return percentage from the scanner.
-- total_profit is bulk profit across the selected quantity.
-- Low history sample counts should reduce trust.
-- Do not over-recommend items with poor liquidity, suspicious price warnings, trend warnings, or limited history.
-- Explain quick flips separately from overnight flips.
-- Provide more choices than before so the user has alternatives.
-
-Critical loss-cut / slot recovery rules:
-- There are only 8 Grand Exchange slots.
-- Use only the LIVE GE SLOT ANALYSIS from trade memory when deciding whether to suggest accepting a loss.
-- Ignore LOCAL UNMATCHED BUY HISTORY for current slot pressure because those rows are historical/inventory estimates, not live offers.
-- For each stale live SELLING offer, compare:
-  - how long it has been held
-  - estimated fast-exit loss or profit
-  - estimated patient-exit loss or profit
-  - percent of open value lost
-  - live GE slot pressure
-  - liquidity and trend warnings
-  - whether the slot could be better used on stronger current candidates
-- Recommend "accept a controlled loss" only when a live SELLING offer is stale, the estimated loss is small or moderate, and slot pressure/opportunity cost justifies it.
-- Recommend "reprice and wait" when the loss is too large or slot pressure is low.
-- Recommend "hold" only when the position is not stale, has acceptable trend/liquidity, or the estimated exit loss is too large.
-- Be clear that this is advice only and the user must confirm any in-game sale.
-
-Critical overnight rules:
-- Overnight Flips must have raw_margin >= {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,} gp for one item.
-- Overnight Flips must have profit_per_item > 0 after GE tax.
-- Overnight Flips should have roi_percent >= {MIN_OVERNIGHT_ROI_PERCENT}%.
-- This is a per-item rule, not a bulk total_profit rule.
-- Do not put an item in Overnight Flips just because quantity makes total_profit large.
-- Do not include overnight items with raw_margin below {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,} gp.
-- Do not include overnight items with roi_percent below {MIN_OVERNIGHT_ROI_PERCENT}%.
-- Do not include overnight items with profit_per_item <= 0.
-- If fewer than {OVERNIGHT_FLIP_TARGET_COUNT} overnight candidates meet these rules, provide fewer than 10 and clearly say there were not enough qualifying overnight flips.
-
-Candidate pool rules:
-- The field ai_bucket tells you why the scanner included that candidate.
-- Provide up to {QUICK_FLIP_TARGET_COUNT} Quick Flips.
-- Provide up to {OVERNIGHT_FLIP_TARGET_COUNT} Overnight Flips, but only include items that meet all overnight rules.
-- Provide up to {VALUE_FLIP_TARGET_COUNT} Additional Valuable Flips as alternate options.
-- Additional Valuable Flips do not need to meet overnight rules unless you explicitly describe them as overnight holds.
-- If a candidate is marked Backup or Fallback, you may still include it, but clearly label it as test-first or lower confidence.
-- Do not use the exact same item in more than one recommendation section unless there are not enough unique candidates.
-- For Quick Flips, prefer ai_bucket values starting with "Quick" and higher quick_score.
-- For Overnight Flips, prefer ai_bucket values starting with "Overnight", higher overnight_score, higher roi_percent, and stronger post-tax profit_per_item.
-- For Additional Valuable Flips, prefer ai_bucket values starting with "Additional", higher total_profit, stronger profit_per_item, and acceptable liquidity.
-- If there are fewer ideal candidates, fill with best available backup candidates and label them clearly.
-
-Category meaning:
-- Quick Flip: active short-term flip, usually faster fill, good liquidity, short estimated fill time, and a strong Quick Score.
-- Overnight Flip: slower flip better for leaving offers in the GE while away; must have raw per-item margin of at least {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,} gp, positive post-tax profit, at least {MIN_OVERNIGHT_ROI_PERCENT}% ROI, stable daily/weekly trend, reasonable fill time, and strong Overnight Score.
-- Additional Valuable Flip: alternate candidate with meaningful total profit, per-item profit, ROI, or raw margin. May require testing and does not automatically qualify as overnight.
-- Watch / Test First: possible opportunity, but test with a small quantity before committing.
-- Avoid: poor liquidity, suspicious pricing, weak history, volatile trend, or unstable margin behavior.
-
-Return the response in readable Markdown.
-
-Formatting rules:
-- Do NOT use Markdown tables.
-- Use clear section headings.
-- Use short bullet points.
-- Keep each item concise.
-- Use this structure exactly.
-- Number items.
-- For overnight items, always show Raw margin/item, Net profit/item, and ROI.
-- If a section has fewer than 10 items, say why.
-
-## Quick Flips
-
-Give up to {QUICK_FLIP_TARGET_COUNT} active quick-flip choices.
-
-For each item include:
-- Buy target
-- Sell target
-- Quantity
-- Expected fill
-- Liquidity
-- Quick score
-- Estimated profit
-- ROI
-- Confidence
-- Trend
-- Why it fits quick flipping
-- Caution
-
-## Overnight Flips
-
-Give up to {OVERNIGHT_FLIP_TARGET_COUNT} overnight choices. Only include items that meet every overnight rule.
-
-For each item include:
-- Buy target
-- Sell target
-- Raw margin/item
-- Net profit/item
-- Quantity
-- Expected fill
-- Liquidity
-- Overnight score
-- Estimated total profit
-- ROI
-- Confidence
-- Daily/weekly trend
-- Why it fits overnight flipping
-- Caution
-
-## Additional Valuable Flips
-
-Give up to {VALUE_FLIP_TARGET_COUNT} additional valuable choices.
-
-For each item include:
-- Buy target
-- Sell target
-- Raw margin/item
-- Net profit/item
-- Quantity
-- Expected fill
-- Liquidity
-- Estimated total profit
-- ROI
-- Why it may be valuable
-- Caution
-
-## Skipped Because Already Traded Today
-
-Briefly list same-day traded items that were intentionally not recommended again.
-
-## Loss-Cut / Slot Recovery Advice
-
-Use LIVE GE SLOT ANALYSIS to decide whether any current live offers should be canceled, repriced, held, or sold at a controlled loss to free a GE slot.
-
-Only live SELLING offers can receive a controlled-loss recommendation. Live BUYING offers can only be canceled or repriced.
-
-For each relevant live offer include:
-- Item
-- Held time
-- Current live offer value
-- Estimated fast-exit price
-- Estimated fast-exit P/L
-- Estimated loss %
-- Slot-pressure impact
-- Recommendation: Hold, Cancel, Reprice, or Accept controlled loss
-- Why
-
-## Watch / Test First
-
-List backup or risky items that should be tested with a small quantity first.
-
-## Avoid
-
-List items that look risky and explain why.
-
-## My Trades Feedback
-
-Use the user's trade memory to give specific feedback. Include:
-- One thing the user is doing well
-- One repeated risk or mistake to watch
-- Best item/style pattern from recent history
-- Worst item/style pattern from recent history
-- Whether open exposure is safe or too high
-- Whether any stale positions should be repriced or exited to free a GE slot
-- How today's recommendations should change because of this history
-
-## Overall Plan
-
-Give a short practical plan. Include:
-- What to try first
-- What to leave overnight
-- What to avoid
-- How much quantity to test with when warnings exist
-- Whether there were enough qualifying overnight flips with raw_margin >= {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,}, positive post-tax profit, and ROI >= {MIN_OVERNIGHT_ROI_PERCENT}%
-- How the user's My Trades history affects the plan
-- How the same-day exclusion filter affected the choices
-- Whether any current item should be sold at a controlled loss, repriced, or held because of the 8-slot limit
-
-Scanner results:
+Compact scanner candidates:
 {candidate_json}
 """
 
