@@ -5,10 +5,14 @@ from account_context import BASE_DIR
 
 
 DB_FILE = str(BASE_DIR / "osrs_flip_scanner.db")
+SQLITE_TIMEOUT_SECONDS = 30
+SQLITE_BUSY_TIMEOUT_MS = 30000
 
 
 def get_connection():
-    return sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    return conn
 
 
 def add_column_if_missing(cursor, table_name, column_name, column_definition):
