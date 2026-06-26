@@ -7,7 +7,7 @@ import os
 
 import pandas as pd
 import plotly.express as px
-from dash import dcc, Input, Output, State, ctx, no_update
+from dash import dcc, html, Input, Output, State, ALL, ctx, no_update
 
 from account_context import apply_account_env
 from account_manager import (
@@ -283,31 +283,19 @@ def register_dashboard_callbacks(app):
         if not selected_item:
             return empty_figure("Select an item to view margin history")
 
-        df = get_all_history()
-
-        if df.empty:
-            return empty_figure("Item Margin History")
-
-        item_df = df[df["item_name"] == selected_item].copy()
+        item_df = get_item_history_for_item(selected_item)
 
         if item_df.empty:
             return empty_figure(f"No history for {selected_item}")
 
-        item_df = item_df.sort_values("scanned_at")
-
-        y_columns = ["raw_margin"]
-
-        for column in ["quick_score", "overnight_score"]:
-            if column in item_df.columns:
-                # Keep raw margin as primary chart because it is the historical money signal.
-                # Quick/overnight values are available in hover.
-                pass
+        if "raw_margin" not in item_df.columns:
+            return empty_figure(f"No raw margin data for {selected_item}")
 
         fig = px.line(
             item_df,
             x="scanned_at",
             y="raw_margin",
-            color="window_name",
+            color="window_name" if "window_name" in item_df.columns else None,
             hover_data=[
                 column for column in [
                     "price_source",

@@ -1,7 +1,14 @@
 /* =========================================================
-   OSRS Flip Dashboard - Polished Dark Theme
+   OSRSFlipper v1.0.3 Dashboard Theme
    Full replacement for: C:\OSRSFlipper\assets\style.css
+
+   Keep this as the only dashboard theme CSS file.
+   Delete old dropdown_dark.css and zz_dropdown_dark_override.css.
    ========================================================= */
+
+/* -------------------------
+   Base theme variables
+   ------------------------- */
 
 :root {
     --bg: #0f172a;
@@ -21,29 +28,53 @@
     --bad: #ef4444;
 }
 
-* {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
+html,
 body {
-    margin: 0;
+    min-height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
     background:
         radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 34rem),
         radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 28rem),
-        var(--bg);
+        var(--bg) !important;
+    color: var(--text-soft) !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 15px;
+}
+
+body,
+#react-entry-point,
+._dash-loading,
+#_dash-app-content {
+    background-color: var(--bg) !important;
+    color: var(--text-soft) !important;
+}
+
+/* Some Dash layouts do not wrap every page in app-shell.
+   These rules make the app look correct even when the wrapper is missing. */
+#_dash-app-content > div {
+    max-width: 1640px;
+    margin: 0 auto;
+    padding: 28px;
     color: var(--text-soft);
-    font-family: Arial, sans-serif;
 }
 
 .app-shell {
-    padding: 28px;
     max-width: 1640px;
     margin: 0 auto;
+    padding: 28px;
+    color: var(--text-soft);
 }
 
-/* =========================================================
+/* -------------------------
    Header / top area
-   ========================================================= */
+   ------------------------- */
 
 .top-bar {
     display: flex;
@@ -69,21 +100,22 @@ body {
     top: 0;
     width: 6px;
     height: 100%;
-    background: linear-gradient(180deg, var(--accent), #22c55e);
+    background: linear-gradient(180deg, var(--accent), var(--good));
 }
 
-.app-title {
-    font-size: 32px;
-    line-height: 1.05;
-    font-weight: 900;
-    margin: 0 0 8px 0;
-    color: var(--text);
+.app-title,
+h1 {
+    font-size: 32px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    margin: 0 0 8px 0 !important;
+    color: var(--text) !important;
     letter-spacing: 0.02em;
 }
 
 .app-subtitle {
-    color: var(--text-muted);
-    margin: 0;
+    color: var(--text-muted) !important;
+    margin: 0 !important;
     font-size: 15px;
     line-height: 1.35;
 }
@@ -92,7 +124,7 @@ body {
     flex: 0 0 auto;
     padding: 9px 13px;
     border-radius: 999px;
-    color: #dbeafe;
+    color: #dbeafe !important;
     background: rgba(37, 99, 235, 0.16);
     border: 1px solid rgba(59, 130, 246, 0.38);
     font-size: 13px;
@@ -100,62 +132,66 @@ body {
     white-space: nowrap;
 }
 
-/* =========================================================
+/* -------------------------
    Panels / cards
-   ========================================================= */
+   ------------------------- */
 
-.panel {
-    background: rgba(17, 24, 39, 0.94);
-    border: 1px solid var(--border-soft);
-    border-radius: 16px;
-    padding: 18px;
+.panel,
+.sticky-panel,
+.chart-panel,
+.ai-panel,
+.settings-panel,
+.trade-table-panel,
+.flip-table-panel,
+.safety-table-panel {
+    background: rgba(17, 24, 39, 0.94) !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 16px !important;
+    padding: 18px !important;
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
     margin-bottom: 20px;
-}
-
-.panel:hover {
-    border-color: rgba(59, 130, 246, 0.34);
+    color: var(--text-soft) !important;
 }
 
 .sticky-panel {
     background:
-        linear-gradient(180deg, rgba(22, 32, 51, 0.98), rgba(17, 24, 39, 0.98));
+        linear-gradient(180deg, rgba(22, 32, 51, 0.98), rgba(17, 24, 39, 0.98)) !important;
     margin-bottom: 22px;
 }
 
 .chart-panel {
-    padding: 12px;
+    padding: 12px !important;
+}
+
+.section-title,
+h2,
+h3 {
+    font-weight: 850 !important;
+    color: var(--text) !important;
+    letter-spacing: 0.01em;
 }
 
 .section-title {
     font-size: 21px;
-    font-weight: 850;
-    margin: 0 0 15px 0;
-    color: var(--text);
-    letter-spacing: 0.01em;
+    margin: 0 0 15px 0 !important;
 }
 
-.muted-text {
+.muted-text,
+.status-text,
+p {
     color: var(--text-muted);
-    margin-bottom: 12px;
 }
 
-.status-text {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 10px;
-}
-
-/* =========================================================
+/* -------------------------
    Filters
-   ========================================================= */
+   ------------------------- */
 
 .filter-row {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(145px, 1fr));
-    gap: 14px;
-    align-items: end;
-    margin-bottom: 8px;
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(145px, 1fr)) !important;
+    gap: 14px !important;
+    align-items: end !important;
+    margin-bottom: 8px !important;
 }
 
 .filter-box,
@@ -170,17 +206,60 @@ body {
 
 label {
     display: block;
-    color: var(--text-soft);
+    color: var(--text-soft) !important;
     font-size: 13px;
     font-weight: 800;
     margin-bottom: 7px;
 }
 
-/* =========================================================
-   Dropdowns
-   Closed and opened dropdowns match dashboard background.
-   Text is white everywhere.
-   ========================================================= */
+/* Fallback: if the filter row wrapper is missing, keep direct filter containers from looking broken. */
+[id$="-filter"],
+#item-dropdown,
+#ai-risk-profile,
+#ai-limit {
+    min-height: 40px;
+}
+
+/* -------------------------
+   Inputs / controls
+   ------------------------- */
+
+input,
+textarea,
+select,
+.dash-input,
+.DateInput_input {
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    min-height: 38px;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
+    opacity: 1 !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none !important;
+    border-color: rgba(96, 165, 250, 0.85) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
+}
+
+input[type="number"] {
+    color-scheme: dark !important;
+}
+
+/* -------------------------
+   Dash dropdowns / React Select
+   ------------------------- */
 
 .dash-dropdown,
 .Select,
@@ -191,8 +270,9 @@ label {
 .Select-value,
 .Select-value-label,
 .Select-placeholder {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
 }
 
 .Select-control {
@@ -205,54 +285,60 @@ label {
 .Select-control:hover,
 .Select.is-focused > .Select-control,
 .Select.is-open > .Select-control {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.32) !important;
+    border-color: rgba(96, 165, 250, 0.85) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
 }
 
-.Select-placeholder,
-.Select-value,
-.Select-value-label,
-.Select.has-value.Select--single > .Select-control .Select-value .Select-value-label,
-.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value .Select-value-label,
-.Select--single > .Select-control .Select-placeholder {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
+.Select-placeholder {
+    color: var(--text-muted) !important;
+    -webkit-text-fill-color: var(--text-muted) !important;
     opacity: 1 !important;
-    font-weight: 650;
+}
+
+.Select-value-label,
+.has-value.Select--single > .Select-control .Select-value .Select-value-label,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value .Select-value-label {
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-weight: 700;
 }
 
 .Select-input,
 .Select-input input,
 .Select-input > input,
 .Select-control input {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
 }
 
 .Select-clear-zone,
 .Select-arrow-zone {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
 }
 
 .Select-clear {
-    color: #ffffff !important;
+    color: var(--text) !important;
 }
 
 .Select-arrow {
-    border-top-color: #ffffff !important;
+    border-top-color: var(--text) !important;
 }
 
 .Select.is-open .Select-arrow {
-    border-bottom-color: #ffffff !important;
+    border-bottom-color: var(--text) !important;
 }
 
+/* Open dropdown menu */
 .Select-menu-outer,
 .Select-menu,
-.VirtualizedSelectGrid {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
+.VirtualizedSelectGrid,
+.ReactVirtualized__Grid,
+.ReactVirtualized__Grid__innerScrollContainer {
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
     border: 1px solid var(--border) !important;
     border-radius: 10px !important;
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48) !important;
@@ -260,100 +346,56 @@ label {
     overflow: hidden !important;
 }
 
+/* Option rows */
 .Select-option,
-.VirtualizedSelectOption {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
+.VirtualizedSelectOption,
+div.VirtualizedSelectOption,
+div[role="option"] {
+    background-color: var(--bg-deep) !important;
+    color: #e5e7eb !important;
+    -webkit-text-fill-color: #e5e7eb !important;
     border-bottom: 1px solid rgba(51, 65, 85, 0.55) !important;
-    font-weight: 600;
+    font-weight: 650;
 }
 
 .Select-option:hover,
 .Select-option.is-focused,
-.VirtualizedSelectFocusedOption {
+.VirtualizedSelectFocusedOption,
+.VirtualizedSelectOption:hover,
+div.VirtualizedSelectFocusedOption,
+div[role="option"]:hover {
     background-color: var(--panel-raised) !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
 
 .Select-option.is-selected,
-.VirtualizedSelectSelectedOption {
-    background-color: #334155 !important;
+.VirtualizedSelectSelectedOption,
+div.VirtualizedSelectSelectedOption,
+div[aria-selected="true"] {
+    background-color: #2563eb !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
 
-/* Specific dashboard dropdowns, including Item history */
-#window-filter,
-#result-type-filter,
-#category-filter,
-#signal-filter,
-#trend-filter,
-#limit-filter,
+/* Item History dropdown reinforcement */
 #item-dropdown,
-#ai-risk-profile,
-#ai-limit,
-#window-filter *,
-#result-type-filter *,
-#category-filter *,
-#signal-filter *,
-#trend-filter *,
-#limit-filter *,
 #item-dropdown *,
-#ai-risk-profile *,
-#ai-limit * {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-}
-
-#window-filter .Select-control,
-#result-type-filter .Select-control,
-#category-filter .Select-control,
-#signal-filter .Select-control,
-#trend-filter .Select-control,
-#limit-filter .Select-control,
 #item-dropdown .Select-control,
-#ai-risk-profile .Select-control,
-#ai-limit .Select-control {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-}
-
-#item-dropdown .Select-placeholder,
-#item-dropdown .Select--single > .Select-control .Select-placeholder,
-#item-dropdown .Select-value,
-#item-dropdown .Select-value-label,
-#item-dropdown .Select-input,
-#item-dropdown .Select-input input,
-#item-dropdown input {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    opacity: 1 !important;
-}
-
 #item-dropdown .Select-menu-outer,
 #item-dropdown .Select-menu,
 #item-dropdown .VirtualizedSelectGrid,
-#item-dropdown .Select-option,
-#item-dropdown .VirtualizedSelectOption {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
+#item-dropdown .VirtualizedSelectOption,
+#item-dropdown div[role="listbox"],
+#item-dropdown div[role="listbox"] * {
+    background-color: var(--bg-deep) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
 }
 
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-    -webkit-text-fill-color: #ffffff !important;
-    -webkit-box-shadow: 0 0 0px 1000px var(--bg) inset !important;
-    transition: background-color 5000s ease-in-out 0s !important;
-}
-
-/* =========================================================
+/* -------------------------
    KPI cards
-   ========================================================= */
+   ------------------------- */
 
 .kpi-grid {
     display: grid;
@@ -406,16 +448,16 @@ input:-webkit-autofill:focus {
     margin-top: 7px;
 }
 
-/* =========================================================
+/* -------------------------
    Tabs
-   ========================================================= */
+   ------------------------- */
 
 .dash-tabs {
-    margin-bottom: 20px;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--panel);
+    margin-bottom: 20px !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--border) !important;
+    background: var(--panel) !important;
 }
 
 .tab {
@@ -424,7 +466,8 @@ input:-webkit-autofill:focus {
     border: none !important;
     border-right: 1px solid var(--border) !important;
     padding: 13px !important;
-    font-weight: 800;
+    font-weight: 800 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
 }
 
 .tab:hover {
@@ -438,9 +481,14 @@ input:-webkit-autofill:focus {
     border-top: 3px solid var(--accent) !important;
 }
 
-/* =========================================================
-   Charts and tables
-   ========================================================= */
+/* Dash sometimes uses generated classes for tabs. */
+[role="tab"] {
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* -------------------------
+   Charts / graph containers
+   ------------------------- */
 
 .chart-grid {
     display: grid;
@@ -449,264 +497,28 @@ input:-webkit-autofill:focus {
     margin-bottom: 20px;
 }
 
-.dash-filter input,
-.dash-table-container input {
-    background-color: var(--bg) !important;
-    color: #ffffff !important;
-    border: 1px solid var(--border) !important;
-}
-
-/* =========================================================
-   AI section
-   ========================================================= */
-
-.ai-panel {
-    background:
-        linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(2, 6, 23, 0.98));
-}
-
-.ai-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 18px;
-}
-
-.ai-tip {
-    color: #bfdbfe;
-    background: rgba(37, 99, 235, 0.12);
-    border: 1px solid rgba(59, 130, 246, 0.30);
-    border-radius: 12px;
-    padding: 10px 12px;
-    font-size: 13px;
-    line-height: 1.35;
-    max-width: 420px;
-}
-
-.ai-control-card {
-    background: rgba(15, 23, 42, 0.72);
-    border: 1px solid var(--border);
+.js-plotly-plot,
+.dash-graph {
     border-radius: 14px;
-    padding: 14px;
-    margin: 12px 0 16px 0;
+    overflow: hidden;
 }
 
-.ai-controls {
-    margin-top: 0;
-    margin-bottom: 12px;
+/* -------------------------
+   Tables
+   ------------------------- */
+
+.dash-table-container {
+    background-color: transparent !important;
+    color: var(--text-soft) !important;
 }
 
-.ai-box,
-.ai-advice-output,
-.ai-output-shell {
-    white-space: pre-wrap;
-    background: var(--bg-deep);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px;
-    max-height: 620px;
-    overflow-y: auto;
-    line-height: 1.45;
-    color: var(--text-soft);
-}
-
-/* =========================================================
-   Buttons
-   ========================================================= */
-
-.primary-button,
-button {
-    background: linear-gradient(180deg, var(--accent), var(--accent-dark));
-    color: #ffffff;
-    border: 1px solid rgba(147, 197, 253, 0.32);
-    border-radius: 11px;
-    padding: 10px 16px;
-    font-weight: 850;
-    min-height: 40px;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
-}
-
-.primary-button:hover,
-button:hover {
-    background: linear-gradient(180deg, #60a5fa, var(--accent-dark));
-    cursor: pointer;
-}
-
-/* =========================================================
-   Responsive
-   ========================================================= */
-
-@media (max-width: 1200px) {
-    .filter-row {
-        grid-template-columns: repeat(3, minmax(180px, 1fr));
-    }
-}
-
-@media (max-width: 1000px) {
-    .top-bar,
-    .ai-header-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .kpi-grid {
-        grid-template-columns: repeat(2, minmax(180px, 1fr));
-    }
-
-    .chart-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 700px) {
-    .app-shell {
-        padding: 14px;
-    }
-
-    .app-title {
-        font-size: 26px;
-    }
-
-    .filter-row,
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .filter-box,
-    .filter-box-small,
-    .filter-box-wide {
-        width: 100%;
-        min-width: 100%;
-    }
-}
-
-
-/* =========================================================
-   RC1 Theme Fix - About / Accounts / Settings dark styling
-   Fixes white Dash DataTable boxes, white dropdowns, and white inputs.
-   ========================================================= */
-
-:root {
-    --bg: #0f172a;
-    --bg-deep: #020617;
-    --panel: #111827;
-    --panel-soft: #162033;
-    --panel-raised: #1e293b;
-    --border: #334155;
-    --border-soft: #263244;
-    --text: #f8fafc;
-    --text-muted: #94a3b8;
-    --text-soft: #cbd5e1;
-    --accent: #3b82f6;
-    --accent-dark: #1d4ed8;
-}
-
-/* Native inputs used heavily by Setup / Accounts / Settings */
-input,
-textarea,
-select,
-.dash-input,
-.dash-dropdown,
-.DateInput_input {
-    background-color: var(--bg-deep) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    min-height: 38px;
-}
-
-input::placeholder,
-textarea::placeholder {
-    color: #64748b !important;
-    opacity: 1 !important;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-    outline: none !important;
-    border-color: rgba(96, 165, 250, 0.85) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
-}
-
-/* Dash dropdown internals */
-.Select,
-.Select-control,
-.Select-multi-value-wrapper,
-.Select-input,
-.Select-input input,
-.Select-value,
-.Select-value-label,
-.Select-placeholder,
-.Select-menu-outer,
-.Select-menu,
-.Select-option,
-.VirtualizedSelectGrid,
-.VirtualizedSelectOption {
-    background-color: var(--bg-deep) !important;
-    color: var(--text) !important;
-    -webkit-text-fill-color: var(--text) !important;
-}
-
-.Select-control {
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    min-height: 38px !important;
-}
-
-.Select-control:hover,
-.Select.is-focused > .Select-control,
-.Select.is-open > .Select-control {
-    border-color: rgba(96, 165, 250, 0.85) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
-}
-
-.Select-placeholder {
-    color: #64748b !important;
-    -webkit-text-fill-color: #64748b !important;
-}
-
-.Select-menu-outer {
-    border: 1px solid var(--border) !important;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48) !important;
-    z-index: 99999 !important;
-}
-
-.Select-option,
-.VirtualizedSelectOption {
-    border-bottom: 1px solid rgba(51, 65, 85, 0.55) !important;
-}
-
-.Select-option:hover,
-.Select-option.is-focused,
-.VirtualizedSelectFocusedOption {
-    background-color: var(--panel-raised) !important;
-    color: var(--text) !important;
-    -webkit-text-fill-color: var(--text) !important;
-}
-
-.Select-option.is-selected,
-.VirtualizedSelectSelectedOption {
-    background-color: #334155 !important;
-    color: var(--text) !important;
-}
-
-/* Dash DataTable hard dark-mode override.
-   This targets the About, Accounts, Setup, Safety Review, and Settings-style tables. */
 .dash-table-container,
 .dash-table-container *,
 .dash-spreadsheet-container,
 .dash-spreadsheet-container *,
 .dash-spreadsheet-inner,
-.dash-spreadsheet-inner *,
-.dash-table-container .dash-spreadsheet-container,
-.dash-table-container .dash-spreadsheet-inner {
+.dash-spreadsheet-inner * {
     border-color: var(--border) !important;
-}
-
-.dash-table-container {
-    background-color: transparent !important;
-    color: var(--text-soft) !important;
 }
 
 .dash-spreadsheet-container,
@@ -767,8 +579,6 @@ select:focus {
     color: var(--text) !important;
 }
 
-/* DataTable filter row */
-.dash-filter,
 .dash-filter input,
 .dash-table-container input,
 .dash-spreadsheet-container input {
@@ -777,51 +587,116 @@ select:focus {
     border-color: var(--border) !important;
 }
 
-/* DataTable pagination/footer */
-.previous-next-container,
-.page-number,
-.dash-table-container .previous-page,
-.dash-table-container .next-page,
-.dash-table-container .last-page,
-.dash-table-container .first-page,
-.dash-table-container .page-number {
-    background-color: var(--panel) !important;
-    color: var(--text-soft) !important;
-    border-color: var(--border) !important;
+/* -------------------------
+   Page-specific helpers
+   ------------------------- */
+
+.ai-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
 }
 
-/* The About tab tables are simple Field/Value tables; make long paths readable. */
-td[data-dash-column="Value"],
-td[data-dash-column="Details"] {
-    color: #dbeafe !important;
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 12px;
+.ai-tip {
+    color: #bfdbfe;
+    background: rgba(37, 99, 235, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.30);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.35;
+    max-width: 420px;
 }
 
-/* Status, logs, release reports */
+.ai-box,
+.ai-advice-output,
+.ai-output-shell,
 pre,
 .log-output,
 #release-check-output,
 #health-check-output {
-    background-color: var(--bg-deep) !important;
-    color: var(--text-soft) !important;
+    white-space: pre-wrap;
+    background: var(--bg-deep) !important;
     border: 1px solid var(--border) !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     padding: 14px !important;
-    white-space: pre-wrap !important;
     max-height: 620px;
-    overflow: auto;
+    overflow-y: auto;
+    line-height: 1.45;
+    color: var(--text-soft) !important;
 }
 
-/* Settings/Account tab button spacing */
-.button-row {
+.settings-page,
+.safety-review-page,
+.trades-page {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+    flex-direction: column;
+    gap: 18px;
 }
 
-/* Secondary/danger buttons that were showing as default browser buttons */
+.settings-grid,
+.safety-control-grid,
+.trade-control-grid {
+    display: grid;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.settings-grid {
+    grid-template-columns: repeat(4, minmax(210px, 1fr));
+}
+
+.safety-control-grid,
+.trade-control-grid {
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
+}
+
+.settings-card {
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.92));
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    border-radius: 14px;
+    padding: 13px;
+    min-height: 92px;
+}
+
+.settings-card-label {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.settings-card-help {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+/* -------------------------
+   Buttons
+   ------------------------- */
+
+.primary-button,
+button {
+    background: linear-gradient(180deg, var(--accent), var(--accent-dark)) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(147, 197, 253, 0.32) !important;
+    border-radius: 11px !important;
+    padding: 10px 16px !important;
+    font-weight: 850 !important;
+    min-height: 40px;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.primary-button:hover,
+button:hover {
+    background: linear-gradient(180deg, #60a5fa, var(--accent-dark)) !important;
+    cursor: pointer;
+}
+
 .secondary-button {
     background: linear-gradient(180deg, #334155, #1e293b) !important;
     color: #e5e7eb !important;
@@ -843,555 +718,474 @@ pre,
     border: 1px solid rgba(248, 113, 113, 0.45) !important;
 }
 
-.danger-button:hover {
-    background: linear-gradient(180deg, #ef4444, #991b1b) !important;
-}
-
-/* Prevent any default white content blocks inside newer tabs */
-.panel > div,
-.panel span,
-.panel p {
-    color: inherit;
-}
+/* -------------------------
+   Utilities / responsive
+   ------------------------- */
 
 hr {
     border: none;
     border-top: 1px solid var(--border);
 }
 
-/* Browser autofill fix */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--text) !important;
-    -webkit-box-shadow: 0 0 0px 1000px var(--bg-deep) inset !important;
-    transition: background-color 5000s ease-in-out 0s !important;
-}
-
-
-/* =========================================================
-   Inline-override companion CSS for OSRSFlipper dark theme.
-   Used with dashboard.py dark component wrappers.
-   ========================================================= */
-
-body {
-    background: #0f172a !important;
-    color: #f8fafc !important;
-}
-
-/* These broad rules catch the remaining React Select / Dash internals. */
-.themed-dropdown,
-.themed-dropdown *,
-.Select,
-.Select *,
-.Select-control,
-.Select-menu-outer,
-.Select-menu,
-.VirtualizedSelectGrid,
-.VirtualizedSelectOption {
-    background-color: #020617 !important;
-    color: #f8fafc !important;
-    -webkit-text-fill-color: #f8fafc !important;
-}
-
-.Select-control,
-.themed-dropdown .Select-control {
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-}
-
-.Select-placeholder {
-    color: #94a3b8 !important;
-    -webkit-text-fill-color: #94a3b8 !important;
-}
-
-.Select-arrow-zone,
-.Select-clear-zone {
-    background-color: #020617 !important;
-}
-
-/* Table overrides for any Dash table that still tries to render white. */
-.dash-table-container,
-.dash-spreadsheet-container,
-.dash-spreadsheet-inner,
-.dash-spreadsheet,
-.dash-spreadsheet table,
-.dash-spreadsheet thead,
-.dash-spreadsheet tbody,
-.dash-spreadsheet tr,
-.dash-spreadsheet td {
-    background-color: #020617 !important;
-    color: #cbd5e1 !important;
-}
-
-.dash-spreadsheet th,
-.dash-header,
-.column-header-name {
-    background-color: #1e293b !important;
-    color: #f8fafc !important;
-}
-
-.dash-cell,
-.dash-cell div,
-.dash-cell span,
-td,
-td div,
-td span {
-    color: #cbd5e1 !important;
-}
-
-/* Inputs inside Settings/Accounts. */
-input,
-textarea,
-select,
-.dash-input {
-    background-color: #020617 !important;
-    color: #f8fafc !important;
-    -webkit-text-fill-color: #f8fafc !important;
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-    color: #94a3b8 !important;
-    -webkit-text-fill-color: #94a3b8 !important;
-}
-
-/* Number inputs in Chromium still paint spinner area white unless forced. */
-input[type="number"] {
-    background-color: #020617 !important;
-    color: #f8fafc !important;
-    color-scheme: dark;
-}
-
-/* Remove default white autofill. */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-    -webkit-text-fill-color: #f8fafc !important;
-    -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
-    transition: background-color 9999s ease-out 0s !important;
-}
-
-
-/* =========================================================
-   Safe number input dark styling
-   Keeps fields usable while reducing native spinner contrast.
-   ========================================================= */
-
-input[type="number"],
-.themed-input {
-    background-color: #020617 !important;
-    color: #f8fafc !important;
-    -webkit-text-fill-color: #f8fafc !important;
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-    color-scheme: dark !important;
-}
-
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-    opacity: 0.55 !important;
-    filter: invert(1) brightness(0.9) !important;
-    background-color: #020617 !important;
-}
-
-input[type="number"]:focus,
-.themed-input:focus {
-    outline: none !important;
-    border-color: rgba(96, 165, 250, 0.85) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
-}
-
-
-/* =========================================================
-   Settings tab redesign
-   ========================================================= */
-
-.settings-page {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.settings-panel {
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98)) !important;
-    border: 1px solid rgba(51, 65, 85, 0.95) !important;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
-}
-
-.settings-section-subtitle {
-    margin-bottom: 16px;
-}
-
-.settings-scope-pill {
-    display: inline-flex;
-    width: fit-content;
-    max-width: 100%;
-    padding: 8px 12px;
-    margin: 8px 0 10px 0;
-    border: 1px solid rgba(96, 165, 250, 0.25);
-    border-radius: 999px;
-    background: rgba(37, 99, 235, 0.12);
-    color: #dbeafe;
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.settings-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(210px, 1fr));
-    gap: 14px;
-    align-items: stretch;
-}
-
-.settings-grid-2 {
-    grid-template-columns: repeat(2, minmax(280px, 1fr));
-}
-
-.settings-card {
-    background: linear-gradient(180deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.92));
-    border: 1px solid rgba(51, 65, 85, 0.9);
-    border-radius: 14px;
-    padding: 13px;
-    min-height: 92px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 8px;
-}
-
-.settings-card-label {
-    color: #f8fafc;
-    font-size: 12px;
-    font-weight: 900;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-}
-
-.settings-card-help {
-    color: #94a3b8;
-    font-size: 12px;
-    line-height: 1.35;
-}
-
-.settings-text-input {
-    width: 100%;
-    box-sizing: border-box;
-    background: #020617 !important;
-    color: #f8fafc !important;
-    -webkit-text-fill-color: #f8fafc !important;
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-    min-height: 40px;
-    padding: 9px 12px;
-    font-size: 15px;
-    font-weight: 700;
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-.settings-text-input::placeholder {
-    color: #64748b !important;
-    -webkit-text-fill-color: #64748b !important;
-}
-
-.settings-text-input:focus {
-    border-color: rgba(96, 165, 250, 0.85) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
-}
-
-.settings-dropdown,
-.settings-dropdown .Select-control,
-.settings-dropdown .Select,
-.settings-dropdown .Select-value,
-.settings-dropdown .Select-value-label,
-.settings-dropdown .Select-placeholder,
-.settings-dropdown .Select-input,
-.settings-dropdown .Select-input input {
-    background: #020617 !important;
-    color: #f8fafc !important;
-    -webkit-text-fill-color: #f8fafc !important;
-}
-
-.settings-dropdown .Select-control {
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
-    min-height: 40px !important;
-}
-
-.settings-dropdown .Select-value-label {
-    color: #f8fafc !important;
-    font-size: 15px;
-    font-weight: 800;
-}
-
-.settings-dropdown .Select-menu-outer,
-.settings-dropdown .VirtualizedSelectGrid,
-.settings-dropdown .VirtualizedSelectOption {
-    background: #020617 !important;
-    color: #f8fafc !important;
-    border-color: #334155 !important;
-}
-
-.settings-dropdown .VirtualizedSelectFocusedOption {
-    background: #1e293b !important;
-}
-
-.settings-status-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(280px, 1fr));
-    gap: 14px;
-    margin: 14px 0;
-}
-
-.settings-status-card {
-    background: rgba(2, 6, 23, 0.72);
-    border: 1px solid rgba(51, 65, 85, 0.85);
-    border-radius: 14px;
-    padding: 12px 14px;
-    color: #cbd5e1;
-    font-size: 13px;
-    line-height: 1.45;
-}
-
+.button-row,
 .settings-action-row {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    margin-top: 16px;
 }
 
-.settings-save-status {
-    min-height: 22px;
-    margin-left: 4px;
-    color: #cbd5e1;
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text) !important;
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-deep) inset !important;
+    transition: background-color 9999s ease-out 0s !important;
 }
 
-/* Keep Settings buttons aligned with rest of dashboard */
-.settings-page .primary-button,
-.settings-page .secondary-button {
-    min-height: 42px;
-    padding: 10px 16px !important;
-    border-radius: 11px !important;
-}
-
-/* Mobile/compact layout */
 @media (max-width: 1250px) {
     .settings-grid {
         grid-template-columns: repeat(2, minmax(240px, 1fr));
     }
 }
 
-@media (max-width: 760px) {
-    .settings-grid,
-    .settings-grid-2,
-    .settings-status-grid {
-        grid-template-columns: 1fr;
+@media (max-width: 1200px) {
+    .filter-row {
+        grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
     }
 }
 
+@media (max-width: 1000px) {
+    .top-bar,
+    .ai-header-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
 
-/* =========================================================
-   Safety Review tab redesign
-   Reuses the same card style as Settings.
-   ========================================================= */
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
 
-.safety-review-page {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.safety-warning-pill {
-    border-color: rgba(251, 191, 36, 0.32);
-    background: rgba(251, 191, 36, 0.10);
-    color: #fde68a;
-}
-
-.safety-control-grid {
-    grid-template-columns: repeat(3, minmax(240px, 1fr));
-}
-
-.safety-table-panel {
-    overflow: hidden;
-}
-
-.safety-table-panel .dash-table-container {
-    margin-top: 12px;
-}
-
-.safety-review-page .primary-button,
-.safety-review-page .secondary-button {
-    min-height: 42px;
-    padding: 10px 16px !important;
-    border-radius: 11px !important;
-}
-
-@media (max-width: 950px) {
-    .safety-control-grid {
+    .chart-grid {
         grid-template-columns: 1fr;
     }
-}
 
-
-/* =========================================================
-   My Trades redesign
-   ========================================================= */
-
-.trades-page {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.trade-control-grid {
-    grid-template-columns: repeat(3, minmax(240px, 1fr));
-}
-
-.trade-static-value {
-    width: 100%;
-    box-sizing: border-box;
-    background: #020617;
-    color: #dbeafe;
-    border: 1px solid #334155;
-    border-radius: 10px;
-    min-height: 40px;
-    padding: 10px 12px;
-    font-size: 14px;
-    font-weight: 800;
-}
-
-.trade-table-panel {
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98)) !important;
-    border: 1px solid rgba(51, 65, 85, 0.95) !important;
-    overflow: hidden;
-}
-
-.trade-table-panel .dash-table-container {
-    margin-top: 12px;
-    border-radius: 14px;
-    overflow: hidden;
-}
-
-.trade-table-panel .dash-spreadsheet-container,
-.trade-table-panel .dash-spreadsheet-inner,
-.trade-table-panel table {
-    background: #020617 !important;
-}
-
-.trade-table-panel th {
-    background: #1e293b !important;
-    color: #f8fafc !important;
-    font-weight: 900 !important;
-    border-color: #334155 !important;
-}
-
-.trade-table-panel td {
-    background: #020617 !important;
-    color: #e5e7eb !important;
-    border-color: rgba(51, 65, 85, 0.72) !important;
-}
-
-.trade-table-panel tr:nth-child(even) td {
-    background: #071126 !important;
-}
-
-.trade-table-panel td[data-dash-column="Item"] {
-    color: #dbeafe !important;
-    font-weight: 800;
-}
-
-.trade-table-panel td[data-dash-column="Total_Profit"],
-.trade-table-panel td[data-dash-column="Net_Profit_Each"],
-.trade-table-panel td[data-dash-column="ROI_Percent"] {
-    font-weight: 900;
-}
-
-.trade-table-panel td[data-dash-column="Side"] {
-    font-weight: 900;
-}
-
-.trades-page .primary-button,
-.trades-page .secondary-button {
-    min-height: 42px;
-    padding: 10px 16px !important;
-    border-radius: 11px !important;
-}
-
-@media (max-width: 950px) {
+    .safety-control-grid,
     .trade-control-grid {
         grid-template-columns: 1fr;
     }
 }
 
+@media (max-width: 760px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    #_dash-app-content > div,
+    .app-shell {
+        padding: 14px;
+    }
+
+    .app-title,
+    h1 {
+        font-size: 26px !important;
+    }
+
+    .filter-row,
+    .kpi-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .filter-box,
+    .filter-box-small,
+    .filter-box-wide {
+        width: 100%;
+        min-width: 100%;
+    }
+}
 
 /* =========================================================
-   Latest / Recurring Flips readability redesign
+   v1.0.3 Item History stable searchable dropdown reset
+   Removed the custom search/cache/button picker and restored Dash's
+   built-in searchable dropdown inside the Item History tab.
    ========================================================= */
 
-.flip-table-panel {
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(15, 23, 42, 0.98)) !important;
-    border: 1px solid rgba(51, 65, 85, 0.95) !important;
-    overflow: hidden;
+.item-history-panel {
+    padding-bottom: 16px !important;
 }
 
-.flip-table-panel .dash-table-container {
+.item-history-dropdown-card {
+    background:
+        linear-gradient(180deg, rgba(2, 6, 23, 0.80), rgba(15, 23, 42, 0.84));
+    border: 1px solid rgba(51, 65, 85, 0.86);
+    border-radius: 16px;
+    padding: 16px;
     margin-top: 12px;
-    border-radius: 14px;
-    overflow: hidden;
 }
 
-.flip-table-panel .dash-spreadsheet-container,
-.flip-table-panel .dash-spreadsheet-inner,
-.flip-table-panel table {
-    background: #020617 !important;
+.item-history-dropdown-help {
+    margin-top: 9px;
+    font-size: 12px;
+    color: #94a3b8 !important;
 }
 
-.flip-table-panel th {
-    background: #1e293b !important;
-    color: #f8fafc !important;
-    font-weight: 900 !important;
-    border-color: #334155 !important;
+.item-history-dropdown,
+.item-history-dropdown * {
+    color-scheme: dark;
 }
 
-.flip-table-panel td {
-    background: #020617 !important;
-    color: #e5e7eb !important;
-    border-color: rgba(51, 65, 85, 0.72) !important;
-    vertical-align: top;
+/* =========================================================
+   OSRSFlipper v1.0.3 FINAL CONSOLIDATED DROPDOWN FIX
+
+   Keep this inside assets/style.css.
+   Delete the old zzzz/zzzzz/zzzzzz dropdown patch files.
+
+   This directly targets:
+   - Dash/React-Select closed field
+   - opened menu
+   - option rows
+   - dash-dropdown-grid-container
+   - dash-dropdown-search-container
+   - focused search input border/outline/box-shadow
+   ========================================================= */
+
+:root {
+    --dropdown-bg: #020617;
+    --dropdown-panel: #0b1120;
+    --dropdown-hover: #1e293b;
+    --dropdown-selected: #2563eb;
+    --dropdown-border: #334155;
+    --dropdown-focus: #3b82f6;
+    --dropdown-ring: rgba(59, 130, 246, 0.22);
+    --dropdown-text: #f8fafc;
+    --dropdown-muted: #94a3b8;
+    --dropdown-option-text: #e5e7eb;
 }
 
-.flip-table-panel tr:nth-child(even) td {
-    background: #071126 !important;
+/* Closed dropdown control */
+.dash-dropdown,
+.dash-dropdown *,
+.Select,
+.Select *,
+.Select-control,
+.Select-control *,
+.Select-input,
+.Select-input *,
+.Select-input input,
+.Select-multi-value-wrapper,
+.Select-value,
+.Select-value *,
+.Select-value-label,
+.Select-placeholder,
+.Select-arrow-zone,
+.Select-clear-zone {
+    color-scheme: dark !important;
 }
 
-.flip-table-panel td[data-dash-column="Item"] {
-    color: #dbeafe !important;
-    font-weight: 900;
+.dash-dropdown .Select-control,
+.Select-control,
+.Select.is-open > .Select-control,
+.Select.is-focused > .Select-control,
+.Select-control:focus,
+.Select-control:focus-visible,
+.Select-control:focus-within {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-text) !important;
+    -webkit-text-fill-color: var(--dropdown-text) !important;
+    border: 1px solid var(--dropdown-border) !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
-.flip-table-panel td[data-dash-column="Action"],
-.flip-table-panel td[data-dash-column="Category"],
-.flip-table-panel td[data-dash-column="Risk"] {
-    font-weight: 900;
+.Select.is-open > .Select-control,
+.Select.is-focused > .Select-control,
+.dash-dropdown:focus-within .Select-control {
+    border-color: var(--dropdown-focus) !important;
+    box-shadow: 0 0 0 2px var(--dropdown-ring) !important;
 }
 
-.flip-table-panel td[data-dash-column="Total Profit"],
-.flip-table-panel td[data-dash-column="Avg Profit"],
-.flip-table-panel td[data-dash-column="Best Profit"],
-.flip-table-panel td[data-dash-column="ROI %"],
-.flip-table-panel td[data-dash-column="Avg ROI %"],
-.flip-table-panel td[data-dash-column="Score"],
-.flip-table-panel td[data-dash-column="Avg Score"] {
-    color: #bfdbfe !important;
-    font-weight: 900;
+.Select-input,
+.Select-input *,
+.Select-input input,
+.Select-control input,
+.dash-dropdown input {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-text) !important;
+    -webkit-text-fill-color: var(--dropdown-text) !important;
+    border-color: var(--dropdown-border) !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
-.latest-flips-panel .dash-table-container,
-.recurring-flips-panel .dash-table-container {
-    box-shadow: inset 0 0 0 1px rgba(51, 65, 85, 0.55);
+.Select-placeholder {
+    color: var(--dropdown-muted) !important;
+    -webkit-text-fill-color: var(--dropdown-muted) !important;
 }
 
+/* Opened dropdown menu */
+.Select-menu-outer,
+.Select-menu,
+.VirtualizedSelectGrid,
+.ReactVirtualized__Grid,
+.ReactVirtualized__Grid__innerScrollContainer,
+div[role="listbox"] {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-text) !important;
+    -webkit-text-fill-color: var(--dropdown-text) !important;
+    border: 1px solid var(--dropdown-border) !important;
+    outline: none !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.58) !important;
+    color-scheme: dark !important;
+}
+
+/* Exact Dash dropdown internal containers */
+.dash-dropdown-grid-container,
+.dash-dropdown-search-container,
+.dash-dropdown-grid-container:focus,
+.dash-dropdown-search-container:focus,
+.dash-dropdown-grid-container:focus-visible,
+.dash-dropdown-search-container:focus-visible,
+.dash-dropdown-grid-container:focus-within,
+.dash-dropdown-search-container:focus-within,
+.dash-dropdown-grid-container > *,
+.dash-dropdown-search-container > *,
+.dash-dropdown-grid-container div,
+.dash-dropdown-search-container div,
+.dash-dropdown-grid-container span,
+.dash-dropdown-search-container span {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-text) !important;
+    -webkit-text-fill-color: var(--dropdown-text) !important;
+    border-color: var(--dropdown-border) !important;
+    outline: none !important;
+    color-scheme: dark !important;
+}
+
+/* The search box and its focused border */
+.dash-dropdown-search-container,
+.dash-dropdown-search-container:focus-within {
+    border-color: var(--dropdown-focus) !important;
+    box-shadow: 0 0 0 2px var(--dropdown-ring) !important;
+}
+
+.dash-dropdown-search-container input,
+.dash-dropdown-grid-container input,
+.dash-dropdown-search-container input:focus,
+.dash-dropdown-grid-container input:focus,
+.dash-dropdown-search-container input:focus-visible,
+.dash-dropdown-grid-container input:focus-visible {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-text) !important;
+    -webkit-text-fill-color: var(--dropdown-text) !important;
+    border-color: var(--dropdown-border) !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color-scheme: dark !important;
+}
+
+.dash-dropdown-search-container input::placeholder,
+.dash-dropdown-grid-container input::placeholder {
+    color: var(--dropdown-muted) !important;
+    -webkit-text-fill-color: var(--dropdown-muted) !important;
+    opacity: 1 !important;
+}
+
+/* Search icon */
+.dash-dropdown-search-container svg,
+.dash-dropdown-search-container path,
+.dash-dropdown-grid-container svg,
+.dash-dropdown-grid-container path {
+    fill: var(--dropdown-muted) !important;
+    stroke: var(--dropdown-muted) !important;
+}
+
+/* Option rows */
+.Select-option,
+.VirtualizedSelectOption,
+.VirtualizedSelectFocusedOption,
+.VirtualizedSelectSelectedOption,
+div[role="option"],
+.dash-dropdown-grid-container [role="option"],
+.dash-dropdown-grid-container [class*="option"],
+.dash-dropdown-grid-container [class*="Option"] {
+    background: var(--dropdown-bg) !important;
+    background-color: var(--dropdown-bg) !important;
+    color: var(--dropdown-option-text) !important;
+    -webkit-text-fill-color: var(--dropdown-option-text) !important;
+    border-color: rgba(51, 65, 85, 0.55) !important;
+    color-scheme: dark !important;
+}
+
+.Select-option *,
+.VirtualizedSelectOption *,
+div[role="option"] *,
+.dash-dropdown-grid-container [role="option"] *,
+.dash-dropdown-grid-container [class*="option"] *,
+.dash-dropdown-grid-container [class*="Option"] * {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
+}
+
+/* Hover/focus/selected option states */
+.Select-option:hover,
+.Select-option.is-focused,
+.VirtualizedSelectFocusedOption,
+.VirtualizedSelectOption:hover,
+div[role="option"]:hover,
+.dash-dropdown-grid-container [role="option"]:hover,
+.dash-dropdown-grid-container [class*="option"]:hover,
+.dash-dropdown-grid-container [class*="Option"]:hover {
+    background: var(--dropdown-hover) !important;
+    background-color: var(--dropdown-hover) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+.Select-option.is-selected,
+.VirtualizedSelectSelectedOption,
+div[role="option"][aria-selected="true"],
+.dash-dropdown-grid-container [role="option"][aria-selected="true"],
+.dash-dropdown-grid-container [class*="Selected"] {
+    background: var(--dropdown-selected) !important;
+    background-color: var(--dropdown-selected) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Remove unwanted white browser focus outlines inside dropdowns */
+.dash-dropdown *:focus,
+.dash-dropdown *:focus-visible,
+.Select *:focus,
+.Select *:focus-visible,
+.dash-dropdown-grid-container *:focus,
+.dash-dropdown-grid-container *:focus-visible,
+.dash-dropdown-search-container *:focus,
+.dash-dropdown-search-container *:focus-visible {
+    outline: none !important;
+}
+
+/* Dropdown scrollbars */
+.Select-menu-outer::-webkit-scrollbar,
+.Select-menu::-webkit-scrollbar,
+.VirtualizedSelectGrid::-webkit-scrollbar,
+.ReactVirtualized__Grid::-webkit-scrollbar,
+.dash-dropdown-grid-container::-webkit-scrollbar,
+.dash-dropdown-grid-container *::-webkit-scrollbar {
+    width: 11px;
+}
+
+.Select-menu-outer::-webkit-scrollbar-track,
+.Select-menu::-webkit-scrollbar-track,
+.VirtualizedSelectGrid::-webkit-scrollbar-track,
+.ReactVirtualized__Grid::-webkit-scrollbar-track,
+.dash-dropdown-grid-container::-webkit-scrollbar-track,
+.dash-dropdown-grid-container *::-webkit-scrollbar-track {
+    background: var(--dropdown-bg) !important;
+}
+
+.Select-menu-outer::-webkit-scrollbar-thumb,
+.Select-menu::-webkit-scrollbar-thumb,
+.VirtualizedSelectGrid::-webkit-scrollbar-thumb,
+.ReactVirtualized__Grid::-webkit-scrollbar-thumb,
+.dash-dropdown-grid-container::-webkit-scrollbar-thumb,
+.dash-dropdown-grid-container *::-webkit-scrollbar-thumb {
+    background: var(--dropdown-border) !important;
+    border-radius: 999px;
+    border: 2px solid var(--dropdown-bg);
+}
+
+/* =========================================================
+   OSRSFlipper v1.0.3 FINAL DROPDOWN OUTER BORDER FIX
+
+   This targets the last remaining white focus ring/border around
+   the dropdown search bar after it is clicked.
+   ========================================================= */
+
+:root {
+    --dropdown-final-bg: #020617;
+    --dropdown-final-border: #3b82f6;
+    --dropdown-final-ring: rgba(59, 130, 246, 0.22);
+    --dropdown-final-text: #f8fafc;
+}
+
+/* Remove white focus outline/ring from every dropdown layer */
+.dash-dropdown,
+.dash-dropdown *,
+.Select,
+.Select *,
+.dash-dropdown-grid-container,
+.dash-dropdown-grid-container *,
+.dash-dropdown-search-container,
+.dash-dropdown-search-container *,
+[class*="dash-dropdown"],
+[class*="dash-dropdown"] *,
+[class*="Dropdown"],
+[class*="Dropdown"] *,
+[class*="dropdown"],
+[class*="dropdown"] * {
+    outline-color: transparent !important;
+    outline-style: none !important;
+    outline-width: 0 !important;
+}
+
+/* Force the clicked/focused search bar border to the blue dashboard ring */
+.dash-dropdown-search-container,
+.dash-dropdown-search-container:focus,
+.dash-dropdown-search-container:focus-visible,
+.dash-dropdown-search-container:focus-within,
+.dash-dropdown-grid-container,
+.dash-dropdown-grid-container:focus,
+.dash-dropdown-grid-container:focus-visible,
+.dash-dropdown-grid-container:focus-within,
+.Select.is-open > .Select-control,
+.Select.is-focused > .Select-control,
+.dash-dropdown:focus-within .Select-control {
+    background: var(--dropdown-final-bg) !important;
+    background-color: var(--dropdown-final-bg) !important;
+    color: var(--dropdown-final-text) !important;
+    -webkit-text-fill-color: var(--dropdown-final-text) !important;
+    border-color: var(--dropdown-final-border) !important;
+    outline: 0 solid transparent !important;
+    box-shadow: 0 0 0 2px var(--dropdown-final-ring) !important;
+}
+
+/* If the white ring is on an inner input wrapper, remove it there too */
+.dash-dropdown-search-container input,
+.dash-dropdown-search-container input:focus,
+.dash-dropdown-search-container input:focus-visible,
+.dash-dropdown-search-container div,
+.dash-dropdown-search-container div:focus,
+.dash-dropdown-search-container div:focus-visible,
+.dash-dropdown-search-container div:focus-within,
+.dash-dropdown-grid-container input,
+.dash-dropdown-grid-container input:focus,
+.dash-dropdown-grid-container input:focus-visible,
+.dash-dropdown-grid-container div,
+.dash-dropdown-grid-container div:focus,
+.dash-dropdown-grid-container div:focus-visible,
+.dash-dropdown-grid-container div:focus-within {
+    background: var(--dropdown-final-bg) !important;
+    background-color: var(--dropdown-final-bg) !important;
+    color: var(--dropdown-final-text) !important;
+    -webkit-text-fill-color: var(--dropdown-final-text) !important;
+    border-color: var(--dropdown-final-border) !important;
+    outline: 0 solid transparent !important;
+    box-shadow: none !important;
+}
+
+/* WebKit/Blink internal focus appearance */
+.dash-dropdown-search-container input,
+.dash-dropdown-grid-container input,
+.Select-input input {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}

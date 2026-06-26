@@ -243,21 +243,7 @@ def build_filters():
                             )
                         ],
                         className="filter-box-small"
-                    ),
-
-                    html.Div(
-                        children=[
-                            html.Label("Item history"),
-                            dcc.Dropdown(
-                                id="item-dropdown",
-                                options=get_item_options(),
-                                placeholder="Select an item",
-                                clearable=True
-                            )
-                        ],
-                        className="filter-box-wide"
-                    )
-                ]
+                    ),                ]
             )
         ]
     )
@@ -372,6 +358,45 @@ def build_latest_table():
                 page_size=12,
                 max_height="620px",
                 conditionals=latest_table_conditional_styles()
+            )
+        ]
+    )
+
+
+def build_item_history_tab():
+    return html.Div(
+        children=[
+            html.Div(
+                className="panel item-history-panel",
+                children=[
+                    html.Div("Item History", className="section-title"),
+                    html.Div(
+                        "Search for an item and view its historical raw margin, scan windows, ROI, trend behavior, and scanner context.",
+                        className="muted-text settings-section-subtitle"
+                    ),
+                    html.Div(
+                        className="item-history-dropdown-card",
+                        children=[
+                            html.Label("Search item history"),
+                            dcc.Dropdown(
+                                id="item-dropdown",
+                                options=get_item_options(),
+                                placeholder="Type to search for an item...",
+                                clearable=True,
+                                searchable=True,
+                                className="item-history-dropdown"
+                            ),
+                            html.Div(
+                                "Select an item to load its margin history chart.",
+                                className="muted-text item-history-dropdown-help"
+                            )
+                        ]
+                    )
+                ]
+            ),
+            html.Div(
+                dcc.Graph(id="item-history-chart"),
+                className="panel chart-panel"
             )
         ]
     )
@@ -1780,12 +1805,7 @@ def build_app_layout():
                         label="Item History",
                         className="tab",
                         selected_className="tab--selected",
-                        children=[
-                            html.Div(
-                                dcc.Graph(id="item-history-chart"),
-                                className="panel chart-panel"
-                            )
-                        ]
+                        children=[build_item_history_tab()]
                     ),
 
                     dcc.Tab(

@@ -4,6 +4,7 @@ Data, database, status, export, and maintenance helpers for the OSRSFlipper dash
 import os
 import sqlite3
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -53,6 +54,27 @@ if init_trade_db is not None:
 OVERNIGHT_RAW_MARGIN_MIN = 10000
 OVERNIGHT_ROI_MIN = 5.0
 
+# SQLite can briefly lock when the collector/scanner is writing while the
+# dashboard is refreshing. These settings make dashboard reads wait and retry
+# instead of immediately printing noisy "database is locked" errors.
+SQLITE_TIMEOUT_SECONDS = 30
+SQLITE_BUSY_TIMEOUT_MS = 30000
+SQLITE_LOCK_RETRIES = 3
+
+
+def open_dashboard_connection(read_only=True):
+    conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+
+    if read_only:
+        try:
+            conn.execute("PRAGMA query_only = ON")
+        except Exception:
+            # Older SQLite builds may not support query_only. Normal reads still work.
+            pass
+
+    return conn
+
 
 def db_exists():
     return os.path.exists(DB_FILE)
@@ -65,19 +87,33 @@ def query_df(query, params=None):
     if not db_exists():
         return pd.DataFrame()
 
-    conn = sqlite3.connect(DB_FILE)
+    last_error = None
 
-    try:
-        df = pd.read_sql_query(query, conn, params=params)
-    except Exception as error:
-        print("Dashboard database query failed:")
-        print(error)
-        print(query)
-        df = pd.DataFrame()
-    finally:
-        conn.close()
+    for attempt in range(SQLITE_LOCK_RETRIES):
+        conn = None
 
-    return df
+        try:
+            conn = open_dashboard_connection(read_only=True)
+            return pd.read_sql_query(query, conn, params=params)
+        except sqlite3.OperationalError as error:
+            last_error = error
+
+            if "database is locked" in str(error).lower() and attempt < SQLITE_LOCK_RETRIES - 1:
+                time.sleep(0.35 * (attempt + 1))
+                continue
+
+            break
+        except Exception as error:
+            last_error = error
+            break
+        finally:
+            if conn is not None:
+                conn.close()
+
+    print("Dashboard database query failed:")
+    print(last_error)
+    print(query)
+    return pd.DataFrame()
 
 
 def get_latest_run_id():
@@ -123,6 +159,30 @@ def get_all_history():
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
 
     return df
+
+def get_item_history_for_item(item_name):
+    """Return scan history for one selected item only.
+
+    This avoids loading the entire scan_results table every time the Item
+    History chart refreshes.
+    """
+    item_name = str(item_name or "").strip()
+
+    if not item_name:
+        return pd.DataFrame()
+
+    df = query_df("""
+        SELECT *
+        FROM scan_results
+        WHERE item_name = ?
+        ORDER BY scanned_at
+    """, (item_name,))
+
+    if not df.empty and "scanned_at" in df.columns:
+        df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
+
+    return df
+
 
 
 def get_best_recurring_flips(limit=25):
@@ -188,6 +248,8 @@ def get_item_options():
         {"label": item_name, "value": item_name}
         for item_name in df["item_name"].dropna().tolist()
     ]
+
+
 
 
 def read_saved_ai_advice():
@@ -961,7 +1023,7 @@ def optimize_database_file():
     """
     backup_path = backup_database_file()
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = open_dashboard_connection(read_only=False)
 
     try:
         conn.execute("PRAGMA optimize")
@@ -984,7 +1046,7 @@ def clear_current_account_ai_notes():
     if not table_exists("ai_trade_notes"):
         return backup_path, 0
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = open_dashboard_connection(read_only=False)
     cursor = conn.cursor()
 
     cursor.execute(
