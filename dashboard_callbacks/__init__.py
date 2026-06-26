@@ -40,6 +40,61 @@ from dashboard_theme import (
 
 
 def register_dashboard_callbacks(app):
+
+    @app.callback(
+        Output("trade-board-status", "children"),
+        Output("trade-board-kpi-cards", "children"),
+        Output("trade-board-table", "data"),
+        Output("trade-board-table", "columns"),
+        Input("refresh-trade-board-button", "n_clicks"),
+        Input("trade-board-risk-profile", "value"),
+        Input("trade-board-limit", "value"),
+        Input("trade-board-min-profit", "value"),
+    )
+    def update_trade_board_phase1(_, risk_profile, limit, minimum_profit):
+        try:
+            board_df, summary = get_trade_board_recommendations(
+                limit=limit,
+                risk_profile=risk_profile,
+                minimum_profit=minimum_profit,
+            )
+
+            cards = [
+                make_card("Latest Run", str(summary.get("latest_run_id", "n/a")), f"{summary.get('candidate_count', 0):,} ranked candidates"),
+                make_card("Buy Now", str(summary.get("buy_now_count", 0)), "strict quick candidates"),
+                make_card("Test Small", str(summary.get("test_small_count", 0)), "promising but cautious"),
+                make_card("Overnight", str(summary.get("overnight_count", 0)), "overnight candidates"),
+                make_card("Avoid / Wait", str(summary.get("avoid_count", 0)), "filtered or warning rows"),
+                make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
+            ]
+
+            if board_df.empty:
+                return (
+                    summary.get("status", "No Trade Board rows."),
+                    cards,
+                    [],
+                    [],
+                )
+
+            columns = [{"name": column, "id": column} for column in board_df.columns]
+            return (
+                summary.get("status", "Trade Board updated."),
+                cards,
+                board_df.to_dict("records"),
+                columns,
+            )
+        except Exception as exc:
+            cards = [
+                make_card("Trade Board", "Error", "send the status line"),
+                make_card("Phase", "1", "single-table callback"),
+            ]
+            return (
+                f"Trade Board failed: {type(exc).__name__}: {exc}",
+                cards,
+                [],
+                [],
+            )
+
     @app.callback(
         Output("kpi-cards", "children"),
         Output("top-profit-chart", "figure"),

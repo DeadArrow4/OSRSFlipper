@@ -407,6 +407,276 @@ def get_item_options():
     return _cache_set("item_options", options)
 
 
+def _trade_board_gp(value):
+    try:
+        value = float(value or 0)
+    except Exception:
+        value = 0
+
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+
+    if value >= 1000000:
+        return f"{sign}{value / 1000000:.1f}M"
+
+    return f"{sign}{value:,.0f}"
+
+
+def _trade_board_percent(value):
+    try:
+        return f"{float(value or 0):.2f}%"
+    except Exception:
+        return "0.00%"
+
+
+def _trade_board_number(df, column, default=0):
+    if column not in df.columns:
+        df[column] = default
+
+    df[column] = pd.to_numeric(df[column], errors="coerce").fillna(default)
+    return df
+
+
+def _trade_board_text_value(row, column, default=""):
+    value = row.get(column, default)
+
+    if pd.isna(value):
+        return default
+
+    return str(value).strip()
+
+
+def _trade_board_warning(row):
+    warnings = []
+
+    for column in ["price_warning", "margin_warning", "trend_warning"]:
+        value = _trade_board_text_value(row, column, "")
+
+        if value and value.upper() != "OK" and value.lower() not in ("none", "nan"):
+            warnings.append(value)
+
+    if not warnings:
+        return "OK"
+
+    return " | ".join(warnings[:3])
+
+
+def _trade_board_risk_allowed(risk_value, risk_profile):
+    risk = str(risk_value or "").strip().lower()
+    profile = str(risk_profile or "medium").strip().lower()
+
+    if profile == "high":
+        return risk in ("", "low", "medium", "high")
+
+    if profile == "low":
+        return risk in ("", "low")
+
+    return risk in ("", "low", "medium")
+
+
+def _trade_board_action(row, risk_profile, minimum_profit):
+    profit_per_item = float(row.get("profit_per_item", 0) or 0)
+    total_profit = float(row.get("total_profit", 0) or 0)
+    raw_margin = float(row.get("raw_margin", 0) or 0)
+    roi_percent = float(row.get("roi_percent", 0) or 0)
+    quick_score = float(row.get("quick_score", 0) or 0)
+    overnight_score = float(row.get("overnight_score", 0) or 0)
+    liquidity_score = float(row.get("liquidity_score", 0) or 0)
+    target_buy = float(row.get("target_buy", 0) or 0)
+    target_sell = float(row.get("target_sell", 0) or 0)
+    quantity = float(row.get("quantity", 0) or 0)
+    risk_level = _trade_board_text_value(row, "risk_level", "")
+    warning = row.get("Trade Warning", "OK")
+
+    if (
+        profit_per_item <= 0
+        or total_profit < minimum_profit
+        or target_buy <= 0
+        or target_sell <= target_buy
+        or quantity <= 0
+    ):
+        return "Avoid / Wait"
+
+    if not _trade_board_risk_allowed(risk_level, risk_profile):
+        return "Avoid / Wait"
+
+    if (
+        raw_margin >= OVERNIGHT_RAW_MARGIN_MIN
+        and roi_percent >= OVERNIGHT_ROI_MIN
+        and overnight_score >= 25
+        and total_profit >= minimum_profit
+        and warning == "OK"
+    ):
+        return "Overnight Candidate"
+
+    if (
+        warning == "OK"
+        and liquidity_score >= 30
+        and quick_score >= 20
+        and total_profit >= minimum_profit
+    ):
+        return "Buy Now Candidate"
+
+    return "Test Small"
+
+
+def _trade_board_reason(row):
+    action = row.get("Action", "")
+    warning = row.get("Trade Warning", "OK")
+    quick_score = float(row.get("quick_score", 0) or 0)
+    overnight_score = float(row.get("overnight_score", 0) or 0)
+    liquidity_score = float(row.get("liquidity_score", 0) or 0)
+    total_profit = float(row.get("total_profit", 0) or 0)
+    roi_percent = float(row.get("roi_percent", 0) or 0)
+
+    if action == "Avoid / Wait":
+        if warning != "OK":
+            return f"Warning present: {warning}"
+        return "Does not meet minimum profit, price, risk, or margin rules."
+
+    if action == "Overnight Candidate":
+        return f"Strong overnight setup: {overnight_score:.1f} overnight score, {roi_percent:.2f}% ROI."
+
+    if action == "Buy Now Candidate":
+        return f"Good quick setup: {quick_score:.1f} quick score, liquidity {liquidity_score:.1f}, profit {_trade_board_gp(total_profit)}."
+
+    return "Promising setup, but start small because one or more confidence/liquidity checks are weaker."
+
+
+def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_profit=None):
+    """Return a simple one-table Trade Board for v1.0.5 Phase 1.
+
+    This intentionally uses only the latest scan data and does not connect to
+    auto-refresh, My Trades, open-slot analysis, or AI. Keep this stable first.
+    """
+    limit = parse_positive_int(limit, default=25, minimum=5, maximum=100)
+
+    if minimum_profit is None:
+        minimum_profit = get_setting("minimum_profit", 50000)
+
+    minimum_profit = parse_positive_int(
+        minimum_profit,
+        default=50000,
+        minimum=0,
+        maximum=1000000000
+    )
+
+    risk_profile = str(risk_profile or "medium").strip().lower()
+    latest_run_id = get_latest_run_id()
+    df = get_latest_rows()
+
+    if df.empty:
+        return (
+            pd.DataFrame(),
+            {
+                "status": "No latest scan rows found. Run the scanner first.",
+                "latest_run_id": latest_run_id or "n/a",
+                "candidate_count": 0,
+                "buy_now_count": 0,
+                "test_small_count": 0,
+                "overnight_count": 0,
+                "avoid_count": 0,
+                "best_profit": 0,
+                "minimum_profit": minimum_profit,
+            }
+        )
+
+    df = add_dashboard_flags(df).copy()
+
+    for column in [
+        "target_buy", "target_sell", "quantity", "raw_margin",
+        "profit_per_item", "total_profit", "roi_percent", "volume",
+        "liquidity_score", "quick_score", "overnight_score",
+        "recommendation_score", "score"
+    ]:
+        df = _trade_board_number(df, column, 0)
+
+    for column in [
+        "item_name", "window_name", "risk_level", "confidence",
+        "liquidity_rating", "flip_category", "signal",
+        "price_warning", "margin_warning", "trend_warning"
+    ]:
+        if column not in df.columns:
+            df[column] = ""
+
+    df["Trade Warning"] = df.apply(_trade_board_warning, axis=1)
+    df["Action"] = df.apply(
+        lambda row: _trade_board_action(row, risk_profile, minimum_profit),
+        axis=1
+    )
+
+    risk_penalty = df["risk_level"].astype(str).str.lower().map(
+        {"low": 0, "medium": 5, "high": 18}
+    ).fillna(4)
+    warning_penalty = (df["Trade Warning"] != "OK").astype(int) * 15
+
+    df["Trade Score"] = (
+        df["recommendation_score"].clip(lower=0)
+        + df["quick_score"].clip(lower=0) * 0.25
+        + df["overnight_score"].clip(lower=0) * 0.15
+        + df["liquidity_score"].clip(lower=0) * 0.15
+        + df["roi_percent"].clip(lower=0, upper=25)
+        + (df["total_profit"].clip(lower=0) / 100000).clip(upper=20)
+        - risk_penalty
+        - warning_penalty
+    )
+
+    df["Reason"] = df.apply(_trade_board_reason, axis=1)
+
+    action_order = {
+        "Buy Now Candidate": 0,
+        "Overnight Candidate": 1,
+        "Test Small": 2,
+        "Avoid / Wait": 3,
+    }
+    df["_action_order"] = df["Action"].map(action_order).fillna(9)
+
+    df = df.sort_values(
+        by=["_action_order", "Trade Score", "total_profit", "liquidity_score"],
+        ascending=[True, False, False, False]
+    )
+
+    if "item_id" in df.columns:
+        df = df.drop_duplicates(subset=["item_id", "window_name"], keep="first")
+    else:
+        df = df.drop_duplicates(subset=["item_name", "window_name"], keep="first")
+
+    top_df = df.head(limit).copy()
+
+    display_df = pd.DataFrame({
+        "Action": top_df["Action"],
+        "Item": top_df["item_name"],
+        "Window": top_df["window_name"],
+        "Buy": top_df["target_buy"].apply(_trade_board_gp),
+        "Sell": top_df["target_sell"].apply(_trade_board_gp),
+        "Qty": top_df["quantity"].round(0).astype(int),
+        "Profit/Item": top_df["profit_per_item"].apply(_trade_board_gp),
+        "Total Profit": top_df["total_profit"].apply(_trade_board_gp),
+        "ROI": top_df["roi_percent"].apply(_trade_board_percent),
+        "Volume": top_df["volume"].round(0).astype(int),
+        "Liquidity": top_df["liquidity_score"].round(1),
+        "Score": top_df["Trade Score"].round(1),
+        "Risk": top_df["risk_level"].replace("", "n/a"),
+        "Confidence": top_df["confidence"].replace("", "n/a"),
+        "Warning": top_df["Trade Warning"],
+        "Reason": top_df["Reason"],
+    })
+
+    summary = {
+        "status": f"Trade Board built from scan run {latest_run_id or 'n/a'} using latest scan rows only. Manual refresh only.",
+        "latest_run_id": latest_run_id or "n/a",
+        "candidate_count": int(len(df)),
+        "buy_now_count": int((df["Action"] == "Buy Now Candidate").sum()),
+        "test_small_count": int((df["Action"] == "Test Small").sum()),
+        "overnight_count": int((df["Action"] == "Overnight Candidate").sum()),
+        "avoid_count": int((df["Action"] == "Avoid / Wait").sum()),
+        "best_profit": int(df["total_profit"].max()) if "total_profit" in df.columns else 0,
+        "minimum_profit": minimum_profit,
+    }
+
+    return display_df, summary
+
+
 def read_saved_ai_advice():
     if not os.path.exists(OUTPUT_FILE):
         return (

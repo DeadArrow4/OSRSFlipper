@@ -31,6 +31,92 @@ from dashboard_data import (
 from dashboard_theme import base_table_styles
 
 
+def build_trade_board_tab():
+    return html.Div(
+        className="settings-page trade-board-page",
+        children=[
+            settings_section(
+                "Trade Board",
+                "Phase 1: one stable ranked table from the latest scanner run. No AI, no auto-refresh, no open-slot actions yet.",
+                children=[
+                    html.Div(
+                        "Use this as a quick local view of the strongest current trade candidates. The board only refreshes when you click the button or change the controls.",
+                        className="muted-text"
+                    )
+                ]
+            ),
+
+            settings_section(
+                "Controls",
+                children=[
+                    html.Div(
+                        className="settings-grid trade-board-control-grid",
+                        children=[
+                            setting_card(
+                                "Risk profile",
+                                dcc.Dropdown(
+                                    id="trade-board-risk-profile",
+                                    options=[
+                                        {"label": "Low", "value": "low"},
+                                        {"label": "Medium", "value": "medium"},
+                                        {"label": "High", "value": "high"},
+                                    ],
+                                    value="medium",
+                                    clearable=False,
+                                    className="dark-dropdown"
+                                ),
+                                "Low hides medium/high-risk items. Medium allows low/medium. High allows all."
+                            ),
+                            setting_card(
+                                "Rows",
+                                setting_text_box(
+                                    "trade-board-limit",
+                                    25,
+                                    "25"
+                                ),
+                                "Maximum recommendations to show."
+                            ),
+                            setting_card(
+                                "Minimum total profit",
+                                setting_text_box(
+                                    "trade-board-min-profit",
+                                    50000,
+                                    "50000"
+                                ),
+                                "Minimum estimated total profit for Buy Now/Test Small recommendations."
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Refresh Trade Board",
+                                id="refresh-trade-board-button",
+                                n_clicks=0,
+                                className="primary-button"
+                            ),
+                            html.Div(
+                                id="trade-board-status",
+                                className="status-text settings-save-status",
+                                children="Waiting to build Trade Board."
+                            )
+                        ]
+                    )
+                ]
+            ),
+
+            html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
+
+            build_trade_table(
+                "trade-board-table",
+                "Ranked Trade Recommendations",
+                "One-table Phase 1 view. Keep this stable before adding Buy Now/Test Small/Overnight sections."
+            )
+        ]
+    )
+
+
 def build_my_trades_tab():
     return html.Div(
         className="settings-page trades-page",
@@ -1795,6 +1881,14 @@ def build_app_layout():
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_ai_panel()]
+                    ),
+
+                    dcc.Tab(
+                        label="Trade Board",
+                        value="trade-board",
+                        className="tab",
+                        selected_className="tab--selected",
+                        children=[build_trade_board_tab()]
                     ),
 
                     dcc.Tab(
