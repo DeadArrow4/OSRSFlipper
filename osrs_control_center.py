@@ -1,6 +1,7 @@
 import argparse
 import os
 from security_runtime import scrub_shared_openai_env
+from runelite_telemetry_control import dashboard_startup_telemetry_message, open_jagex_launcher, start_runelite_telemetry_dev_client, import_runelite_state_now
 scrub_shared_openai_env()
 import sqlite3
 import subprocess
@@ -284,6 +285,42 @@ def format_gp(value):
 def process_running(process):
     return process is not None and process.poll() is None
 
+
+def runelite_telemetry_startup_check():
+    """Print RuneLite telemetry status and optional launch guidance when the dashboard starts."""
+    try:
+        print()
+        print(dashboard_startup_telemetry_message())
+
+        try:
+            auto_open_jagex = bool(get_setting("open_jagex_launcher_with_dashboard", False))
+        except Exception:
+            auto_open_jagex = False
+
+        try:
+            auto_start_dev_client = bool(get_setting("auto_start_runelite_telemetry_dev_client", False))
+        except Exception:
+            auto_start_dev_client = False
+
+        if auto_open_jagex:
+            print(open_jagex_launcher())
+
+        if auto_start_dev_client:
+            print(start_runelite_telemetry_dev_client())
+        else:
+            print(
+                "RuneLite telemetry auto-start is off. "
+                "Open Jagex Launcher and choose RuneLite, or run: "
+                "python runelite_telemetry_control.py start-dev"
+            )
+
+        try:
+            print(import_runelite_state_now())
+        except Exception as import_error:
+            print(f"RuneLite telemetry import skipped: {import_error}")
+
+    except Exception as telemetry_error:
+        print(f"RuneLite telemetry startup check failed: {telemetry_error}")
 
 def start_dashboard():
     log_path = LOG_DIR / "dashboard.log"
@@ -696,6 +733,7 @@ def main():
     try:
         if not args.no_dashboard:
             dashboard_process = start_dashboard()
+            runelite_telemetry_startup_check()
 
         if not args.no_collector:
             collector_process = start_collector(
