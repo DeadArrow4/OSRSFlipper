@@ -14,6 +14,7 @@ from settings_manager import get_setting
 from security_runtime import scrub_shared_openai_env, get_non_secret_env_value
 
 
+from ai_capital_advisor_context import append_capital_context_to_trade_memory
 BASE_DIR = str(APP_BASE_DIR)
 scrub_shared_openai_env()
 
@@ -1603,6 +1604,8 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
         limit=MAX_TRADE_BOARD_AI_ROWS,
     )
 
+    trade_memory = append_capital_context_to_trade_memory(trade_memory)
+    
     prompt = build_ai_prompt(
         run_info=run_info,
         candidates_df=candidates_df,
