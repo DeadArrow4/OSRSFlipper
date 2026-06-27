@@ -677,6 +677,8 @@ def register_dashboard_callbacks(app):
         Input("trade-board-action-filter", "value"),
         Input("trade-board-confidence-filter", "value"),
         Input("trade-board-fill-filter", "value"),
+        Input("trade-board-trend-direction-filter", "value"),
+        Input("trade-board-trend-confidence-filter", "value"),
     )
     def update_trade_board_phase1(
         n_clicks,
@@ -686,6 +688,8 @@ def register_dashboard_callbacks(app):
         action_filter,
         confidence_filter,
         fill_filter,
+        trend_direction_filter,
+        trend_confidence_filter,
     ):
         try:
             from datetime import datetime
@@ -717,6 +721,48 @@ def register_dashboard_callbacks(app):
                 summary["trend_history_days"] = trade_trend_health.get("metric_days", 0)
                 summary["trend_items_with_history"] = trade_trend_health.get("items_with_history", 0)
 
+            trend_filter_notes = []
+
+            try:
+                if hasattr(board_df, "columns"):
+                    if (
+                        trend_direction_filter
+                        and trend_direction_filter != "all"
+                        and "Trend Direction" in board_df.columns
+                    ):
+                        board_df = board_df[
+                            board_df["Trend Direction"]
+                            .fillna("")
+                            .astype(str)
+                            .str.lower()
+                            == str(trend_direction_filter).lower()
+                        ]
+                        trend_filter_notes.append(f"direction={trend_direction_filter}")
+
+                    if (
+                        trend_confidence_filter
+                        and trend_confidence_filter != "all"
+                        and "Trend Confidence" in board_df.columns
+                    ):
+                        board_df = board_df[
+                            board_df["Trend Confidence"]
+                            .fillna("")
+                            .astype(str)
+                            .str.lower()
+                            == str(trend_confidence_filter).lower()
+                        ]
+                        trend_filter_notes.append(f"confidence={trend_confidence_filter}")
+
+                    if isinstance(summary, dict):
+                        summary["trend_direction_filter"] = trend_direction_filter or "all"
+                        summary["trend_confidence_filter"] = trend_confidence_filter or "all"
+                        summary["trend_filtered_rows"] = int(len(board_df))
+                        summary["trend_filter_status"] = ", ".join(trend_filter_notes) if trend_filter_notes else "no trend filters"
+            except Exception as trend_filter_exc:
+                if isinstance(summary, dict):
+                    summary["trend_filter_status"] = f"trend filters skipped: {type(trend_filter_exc).__name__}"
+
+
             visible_count = len(board_df)
             filtered_count = int(summary.get("filtered_count", visible_count))
             source_count = int(summary.get("filter_source_count", filtered_count))
@@ -730,6 +776,25 @@ def register_dashboard_callbacks(app):
                 make_card("Visible Rows", f"{visible_count}/{filtered_count}", f"from {source_count} ranked rows"),
                 make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
             ]
+
+
+            try:
+                cards.extend(
+                    [
+                        make_card(
+                            "Trend History",
+                            f"{summary.get('trend_history_days', 0)} days",
+                            f"{summary.get('trend_items_with_history', 0)} items with history"
+                        ),
+                        make_card(
+                            "Trend Filters",
+                            str(summary.get("trend_filtered_rows", len(board_df) if hasattr(board_df, "__len__") else 0)),
+                            summary.get("trend_filter_status", "no trend filters")
+                        ),
+                    ]
+                )
+            except Exception:
+                pass
 
             status = (
                 f"{summary.get('status', 'Trade Board updated.')} "

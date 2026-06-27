@@ -186,6 +186,66 @@ def build_trade_board_tab():
                 ]
             ),
 
+
+            settings_section(
+                "Trend Filters",
+                "Read-only filters for the trend-aware Trade Board columns.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Trend direction",
+                                dcc.Dropdown(
+                                    id="trade-board-trend-direction-filter",
+                                    options=[
+                                        {"label": "All trend directions", "value": "all"},
+                                        {"label": "Up", "value": "up"},
+                                        {"label": "Flat", "value": "flat"},
+                                        {"label": "Mixed", "value": "mixed"},
+                                        {"label": "Down", "value": "down"},
+                                        {"label": "Building", "value": "building"},
+                                        {"label": "Unavailable", "value": "unavailable"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    persistence=True,
+                                    persistence_type="local",
+                                    className="settings-dropdown"
+                                ),
+                                "Filters the enriched Trend Direction column."
+                            ),
+                            setting_card(
+                                "Trend confidence",
+                                dcc.Dropdown(
+                                    id="trade-board-trend-confidence-filter",
+                                    options=[
+                                        {"label": "All trend confidence levels", "value": "all"},
+                                        {"label": "High", "value": "high"},
+                                        {"label": "Medium", "value": "medium"},
+                                        {"label": "Low", "value": "low"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    persistence=True,
+                                    persistence_type="local",
+                                    className="settings-dropdown"
+                                ),
+                                "Filters the enriched Trend Confidence column."
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Mode"),
+                                    html.Div("Read-only advisory", className="setting-value"),
+                                    html.Div("Trend filters do not change buy/sell/cancel behavior.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+
             html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
 
 
