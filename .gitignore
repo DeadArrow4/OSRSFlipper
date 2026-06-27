@@ -67,3 +67,7 @@ release_manifest.json
 *.tmp
 *.bak
 *.old
+
+# Local data audit outputs
+data_audit_107/
+data_audit_107_report.txt

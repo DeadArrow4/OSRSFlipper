@@ -1,3 +1,50 @@
+OSRSFlipper 1.0.7 — Data Health and Trend Intelligence
+
+Release type: data intelligence foundation
+
+Included:
+- Added Admin > Data Health.
+- Added database size and scan-growth KPI cards.
+- Added largest tables view.
+- Added time coverage view.
+- Added recommended index status view.
+- Added daily_item_metrics aggregate table.
+- Added safe schema/index creation from the Data Health tab.
+- Added daily item metrics rebuild from scan_results.
+- Added Trend Readiness view.
+- Added Early Trend Signals view.
+- Added Market Data > Item Trends.
+- Added item trend search.
+- Added item trend summary cards.
+- Added margin trend graph.
+- Added score trend graph.
+- Added matched item results table.
+- Added daily metric rows table.
+- Added .gitignore entries for local data-audit outputs.
+- Preserved raw scan_results data.
+
+Not included:
+- Automatic GE trading.
+- Automatic buy/sell/cancel actions.
+- Automatic repricing.
+- Automatic raw scan_results deletion.
+- Automatic database trimming.
+- Machine-learning prediction model.
+- Private database files.
+- Saved logs.
+- Backups.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
+
+Notes:
+- This release lays the foundation for trend analysis without deleting raw scanner history.
+- daily_item_metrics is intended to support long-term item trend views while avoiding repeated heavy scans over raw scan_results.
+- Trend Readiness shows whether enough aggregate history exists for short-term, 30-day, and 90-day analysis.
+- Early Trend Signals and Item Trends are signal views, not automatic trade execution or guaranteed prediction.
+- Stronger prediction logic should wait until more aggregate history is collected.
+
 OSRSFlipper 1.0.6 — Dashboard Tab Cleanup
 
 Release type: UI cleanup patch

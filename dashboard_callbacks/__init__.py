@@ -33,13 +33,304 @@ from dashboard_data import *
 from dashboard_formatters import *
 from dashboard_tabs import build_status_cards
 from dashboard_theme import (
-    empty_figure,
+empty_figure,
     apply_dark_chart_layout,
     make_card,
 )
-
+from data_health import build_data_health_snapshot, build_data_trend_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
+from data_health import build_item_trend_explorer_snapshot
 
 def register_dashboard_callbacks(app):
+
+
+
+
+    @app.callback(
+        Output("item-trend-status", "children"),
+        Output("item-trend-summary-cards", "children"),
+        Output("item-trend-margin-graph", "figure"),
+        Output("item-trend-score-graph", "figure"),
+        Output("item-trend-matches-table", "data"),
+        Output("item-trend-matches-table", "columns"),
+        Output("item-trend-history-table", "data"),
+        Output("item-trend-history-table", "columns"),
+        Input("load-item-trend-button", "n_clicks"),
+        State("item-trend-search-input", "value"),
+        State("item-trend-days-input", "value"),
+    )
+    def update_item_trend_explorer(n_clicks, item_query, days):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        def empty_figure(title):
+            return {
+                "data": [],
+                "layout": {
+                    "title": title,
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "margin": {"l": 40, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+        try:
+            snapshot = build_item_trend_explorer_snapshot(item_query=item_query, days=days or 90)
+            rows = snapshot.get("rows", [])
+            matches = snapshot.get("matches", [])
+
+            cards = [
+                make_card(card.get("Title", ""), card.get("Value", ""), card.get("Detail", ""))
+                for card in snapshot.get("summary_cards", [])
+            ]
+
+            if not rows:
+                return (
+                    snapshot.get("status", "No trend rows found."),
+                    cards,
+                    empty_figure("Margin Trend"),
+                    empty_figure("Score Trend"),
+                    matches,
+                    columns_for(matches),
+                    rows,
+                    columns_for(rows),
+                )
+
+            dates = [row.get("Metric Date") for row in rows]
+
+            margin_figure = {
+                "data": [
+                    {
+                        "x": dates,
+                        "y": [row.get("Avg Margin") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Avg Margin",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Avg Profit / Item") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Avg Profit / Item",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Margin Volatility") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Margin Volatility",
+                    },
+                ],
+                "layout": {
+                    "title": f"Margin Trend — {snapshot.get('matched_item', '')}",
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "xaxis": {"title": "Metric Date"},
+                    "yaxis": {"title": "GP / Volatility"},
+                    "hovermode": "x unified",
+                    "margin": {"l": 50, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+            score_figure = {
+                "data": [
+                    {
+                        "x": dates,
+                        "y": [row.get("Recommendation Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Recommendation Score",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Quick Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Quick Score",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Overnight Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Overnight Score",
+                    },
+                ],
+                "layout": {
+                    "title": f"Score Trend — {snapshot.get('matched_item', '')}",
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "xaxis": {"title": "Metric Date"},
+                    "yaxis": {"title": "Score"},
+                    "hovermode": "x unified",
+                    "margin": {"l": 50, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+            return (
+                snapshot.get("status", "Loaded item trend."),
+                cards,
+                margin_figure,
+                score_figure,
+                matches,
+                columns_for(matches),
+                rows,
+                columns_for(rows),
+            )
+        except Exception as exc:
+            error_rows = [
+                {
+                    "Error": type(exc).__name__,
+                    "Details": str(exc)[:200],
+                }
+            ]
+            return (
+                f"Item Trend Explorer failed: {type(exc).__name__}: {exc}",
+                [make_card("Item Trend", "Error", str(exc)[:90])],
+                empty_figure("Margin Trend"),
+                empty_figure("Score Trend"),
+                error_rows,
+                columns_for(error_rows),
+                [],
+                [],
+            )
+
+    @app.callback(
+        Output("data-health-trend-readiness-table", "data"),
+        Output("data-health-trend-readiness-table", "columns"),
+        Output("data-health-trend-items-table", "data"),
+        Output("data-health-trend-items-table", "columns"),
+        Input("refresh-data-health-button", "n_clicks"),
+        Input("apply-data-health-schema-button", "n_clicks"),
+        Input("rebuild-daily-metrics-button", "n_clicks"),
+    )
+    def update_data_trend_readiness(refresh_clicks, schema_clicks, rebuild_clicks):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        try:
+            snapshot = build_data_trend_snapshot(limit=25)
+
+            readiness = snapshot.get("readiness", [])
+            top_trends = snapshot.get("top_trends", [])
+
+            return (
+                readiness,
+                columns_for(readiness),
+                top_trends,
+                columns_for(top_trends),
+            )
+        except Exception as exc:
+            readiness = [
+                {
+                    "Signal": "Trend readiness",
+                    "Available": "error",
+                    "Target": "load snapshot",
+                    "Status": type(exc).__name__,
+                    "Notes": str(exc)[:120],
+                }
+            ]
+            return (
+                readiness,
+                columns_for(readiness),
+                [],
+                [],
+            )
+
+    @app.callback(
+        Output("data-health-status", "children"),
+        Output("data-health-cards", "children"),
+        Output("data-health-tables-table", "data"),
+        Output("data-health-tables-table", "columns"),
+        Output("data-health-time-table", "data"),
+        Output("data-health-time-table", "columns"),
+        Output("data-health-index-table", "data"),
+        Output("data-health-index-table", "columns"),
+        Output("data-health-metrics-table", "data"),
+        Output("data-health-metrics-table", "columns"),
+        Input("refresh-data-health-button", "n_clicks"),
+        Input("apply-data-health-schema-button", "n_clicks"),
+        Input("rebuild-daily-metrics-button", "n_clicks"),
+        State("daily-metrics-days", "value"),
+    )
+    def update_data_health(refresh_clicks, schema_clicks, rebuild_clicks, rebuild_days):
+        try:
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            action_status = ""
+
+            if triggered_id == "apply-data-health-schema-button":
+                result = ensure_data_health_schema()
+                action_status = result.get("status", "Schema/index check complete.")
+            elif triggered_id == "rebuild-daily-metrics-button":
+                result = rebuild_daily_item_metrics(days=rebuild_days or 120)
+                action_status = result.get("status", "Daily metrics rebuild complete.")
+
+            snapshot = build_data_health_snapshot()
+
+            def columns_for(rows):
+                if not rows:
+                    return []
+                return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+            cards = [
+                make_card(card.get("Title", ""), card.get("Value", ""), card.get("Detail", ""))
+                for card in snapshot.get("cards", [])
+            ]
+
+            status = snapshot.get("status", "Data Health loaded.")
+
+            if action_status:
+                status = f"{action_status} {status}"
+
+            if triggered_id and triggered_id != "initial-load":
+                status = f"{status} Trigger: {triggered_id}."
+
+            tables = snapshot.get("tables", [])
+            time_rows = snapshot.get("time_coverage", [])
+            index_rows = snapshot.get("index_status", [])
+            metric_rows = snapshot.get("daily_metrics", [])
+
+            return (
+                status,
+                cards,
+                tables,
+                columns_for(tables),
+                time_rows,
+                columns_for(time_rows),
+                index_rows,
+                columns_for(index_rows),
+                metric_rows,
+                columns_for(metric_rows),
+            )
+        except Exception as exc:
+            cards = [
+                make_card("Data Health", "Error", "send the status line"),
+                make_card("Exception", type(exc).__name__, str(exc)[:90]),
+            ]
+            return (
+                f"Data Health failed: {type(exc).__name__}: {exc}",
+                cards,
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
     @app.callback(
         Output("slot-actions-status", "children"),
