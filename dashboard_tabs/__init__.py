@@ -2336,6 +2336,61 @@ def build_data_health_tab():
                     ),
                 ],
             ),
+
+            settings_section(
+                "Database Compaction",
+                "Preview whether SQLite compaction would reclaim space after guarded cleanup.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Preview"),
+                                    html.Button(
+                                        "Preview Compact Database",
+                                        id="preview-database-compaction-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Calculates free SQLite pages. Does not run VACUUM.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Compaction Action"),
+                                    html.Div("Not enabled yet", className="setting-value"),
+                                    html.Div("This phase previews only. Actual compaction will require backup and confirmation.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Safety"),
+                                    html.Div("Backup required later", className="setting-value"),
+                                    html.Div("Future compact action should require a fresh safety backup.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="database-compaction-status",
+                        className="status-text settings-save-status",
+                        children="Database compaction preview has not been run yet."
+                    ),
+                    dash_table.DataTable(
+                        id="database-compaction-preview-table",
+                        data=[],
+                        columns=[],
+                        page_size=12,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    ),
+                ],
+            ),
             settings_section(
                 "Retention Safety",
                 "Preview raw scan_results cleanup impact before any future deletion feature exists.",
@@ -2435,6 +2490,38 @@ def build_data_health_tab():
                         data=[],
                         columns=[],
                         page_size=12,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    ),
+                ],
+            ),
+
+            settings_section(
+                "Maintenance History",
+                "Recent database maintenance events such as backups, previews, cleanup, and future compaction actions.",
+                children=[
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Refresh Maintenance History",
+                                id="refresh-maintenance-history-button",
+                                n_clicks=0,
+                                className="secondary-button"
+                            ),
+                            html.Div(
+                                id="maintenance-history-status",
+                                className="status-text settings-save-status",
+                                children="Maintenance history has not been refreshed yet."
+                            ),
+                        ],
+                    ),
+                    dash_table.DataTable(
+                        id="maintenance-history-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
                         sort_action="native",
                         filter_action="native",
                         style_table={"overflowX": "auto"},

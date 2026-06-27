@@ -2127,3 +2127,260 @@ def cleanup_scan_results_with_backup_guard(
         "backup_check": backup_check,
         "metrics_result": metrics_result,
     }
+
+def ensure_maintenance_event_schema() -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS data_maintenance_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                detail TEXT,
+                rows_affected INTEGER DEFAULT 0,
+                db_size_before_mb REAL,
+                db_size_after_mb REAL,
+                backup_path TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_data_maintenance_events_created_at
+            ON data_maintenance_events (created_at)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_data_maintenance_events_type_status
+            ON data_maintenance_events (event_type, status)
+            """
+        )
+        conn.commit()
+
+        return {
+            "ok": True,
+            "status": "Maintenance event schema is ready.",
+            "database_path": str(db_path),
+        }
+    finally:
+        conn.close()
+
+
+def record_data_maintenance_event(
+    event_type: str,
+    status: str,
+    detail: str = "",
+    rows_affected: int | None = 0,
+    db_size_before_mb: float | None = None,
+    db_size_after_mb: float | None = None,
+    backup_path: str | None = None,
+) -> dict[str, Any]:
+    schema_result = ensure_maintenance_event_schema()
+    conn, db_path = _connect()
+
+    try:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+        conn.execute(
+            """
+            INSERT INTO data_maintenance_events (
+                event_type,
+                status,
+                detail,
+                rows_affected,
+                db_size_before_mb,
+                db_size_after_mb,
+                backup_path,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(event_type or "unknown"),
+                str(status or "unknown"),
+                str(detail or "")[:1000],
+                int(rows_affected or 0),
+                db_size_before_mb,
+                db_size_after_mb,
+                str(backup_path or ""),
+                now,
+            ),
+        )
+        conn.commit()
+
+        return {
+            "ok": True,
+            "status": "Maintenance event recorded.",
+            "database_path": str(db_path),
+            "created_at": now,
+            "schema_result": schema_result,
+        }
+    finally:
+        conn.close()
+
+
+def build_maintenance_events_snapshot(limit: int = 25) -> dict[str, Any]:
+    ensure_maintenance_event_schema()
+    conn, db_path = _connect()
+
+    try:
+        limit_int = max(1, min(int(limit or 25), 200))
+
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                event_type,
+                status,
+                detail,
+                rows_affected,
+                db_size_before_mb,
+                db_size_after_mb,
+                backup_path,
+                created_at
+            FROM data_maintenance_events
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit_int,),
+        ).fetchall()
+
+        out = [
+            {
+                "ID": row["id"],
+                "Event Type": row["event_type"],
+                "Status": row["status"],
+                "Detail": row["detail"],
+                "Rows Affected": row["rows_affected"],
+                "DB Before MB": row["db_size_before_mb"],
+                "DB After MB": row["db_size_after_mb"],
+                "Backup": Path(row["backup_path"]).name if row["backup_path"] else "",
+                "Created UTC": row["created_at"],
+            }
+            for row in rows
+        ]
+
+        return {
+            "ok": True,
+            "status": f"Loaded {len(out)} maintenance event(s).",
+            "database_path": str(db_path),
+            "rows": out,
+        }
+    finally:
+        conn.close()
+
+
+def build_database_compaction_preview_snapshot(record_event: bool = False) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        page_count = int(_scalar(conn, "PRAGMA page_count") or 0)
+        freelist_count = int(_scalar(conn, "PRAGMA freelist_count") or 0)
+        page_size = int(_scalar(conn, "PRAGMA page_size") or 4096)
+        db_size_mb = round(db_path.stat().st_size / 1024 / 1024, 2) if db_path.exists() else 0.0
+        free_mb = round((freelist_count * page_size) / 1024 / 1024, 2)
+        estimated_after_mb = round(max(db_size_mb - free_mb, 0), 2)
+        free_pct = round((freelist_count / page_count) * 100, 2) if page_count else 0.0
+
+        backup_check = _latest_safety_backup(max_age_hours=24) if " _latest_safety_backup" else {"ok": False}
+    except NameError:
+        backup_check = {
+            "ok": False,
+            "status": "Backup guard is unavailable. Apply 1.0.8 database backup patch first.",
+            "backup_file": "",
+            "backup_age_hours": None,
+            "backup_size_mb": None,
+        }
+    finally:
+        conn.close()
+
+    recommendation = "not needed"
+
+    if free_mb >= 250 or free_pct >= 20:
+        recommendation = "recommended"
+    elif free_mb >= 50 or free_pct >= 10:
+        recommendation = "optional"
+
+    rows = [
+        {
+            "Metric": "Database",
+            "Value": db_path.name,
+            "Notes": str(db_path),
+        },
+        {
+            "Metric": "Current size",
+            "Value": _format_mb(db_size_mb),
+            "Notes": "Actual SQLite file size on disk.",
+        },
+        {
+            "Metric": "SQLite page count",
+            "Value": f"{page_count:,}",
+            "Notes": f"Page size: {page_size:,} bytes.",
+        },
+        {
+            "Metric": "Free pages",
+            "Value": f"{freelist_count:,}",
+            "Notes": f"{free_pct}% of database pages are free.",
+        },
+        {
+            "Metric": "Estimated reclaimable space",
+            "Value": _format_mb(free_mb),
+            "Notes": "Based on PRAGMA freelist_count. Actual VACUUM result can vary.",
+        },
+        {
+            "Metric": "Estimated compacted size",
+            "Value": _format_mb(estimated_after_mb),
+            "Notes": "Rough estimate only; no compaction was run.",
+        },
+        {
+            "Metric": "Recommendation",
+            "Value": recommendation,
+            "Notes": "Compaction is most useful after guarded cleanup deletes many rows.",
+        },
+        {
+            "Metric": "Fresh backup",
+            "Value": "yes" if backup_check.get("ok") else "no",
+            "Notes": backup_check.get("status", "Create a safety backup before any future compact action."),
+        },
+        {
+            "Metric": "Safety",
+            "Value": "preview only",
+            "Notes": "This phase does not run VACUUM or VACUUM INTO.",
+        },
+    ]
+
+    status = (
+        f"Compaction preview complete. Current size {db_size_mb} MB; "
+        f"estimated reclaimable space {free_mb} MB ({free_pct}% free pages). "
+        f"Recommendation: {recommendation}. No compaction was run."
+    )
+
+    if record_event:
+        try:
+            record_data_maintenance_event(
+                event_type="compaction_preview",
+                status=recommendation,
+                detail=status,
+                rows_affected=0,
+                db_size_before_mb=db_size_mb,
+                db_size_after_mb=estimated_after_mb,
+                backup_path=backup_check.get("backup_path", ""),
+            )
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "status": status,
+        "rows": rows,
+        "db_size_mb": db_size_mb,
+        "free_mb": free_mb,
+        "estimated_after_mb": estimated_after_mb,
+        "free_pct": free_pct,
+        "recommendation": recommendation,
+        "backup_check": backup_check,
+    }
