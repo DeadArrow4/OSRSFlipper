@@ -40,12 +40,75 @@ empty_figure,
 from data_health import build_data_health_snapshot, build_data_trend_snapshot, build_metrics_automation_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics, refresh_daily_metrics_if_stale
 from data_health import build_item_trend_explorer_snapshot
 from data_health import build_retention_preview_snapshot
+from data_health import build_database_backup_snapshot, create_database_safety_backup
 
 def register_dashboard_callbacks(app):
 
 
 
 
+
+
+    @app.callback(
+        Output("database-backup-status", "children"),
+        Output("database-backup-table", "data"),
+        Output("database-backup-table", "columns"),
+        Input("create-database-safety-backup-button", "n_clicks"),
+        Input("refresh-database-backup-list-button", "n_clicks"),
+    )
+    def update_database_backup(create_clicks, refresh_clicks):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        try:
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            action_status = ""
+
+            if triggered_id == "create-database-safety-backup-button":
+                result = create_database_safety_backup()
+                action_status = result.get("status", "Database safety backup completed.")
+
+            snapshot = build_database_backup_snapshot(limit=10)
+            rows = snapshot.get("rows", [])
+            status = action_status or snapshot.get("status", "Database backup list loaded.")
+
+            if not rows:
+                rows = [
+                    {
+                        "Backup File": "",
+                        "Size": "",
+                        "Modified UTC": "",
+                        "Metadata": "",
+                        "Folder": snapshot.get("backup_folder", ""),
+                        "Status": "no backups yet",
+                    }
+                ]
+
+            return (
+                status,
+                rows,
+                columns_for(rows),
+            )
+        except Exception as exc:
+            rows = [
+                {
+                    "Backup File": "error",
+                    "Size": "",
+                    "Modified UTC": "",
+                    "Metadata": "",
+                    "Folder": "",
+                    "Status": f"{type(exc).__name__}: {str(exc)[:160]}",
+                }
+            ]
+            return (
+                f"Database backup failed: {type(exc).__name__}: {exc}",
+                rows,
+                columns_for(rows),
+            )
 
     @app.callback(
         Output("data-retention-preview-status", "children"),
