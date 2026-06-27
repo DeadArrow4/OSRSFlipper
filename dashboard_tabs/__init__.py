@@ -2380,8 +2380,8 @@ def build_data_health_tab():
                                 className="setting-card",
                                 children=[
                                     html.Label("Safety"),
-                                    html.Div("No delete button", className="setting-value"),
-                                    html.Div("This phase only previews cleanup impact.", className="setting-help"),
+                                    html.Div("Guarded cleanup enabled", className="setting-value"),
+                                    html.Div("Delete is blocked unless confirmation and a fresh safety backup are present.", className="setting-help"),
                                 ],
                             ),
                         ],

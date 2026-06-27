@@ -1,3 +1,51 @@
+OSRSFlipper 1.0.8 — Data Automation and Retention Safety
+
+Release type: data maintenance and safety release
+
+Included:
+- Added Metrics Automation to Admin > Data Health.
+- Added daily_item_metrics freshness checks.
+- Added Refresh Stale Metrics action.
+- Added automatic stale-metrics refresh before loading Item Trends.
+- Added Retention Safety to Admin > Data Health.
+- Added raw scan_results retention preview.
+- Added Keep forever, 120-day, 90-day, 60-day, and 30-day retention preview options.
+- Added cleanup preview table showing cutoff date, rows affected, rows retained, and estimated impacted size.
+- Added Database Backup to Admin > Data Health.
+- Added Create Safety Backup action using the SQLite backup API.
+- Added database backup list and verification table.
+- Added .gitignore entries for local database safety backups.
+- Added guarded raw scan_results cleanup.
+- Added exact cleanup confirmation requirement: DELETE OLD SCANS.
+- Added fresh-backup requirement before cleanup can run.
+- Added daily_item_metrics rebuild before old raw scan rows are deleted.
+- Preserved aggregate trend history before cleanup.
+- Kept database compaction/VACUUM out of this release.
+
+Not included:
+- Automatic GE trading.
+- Automatic buy/sell/cancel actions.
+- Automatic repricing.
+- Automatic unattended cleanup.
+- Automatic VACUUM or database compaction.
+- Machine-learning prediction model.
+- Private database files.
+- Local database backups.
+- Saved logs.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
+
+Notes:
+- Cleanup is intentionally guarded and cannot run unless a fresh safety backup exists.
+- Cleanup is also blocked unless the exact confirmation text is entered.
+- Keep forever blocks cleanup.
+- The cleanup action only targets old raw scan_results rows based on the selected retention window.
+- daily_item_metrics is rebuilt before cleanup so long-term aggregate trend history remains available.
+- SQLite file size may not shrink immediately after cleanup because VACUUM/compaction is not performed in this release.
+- This release focuses on keeping the data pipeline current and making raw scanner growth safer to manage.
+
 OSRSFlipper 1.0.7 — Data Health and Trend Intelligence
 
 Release type: data intelligence foundation
