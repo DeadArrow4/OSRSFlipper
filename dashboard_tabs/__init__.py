@@ -2176,6 +2176,13 @@ def build_data_health_tab():
                     html.Div(
                         className="settings-action-row",
                         children=[
+
+                            html.Button(
+                                "Refresh Stale Metrics",
+                                id="refresh-stale-daily-metrics-button",
+                                n_clicks=0,
+                                className="secondary-button"
+                            ),
                             html.Button(
                                 "Rebuild Daily Item Metrics",
                                 id="rebuild-daily-metrics-button",
@@ -2243,6 +2250,22 @@ def build_data_health_tab():
                 children=[
                     dash_table.DataTable(
                         id="data-health-metrics-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+
+            settings_section(
+                "Metrics Automation",
+                "Shows whether daily_item_metrics is current and provides a safe refresh for stale aggregate data.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-automation-table",
                         data=[],
                         columns=[],
                         page_size=10,

@@ -37,7 +37,7 @@ empty_figure,
     apply_dark_chart_layout,
     make_card,
 )
-from data_health import build_data_health_snapshot, build_data_trend_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
+from data_health import build_data_health_snapshot, build_data_trend_snapshot, build_metrics_automation_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics, refresh_daily_metrics_if_stale
 from data_health import build_item_trend_explorer_snapshot
 
 def register_dashboard_callbacks(app):
@@ -201,6 +201,8 @@ def register_dashboard_callbacks(app):
                 columns_for(error_rows),
                 [],
                 [],
+                [],
+                [],
             )
 
     @app.callback(
@@ -258,12 +260,15 @@ def register_dashboard_callbacks(app):
         Output("data-health-index-table", "columns"),
         Output("data-health-metrics-table", "data"),
         Output("data-health-metrics-table", "columns"),
+        Output("data-health-automation-table", "data"),
+        Output("data-health-automation-table", "columns"),
         Input("refresh-data-health-button", "n_clicks"),
         Input("apply-data-health-schema-button", "n_clicks"),
         Input("rebuild-daily-metrics-button", "n_clicks"),
+        Input("refresh-stale-daily-metrics-button", "n_clicks"),
         State("daily-metrics-days", "value"),
     )
-    def update_data_health(refresh_clicks, schema_clicks, rebuild_clicks, rebuild_days):
+    def update_data_health(refresh_clicks, schema_clicks, rebuild_clicks, stale_refresh_clicks, rebuild_days):
         try:
             from dash import ctx as dash_ctx
 
@@ -276,6 +281,9 @@ def register_dashboard_callbacks(app):
             elif triggered_id == "rebuild-daily-metrics-button":
                 result = rebuild_daily_item_metrics(days=rebuild_days or 120)
                 action_status = result.get("status", "Daily metrics rebuild complete.")
+            elif triggered_id == "refresh-stale-daily-metrics-button":
+                result = refresh_daily_metrics_if_stale(max_age_hours=12, rebuild_days=14, force=False)
+                action_status = result.get("status", "Stale metrics refresh complete.")
 
             snapshot = build_data_health_snapshot()
 
@@ -301,6 +309,7 @@ def register_dashboard_callbacks(app):
             time_rows = snapshot.get("time_coverage", [])
             index_rows = snapshot.get("index_status", [])
             metric_rows = snapshot.get("daily_metrics", [])
+            automation_rows = build_metrics_automation_snapshot(max_age_hours=12).get("checks", [])
 
             return (
                 status,
@@ -313,6 +322,8 @@ def register_dashboard_callbacks(app):
                 columns_for(index_rows),
                 metric_rows,
                 columns_for(metric_rows),
+                automation_rows,
+                columns_for(automation_rows),
             )
         except Exception as exc:
             cards = [
