@@ -82,3 +82,14 @@ backups/database/compacted/*.db.txt
 runtime/runelite_state.json
 runtime/runelite_state.*.json
 !runtime/runelite_state.example.json
+# RuneLite companion plugin local build/cache output
+runelite_companion/**/.gradle/
+runelite_companion/**/build/
+runelite_companion/**/out/
+runelite_companion/**/.idea/
+runelite_companion/**/.classpath
+runelite_companion/**/.project
+runelite_companion/**/.settings/
+runelite_companion/**/.metadata/
+runelite_companion/**/.run/
+runelite_companion/**/hs_err_pid*.log
