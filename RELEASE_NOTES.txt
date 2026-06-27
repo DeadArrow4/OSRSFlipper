@@ -1,65 +1,37 @@
-OSRSFlipper 1.0.1
+OSRSFlipper 1.0.5 — Trade Board and Slot Actions
 
-Release type: maintenance update
-Created: 2026-06-26
-
-Summary:
-This update refactors the dashboard into smaller Python modules to improve maintainability and make future edits easier. The goal of this release is cleaner project structure without changing the core dashboard workflow.
+Release type: feature patch
 
 Included:
-
-Refactored dashboard code into smaller support modules
-Added shared dashboard component support
-Updated dashboard callback organization
-Updated dashboard tab/module organization
-Updated dashboard formatting helpers
-Updated dashboard theme helpers
-Updated health check support for the refactored dashboard structure
-Dashboard and support scripts
-First-run setup wizard
-Account manager
-Per-account encrypted OpenAI API key support
-AI usage logging and daily request limits
-API key test tool
-Database migrations
-Health check
-Release check
-Trade safety review
-RuneLite Flipping Utilities importer
-
-Changed:
-
-Reduced dashboard.py complexity
-Improved code organization for easier maintenance
-Improved separation between dashboard layout, callbacks, formatting, data helpers, and theme helpers
-Updated application version to 1.0.1
+- Added Trade Board tab.
+- Added stable one-table ranked trade recommendations.
+- Added Buy Now / Overnight / Test Small / Avoid-Wait action labels.
+- Added Trade Board scoring improvements.
+- Added Capital Needed, Profit/1M, Fill, Confidence, Warning, and Reason columns.
+- Added persistent Trade Board controls.
+- Added Trade Board filters for Action, Confidence, and Fill.
+- Fixed Trade Board filters so filtering happens before the visible row limit.
+- Added Open Slot Actions from live RuneLite lastOffers.
+- Added read-only GE slot pressure guidance.
+- Added read-only Hold / Cancel / Reprice / Controlled Loss review suggestions.
+- Added AI Advisor context from the Trade Board.
+- Improved AI Advisor output to prioritize Trade Board recommendations.
+- Kept Trade Board and Open Slot Actions manual-refresh only for stability.
 
 Not included:
+- Automatic GE trading.
+- Automatic cancel/reprice actions.
+- Automatic selling.
+- Auto-refresh Trade Board polling.
+- Private database files.
+- Saved logs.
+- Backups.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
 
-Private database
-Saved account data
-Saved encrypted API key records
-.env
-Logs
-Backups
-Exports
-Python virtual environment
-Local dashboard refactor backup folders
-Build folders
-Dist folders
-
-Install notes:
-
-Clone or download the repository.
-Install Python if needed.
-Install requirements with: python -m pip install -r requirements.txt
-Run: python first_run_setup.py
-Launch with: python osrs_control_center.py
-If using the EXE, rebuild with build_exe.bat and publish the generated package through GitHub Releases instead of committing build output.
-
-Security notes:
-
-Do not enter your Jagex/OSRS password into OSRSFlipper.
-Each user must save their own OpenAI API key locally.
-Shared .env OPENAI_API_KEY fallback is disabled.
-Do not commit databases, logs, backups, .env files, API keys, build folders, or release packages.
+Notes:
+- Open Slot Actions are read-only guidance only.
+- Controlled-loss suggestions require manual review.
+- RuneLite lastOffers is used for live slot blockers so old unmatched trade history is not treated as a current GE offer.
