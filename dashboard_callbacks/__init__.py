@@ -42,6 +42,8 @@ from data_health import build_item_trend_explorer_snapshot
 from data_health import build_retention_preview_snapshot
 from data_health import build_database_backup_snapshot, create_database_safety_backup
 from data_health import cleanup_scan_results_with_backup_guard
+from data_health import build_database_compaction_preview_snapshot, build_maintenance_events_snapshot
+from data_health import create_compacted_database_copy
 
 def register_dashboard_callbacks(app):
 
@@ -49,6 +51,102 @@ def register_dashboard_callbacks(app):
 
 
 
+
+
+
+    @app.callback(
+        Output("database-compaction-status", "children"),
+        Output("database-compaction-preview-table", "data"),
+        Output("database-compaction-preview-table", "columns"),
+        Output("maintenance-history-status", "children"),
+        Output("maintenance-history-table", "data"),
+        Output("maintenance-history-table", "columns"),
+        Input("preview-database-compaction-button", "n_clicks"),
+        Input("create-compacted-database-copy-button", "n_clicks"),
+        Input("refresh-maintenance-history-button", "n_clicks"),
+        State("database-compaction-confirmation", "value"),
+    )
+    def update_database_compaction_and_history(preview_clicks, compact_clicks, history_clicks, confirmation_text):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        try:
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            compaction_rows = []
+            compaction_status = "Click Preview Compact Database to estimate reclaimable SQLite space."
+
+            if triggered_id == "preview-database-compaction-button":
+                compaction = build_database_compaction_preview_snapshot(record_event=True)
+                compaction_rows = compaction.get("rows", [])
+                compaction_status = compaction.get("status", compaction_status)
+            elif triggered_id == "create-compacted-database-copy-button":
+                compaction = create_compacted_database_copy(
+                    confirmation_text=confirmation_text,
+                    backup_max_age_hours=24,
+                )
+                compaction_rows = compaction.get("rows", [])
+                compaction_status = compaction.get("status", "Compacted copy action complete.")
+
+            history = build_maintenance_events_snapshot(limit=25)
+            history_rows = history.get("rows", [])
+            history_status = history.get("status", "Maintenance history loaded.")
+
+            if not history_rows:
+                history_rows = [
+                    {
+                        "ID": "",
+                        "Event Type": "",
+                        "Status": "no events yet",
+                        "Detail": "Run a backup, preview, cleanup, or compaction preview to create history.",
+                        "Rows Affected": "",
+                        "DB Before MB": "",
+                        "DB After MB": "",
+                        "Backup": "",
+                        "Created UTC": "",
+                    }
+                ]
+
+            return (
+                compaction_status,
+                compaction_rows,
+                columns_for(compaction_rows),
+                history_status,
+                history_rows,
+                columns_for(history_rows),
+            )
+        except Exception as exc:
+            compaction_rows = [
+                {
+                    "Metric": "Database compaction",
+                    "Value": "error",
+                    "Notes": f"{type(exc).__name__}: {str(exc)[:180]}",
+                }
+            ]
+            history_rows = [
+                {
+                    "ID": "",
+                    "Event Type": "error",
+                    "Status": type(exc).__name__,
+                    "Detail": str(exc)[:180],
+                    "Rows Affected": "",
+                    "DB Before MB": "",
+                    "DB After MB": "",
+                    "Backup": "",
+                    "Created UTC": "",
+                }
+            ]
+            return (
+                f"Database compaction failed: {type(exc).__name__}: {exc}",
+                compaction_rows,
+                columns_for(compaction_rows),
+                "Maintenance history failed to load.",
+                history_rows,
+                columns_for(history_rows),
+            )
 
     @app.callback(
         Output("database-backup-status", "children"),
