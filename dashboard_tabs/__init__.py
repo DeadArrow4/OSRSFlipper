@@ -31,6 +31,205 @@ from dashboard_data import (
 from dashboard_theme import base_table_styles
 
 
+def build_trade_board_tab():
+    return html.Div(
+        className="settings-page trade-board-page",
+        children=[
+            settings_section(
+                "Trade Board",
+                "Phase 2.1: one stable ranked table from the latest scanner run. Controls persist after refresh.",
+                children=[
+                    html.Div(
+                        "Use this as a quick local view of the strongest current trade candidates. The board refreshes when you click the button or change the controls.",
+                        className="muted-text"
+                    )
+                ]
+            ),
+
+            settings_section(
+                "Controls",
+                children=[
+                    html.Div(
+                        className="settings-grid trade-board-control-grid",
+                        children=[
+                            setting_card(
+                                "Risk profile",
+                                dcc.Dropdown(
+                                    id="trade-board-risk-profile",
+                                    options=[
+                                        {"label": "Low", "value": "low"},
+                                        {"label": "Medium", "value": "medium"},
+                                        {"label": "High", "value": "high"},
+                                    ],
+                                    value="medium",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Low hides medium/high-risk items. Medium allows low/medium. High allows all."
+                            ),
+                            setting_card(
+                                "Rows",
+                                dcc.Input(
+                                    id="trade-board-limit",
+                                    type="number",
+                                    min=5,
+                                    max=100,
+                                    step=5,
+                                    value=25,
+                                    placeholder="25",
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Maximum recommendations to show."
+                            ),
+                            setting_card(
+                                "Minimum total profit",
+                                dcc.Input(
+                                    id="trade-board-min-profit",
+                                    type="number",
+                                    min=0,
+                                    max=1000000000,
+                                    step=10000,
+                                    value=50000,
+                                    placeholder="50000",
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Minimum estimated total profit for Buy Now/Test Small recommendations."
+                            ),
+
+                            setting_card(
+                                "Action filter",
+                                dcc.Dropdown(
+                                    id="trade-board-action-filter",
+                                    options=[
+                                        {"label": "All actions", "value": "all"},
+                                        {"label": "Buy Now", "value": "Buy Now"},
+                                        {"label": "Overnight", "value": "Overnight"},
+                                        {"label": "Test Small", "value": "Test Small"},
+                                        {"label": "Avoid / Wait", "value": "Avoid / Wait"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Show only one action type."
+                            ),
+                            setting_card(
+                                "Confidence filter",
+                                dcc.Dropdown(
+                                    id="trade-board-confidence-filter",
+                                    options=[
+                                        {"label": "All confidence levels", "value": "all"},
+                                        {"label": "High", "value": "High"},
+                                        {"label": "Medium", "value": "Medium"},
+                                        {"label": "Low", "value": "Low"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Show only High, Medium, or Low confidence rows."
+                            ),
+                            setting_card(
+                                "Fill filter",
+                                dcc.Dropdown(
+                                    id="trade-board-fill-filter",
+                                    options=[
+                                        {"label": "All fill speeds", "value": "all"},
+                                        {"label": "Fast", "value": "Fast"},
+                                        {"label": "Moderate", "value": "Moderate"},
+                                        {"label": "Thin", "value": "Thin"},
+                                        {"label": "Slow", "value": "Slow"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Filter by estimated fill quality."
+                            ),
+                        ]
+                    ),
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Refresh Trade Board",
+                                id="refresh-trade-board-button",
+                                n_clicks=0,
+                                className="primary-button"
+                            ),
+                            html.Div(
+                                id="trade-board-status",
+                                className="status-text settings-save-status",
+                                children="Waiting to build Trade Board."
+                            )
+                        ]
+                    )
+                ]
+            ),
+
+            html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
+
+
+            settings_section(
+                "Open Slot Actions",
+                "Read-only live GE slot guidance from RuneLite lastOffers. This does not place, cancel, or change trades.",
+                children=[
+                    html.Div(
+                        "Use this when GE slots are full or offers look stale. It separates live slot blockers from old unmatched trade history.",
+                        className="muted-text"
+                    ),
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Refresh Open Slot Actions",
+                                id="refresh-slot-actions-button",
+                                n_clicks=0,
+                                className="secondary-button"
+                            ),
+                            html.Div(
+                                id="slot-actions-status",
+                                className="status-text settings-save-status",
+                                children="Waiting to build Open Slot Actions."
+                            )
+                        ]
+                    ),
+                    html.Div(id="slot-actions-kpi-cards", className="kpi-grid"),
+                    build_trade_table(
+                        "slot-actions-table",
+                        "Open Slot Actions",
+                        "Live RuneLite GE slot review. Suggested actions are read-only: Hold, Cancel, Reprice, or Controlled Loss review."
+                    )
+                ]
+            ),
+
+            build_trade_table(
+                "trade-board-table",
+                "Ranked Trade Recommendations",
+                "One-table view. Controls persist after browser refresh. The refresh button updates the status line so you can confirm it fired."
+            )
+        ]
+    )
+
+
 def build_my_trades_tab():
     return html.Div(
         className="settings-page trades-page",
@@ -262,13 +461,13 @@ def build_ai_panel():
                         children=[
                             html.Div("AI Flip Advisor", className="section-title"),
                             html.Div(
-                                "Uses liquidity, fill-time estimates, history, and daily/weekly trend scores.",
+                                "Uses the Trade Board, liquidity, fill-time estimates, history, and daily/weekly trend scores.",
                                 className="muted-text"
                             )
                         ]
                     ),
                     html.Div(
-                        "After pressing Ask AI, results may take up to 5 minutes to appear. The dashboard will update when the AI response is ready.",
+                        "After pressing Ask AI, results may take up to 5 minutes to appear. The AI now reviews the Trade Board first, then scanner and trade history context.",
                         className="ai-tip"
                     )
                 ]
@@ -1795,6 +1994,14 @@ def build_app_layout():
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_ai_panel()]
+                    ),
+
+                    dcc.Tab(
+                        label="Trade Board",
+                        value="trade-board",
+                        className="tab",
+                        selected_className="tab--selected",
+                        children=[build_trade_board_tab()]
                     ),
 
                     dcc.Tab(

@@ -40,6 +40,174 @@ from dashboard_theme import (
 
 
 def register_dashboard_callbacks(app):
+
+    @app.callback(
+        Output("slot-actions-status", "children"),
+        Output("slot-actions-kpi-cards", "children"),
+        Output("slot-actions-table", "data"),
+        Output("slot-actions-table", "columns"),
+        Input("refresh-slot-actions-button", "n_clicks"),
+    )
+    def update_open_slot_actions(n_clicks):
+        try:
+            from datetime import datetime
+
+            actions_df, summary = get_open_slot_actions(limit=12)
+            refreshed_at = datetime.now().strftime("%H:%M:%S")
+
+            cards = [
+                make_card(
+                    "Active Slots",
+                    f"{summary.get('active_slots', 0)}/{summary.get('ge_slot_count', 8)}",
+                    f"{summary.get('free_slots', 0)} free slots"
+                ),
+                make_card(
+                    "Slot Pressure",
+                    "High" if summary.get("slot_pressure") else "Normal",
+                    "based on live RuneLite slots"
+                ),
+                make_card(
+                    "High Priority",
+                    str(summary.get("high_count", 0)),
+                    "review these first"
+                ),
+                make_card(
+                    "Medium Priority",
+                    str(summary.get("medium_count", 0)),
+                    "aging or slot-pressure candidates"
+                ),
+                make_card(
+                    "Controlled Loss",
+                    str(summary.get("controlled_loss_count", 0)),
+                    "review only; never automatic"
+                ),
+            ]
+
+            status = (
+                f"{summary.get('status', 'Open Slot Actions updated.')} "
+                f"Last update {refreshed_at}. Refresh clicks={n_clicks or 0}."
+            )
+
+            if actions_df.empty:
+                return status, cards, [], []
+
+            columns = [{"name": column, "id": column} for column in actions_df.columns]
+            return status, cards, actions_df.to_dict("records"), columns
+
+        except Exception as error:
+            cards = [
+                make_card("Open Slot Actions", "Error", "send the status line"),
+                make_card("Phase", "1", "manual refresh only"),
+            ]
+            return (
+                f"Open Slot Actions failed: {type(error).__name__}: {error}",
+                cards,
+                [],
+                [],
+            )
+
+
+
+
+
+
+    @app.callback(
+        Output("trade-board-status", "children"),
+        Output("trade-board-kpi-cards", "children"),
+        Output("trade-board-table", "data"),
+        Output("trade-board-table", "columns"),
+        Input("refresh-trade-board-button", "n_clicks"),
+        Input("trade-board-risk-profile", "value"),
+        Input("trade-board-limit", "value"),
+        Input("trade-board-min-profit", "value"),
+        Input("trade-board-action-filter", "value"),
+        Input("trade-board-confidence-filter", "value"),
+        Input("trade-board-fill-filter", "value"),
+    )
+    def update_trade_board_phase1(
+        n_clicks,
+        risk_profile,
+        limit,
+        minimum_profit,
+        action_filter,
+        confidence_filter,
+        fill_filter,
+    ):
+        try:
+            from datetime import datetime
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            refreshed_at = datetime.now().strftime("%H:%M:%S")
+
+            try:
+                visible_limit = int(limit or 25)
+            except Exception:
+                visible_limit = 25
+
+            visible_limit = max(5, min(visible_limit, 100))
+
+            board_df, summary = get_trade_board_recommendations(
+                limit=visible_limit,
+                risk_profile=risk_profile,
+                minimum_profit=minimum_profit,
+                action_filter=action_filter,
+                confidence_filter=confidence_filter,
+                fill_filter=fill_filter,
+            )
+
+            visible_count = len(board_df)
+            filtered_count = int(summary.get("filtered_count", visible_count))
+            source_count = int(summary.get("filter_source_count", filtered_count))
+
+            cards = [
+                make_card("Latest Run", str(summary.get("latest_run_id", "n/a")), f"{summary.get('candidate_count', 0):,} ranked candidates"),
+                make_card("Buy Now", str(summary.get("buy_now_count", 0)), "strict quick candidates"),
+                make_card("Test Small", str(summary.get("test_small_count", 0)), "promising but cautious"),
+                make_card("Overnight", str(summary.get("overnight_count", 0)), "overnight candidates"),
+                make_card("Avoid / Wait", str(summary.get("avoid_count", 0)), "filtered or warning rows"),
+                make_card("Visible Rows", f"{visible_count}/{filtered_count}", f"from {source_count} ranked rows"),
+                make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
+            ]
+
+            status = (
+                f"{summary.get('status', 'Trade Board updated.')} "
+                f"Last update {refreshed_at}. Trigger: {triggered_id}. "
+                f"Risk={risk_profile or 'medium'}, Rows={visible_limit}, Min profit={format_gp(summary.get('minimum_profit', 0))} gp. "
+                f"Action filter={summary.get('action_filter', action_filter or 'all')}, "
+                f"Confidence filter={summary.get('confidence_filter', confidence_filter or 'all')}, "
+                f"Fill filter={summary.get('fill_filter', fill_filter or 'all')}. "
+                f"Showing {visible_count} of {filtered_count} matching rows from {source_count} ranked rows. "
+                f"Refresh clicks={n_clicks or 0}."
+            )
+
+            if board_df.empty:
+                return (
+                    status,
+                    cards,
+                    [],
+                    [],
+                )
+
+            columns = [{"name": column, "id": column} for column in board_df.columns]
+            return (
+                status,
+                cards,
+                board_df.to_dict("records"),
+                columns,
+            )
+        except Exception as exc:
+            cards = [
+                make_card("Trade Board", "Error", "send the status line"),
+                make_card("Phase", "deep filters", "single-table callback"),
+            ]
+            return (
+                f"Trade Board failed: {type(exc).__name__}: {exc}",
+                cards,
+                [],
+                [],
+            )
+
     @app.callback(
         Output("kpi-cards", "children"),
         Output("top-profit-chart", "figure"),
