@@ -1,3 +1,52 @@
+OSRSFlipper 1.0.9 — Database Compaction and Maintenance History
+
+Release type: database maintenance and safety release
+
+Included:
+- Added Database Compaction to Admin > Data Health.
+- Added Preview Compact Database action.
+- Added SQLite page/free-page compaction preview.
+- Added estimated reclaimable database space.
+- Added estimated compacted database size.
+- Added fresh backup status to compaction preview.
+- Added Maintenance History to Admin > Data Health.
+- Added data_maintenance_events table.
+- Added maintenance event logging for compaction previews and compacted-copy creation.
+- Added guarded compacted database copy creation.
+- Added exact compaction confirmation requirement: COMPACT DATABASE.
+- Added fresh safety-backup requirement before compacted-copy creation.
+- Added VACUUM INTO compacted-copy workflow.
+- Added PRAGMA integrity_check verification for compacted copies.
+- Added compacted database copy metadata files.
+- Added .gitignore entries for local compacted database copies.
+- Kept active database replacement manual-only.
+
+Not included:
+- Automatic GE trading.
+- Automatic buy/sell/cancel actions.
+- Automatic repricing.
+- Automatic database replacement or live database swap.
+- Automatic unattended compaction.
+- Automatic VACUUM against the active database.
+- Machine-learning prediction model.
+- Private database files.
+- Local database backups.
+- Local compacted database copies.
+- Saved logs.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
+
+Notes:
+- This release completes the safe database maintenance workflow started in 1.0.8.
+- Compaction preview estimates reclaimable SQLite space without changing the database.
+- Guarded compacted-copy creation uses VACUUM INTO to create a separate compacted copy.
+- The active database is not replaced while the dashboard is running.
+- Compacted copies are verified with PRAGMA integrity_check.
+- Manual replacement/swap should only be done while the dashboard is fully stopped.
+- Maintenance History provides an audit trail for previews and compacted-copy actions.
+
 OSRSFlipper 1.0.8 — Data Automation and Retention Safety
 
 Release type: data maintenance and safety release
