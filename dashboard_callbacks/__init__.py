@@ -448,12 +448,12 @@ def register_dashboard_callbacks(app):
 
     @app.callback(
         Output("item-history-chart", "figure"),
-        Input("item-dropdown", "value"),
+        Input("market-item-dropdown", "value"),
         Input("auto-refresh", "n_intervals"),
         Input("main-tabs", "value"),
     )
     def update_item_history(selected_item, _, active_tab):
-        if active_tab != "item-history":
+        if active_tab != "market-data":
             return no_update
 
         if not selected_item:
@@ -676,7 +676,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_openai_key_status(_, active_tab):
-        if active_tab != "settings":
+        if active_tab != "admin":
             return no_update
 
         status = get_api_key_status()
@@ -700,7 +700,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_openai_usage_status(_, active_tab):
-        if active_tab != "settings":
+        if active_tab != "admin":
             return no_update
 
         init_ai_usage_db()
@@ -760,7 +760,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_settings_account_scope(_, active_tab):
-        if active_tab != "settings":
+        if active_tab != "admin":
             return no_update
 
         scope = get_current_trade_scope()
@@ -844,7 +844,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_status_log_cards(_, active_tab):
-        if active_tab != "status-logs":
+        if active_tab != "admin":
             return no_update
 
         summary = get_status_summary()
@@ -859,7 +859,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_log_file_output(log_file_name, line_count, _, active_tab):
-        if active_tab != "status-logs":
+        if active_tab != "admin":
             return no_update
 
         if not log_file_name:
@@ -1051,7 +1051,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_setup_checklist(_, active_tab):
-        if active_tab != "accounts":
+        if active_tab != "admin":
             return no_update
 
         return get_setup_summary_items()
@@ -1115,7 +1115,7 @@ def register_dashboard_callbacks(app):
         Input("main-tabs", "value"),
     )
     def update_account_manager_table(_, active_tab):
-        if active_tab != "accounts":
+        if active_tab != "admin":
             return no_update, no_update
 
         current = get_current_session() or {}

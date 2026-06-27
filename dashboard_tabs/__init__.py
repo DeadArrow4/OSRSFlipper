@@ -29,6 +29,7 @@ from dashboard_data import (
     setting_value,
 )
 from dashboard_theme import base_table_styles
+from dashboard_data import get_item_options
 
 
 def build_trade_board_tab():
@@ -627,6 +628,92 @@ def build_recurring_table():
                 conditionals=recurring_conditionals
             )
         ]
+    )
+
+
+def build_market_item_history_tab():
+    return html.Div(
+        className="settings-page item-history-panel",
+        children=[
+            settings_section(
+                "Item History",
+                "Search for an item to view its raw margin history over time.",
+                children=[
+                    html.Div(
+                        className="item-history-dropdown-card",
+                        children=[
+                            html.Label("Search item"),
+                            dcc.Dropdown(
+                                id="market-item-dropdown",
+                                options=get_item_options(),
+                                placeholder="Search or select an item",
+                                clearable=True,
+                                searchable=True,
+                                className="item-history-dropdown dark-dropdown",
+                                persistence=True,
+                                persisted_props=["value"],
+                                persistence_type="session",
+                            ),
+                            html.Div(
+                                "Start typing an item name, then select it to draw the history graph.",
+                                className="item-history-dropdown-help",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            html.Div(
+                dcc.Graph(id="item-history-chart"),
+                className="panel chart-panel"
+            ),
+        ],
+    )
+
+
+def build_market_data_tab():
+    return html.Div(
+        className="settings-page market-data-page",
+        children=[
+            html.Div(
+                className="panel settings-panel",
+                children=[
+                    html.Div("Market Data", className="section-title"),
+                    html.Div(
+                        "Scanner result views are grouped here to keep the main dashboard tab row focused on daily workflow.",
+                        className="muted-text settings-section-subtitle"
+                    ),
+                ],
+            ),
+            dcc.Tabs(
+                id="market-data-tabs",
+                value="market-latest-flips",
+                className="custom-tabs market-data-tabs",
+                children=[
+                    dcc.Tab(
+                        label="Latest Flips",
+                        value="market-latest-flips",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_latest_table()]
+                    ),
+
+                    dcc.Tab(
+                        label="Item History",
+                        value="market-item-history",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_market_item_history_tab()]
+                    ),
+dcc.Tab(
+                        label="Recurring Flips",
+                        value="market-recurring-flips",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_recurring_table()]
+                    ),
+                ],
+            ),
+        ],
     )
 
 
@@ -1905,6 +1992,65 @@ def build_settings_tab():
     )
 
 
+def build_admin_tab():
+    return html.Div(
+        className="settings-page admin-page",
+        children=[
+            html.Div(
+                className="panel settings-panel",
+                children=[
+                    html.Div("Admin", className="section-title"),
+                    html.Div(
+                        "Low-frequency tools are grouped here to keep the main dashboard tab row focused on day-to-day flipping.",
+                        className="muted-text settings-section-subtitle"
+                    ),
+                ],
+            ),
+            dcc.Tabs(
+                id="admin-tabs",
+                value="admin-account",
+                className="custom-tabs admin-tabs",
+                children=[
+                    dcc.Tab(
+                        label="Account",
+                        value="admin-account",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_account_manager_tab()]
+                    ),
+                    dcc.Tab(
+                        label="Status / Logs",
+                        value="admin-status-logs",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_status_logs_tab()]
+                    ),
+                    dcc.Tab(
+                        label="Maintenance",
+                        value="admin-maintenance",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_maintenance_tab()]
+                    ),
+                    dcc.Tab(
+                        label="Settings",
+                        value="admin-settings",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_settings_tab()]
+                    ),
+                    dcc.Tab(
+                        label="About",
+                        value="admin-about",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_about_tab()]
+                    ),
+                ],
+            ),
+        ],
+    )
+
 def build_app_layout():
     return html.Div(
         className="app-shell",
@@ -1942,15 +2088,7 @@ def build_app_layout():
                 persistence_type="session",
                 className="dash-tabs",
                 children=[
-                    dcc.Tab(
-                        label="Accounts",
-                        value="accounts",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_account_manager_tab()]
-                    ),
-
-                    dcc.Tab(
+dcc.Tab(
                         label="Overview",
                         value="overview",
                         className="tab",
@@ -2012,62 +2150,22 @@ def build_app_layout():
                         children=[build_safety_review_tab()]
                     ),
 
-                    dcc.Tab(
-                        label="Latest Flips",
-                        value="latest-flips",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_latest_table()]
-                    ),
 
                     dcc.Tab(
-                        label="Item History",
-                        value="item-history",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_item_history_tab()]
+                        label="Market Data",
+                        value="market-data",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_market_data_tab()]
                     ),
-
-                    dcc.Tab(
-                        label="Recurring Flips",
-                        value="recurring-flips",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_recurring_table()]
+dcc.Tab(
+                        label="Admin",
+                        value="admin",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_admin_tab()]
                     ),
-
-                    dcc.Tab(
-                        label="Status / Logs",
-                        value="status-logs",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_status_logs_tab()]
-                    ),
-
-                    dcc.Tab(
-                        label="Maintenance",
-                        value="maintenance",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_maintenance_tab()]
-                    ),
-
-                    dcc.Tab(
-                        label="About",
-                        value="about",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_about_tab()]
-                    ),
-
-                    dcc.Tab(
-                        label="Settings",
-                        value="settings",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_settings_tab()]
-                    )
-                ]
+]
             )
         ]
     )
