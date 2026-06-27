@@ -37,10 +37,10 @@ def build_trade_board_tab():
         children=[
             settings_section(
                 "Trade Board",
-                "Phase 1: one stable ranked table from the latest scanner run. No AI, no auto-refresh, no open-slot actions yet.",
+                "Phase 2.1: one stable ranked table from the latest scanner run. Controls persist after refresh.",
                 children=[
                     html.Div(
-                        "Use this as a quick local view of the strongest current trade candidates. The board only refreshes when you click the button or change the controls.",
+                        "Use this as a quick local view of the strongest current trade candidates. The board refreshes when you click the button or change the controls.",
                         className="muted-text"
                     )
                 ]
@@ -63,25 +63,44 @@ def build_trade_board_tab():
                                     ],
                                     value="medium",
                                     clearable=False,
-                                    className="dark-dropdown"
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
                                 ),
                                 "Low hides medium/high-risk items. Medium allows low/medium. High allows all."
                             ),
                             setting_card(
                                 "Rows",
-                                setting_text_box(
-                                    "trade-board-limit",
-                                    25,
-                                    "25"
+                                dcc.Input(
+                                    id="trade-board-limit",
+                                    type="number",
+                                    min=5,
+                                    max=100,
+                                    step=5,
+                                    value=25,
+                                    placeholder="25",
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
                                 ),
                                 "Maximum recommendations to show."
                             ),
                             setting_card(
                                 "Minimum total profit",
-                                setting_text_box(
-                                    "trade-board-min-profit",
-                                    50000,
-                                    "50000"
+                                dcc.Input(
+                                    id="trade-board-min-profit",
+                                    type="number",
+                                    min=0,
+                                    max=1000000000,
+                                    step=10000,
+                                    value=50000,
+                                    placeholder="50000",
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
                                 ),
                                 "Minimum estimated total profit for Buy Now/Test Small recommendations."
                             ),
@@ -111,7 +130,7 @@ def build_trade_board_tab():
             build_trade_table(
                 "trade-board-table",
                 "Ranked Trade Recommendations",
-                "One-table Phase 1 view. Keep this stable before adding Buy Now/Test Small/Overnight sections."
+                "One-table view. Controls persist after browser refresh. The refresh button updates the status line so you can confirm it fired."
             )
         ]
     )

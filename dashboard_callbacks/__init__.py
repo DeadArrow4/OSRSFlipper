@@ -41,6 +41,7 @@ from dashboard_theme import (
 
 def register_dashboard_callbacks(app):
 
+
     @app.callback(
         Output("trade-board-status", "children"),
         Output("trade-board-kpi-cards", "children"),
@@ -51,8 +52,14 @@ def register_dashboard_callbacks(app):
         Input("trade-board-limit", "value"),
         Input("trade-board-min-profit", "value"),
     )
-    def update_trade_board_phase1(_, risk_profile, limit, minimum_profit):
+    def update_trade_board_phase1(n_clicks, risk_profile, limit, minimum_profit):
         try:
+            from datetime import datetime
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            refreshed_at = datetime.now().strftime("%H:%M:%S")
+
             board_df, summary = get_trade_board_recommendations(
                 limit=limit,
                 risk_profile=risk_profile,
@@ -68,9 +75,16 @@ def register_dashboard_callbacks(app):
                 make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
             ]
 
+            status = (
+                f"{summary.get('status', 'Trade Board updated.')} "
+                f"Last update {refreshed_at}. Trigger: {triggered_id}. "
+                f"Risk={risk_profile or 'medium'}, Rows={limit or 25}, Min profit={format_gp(summary.get('minimum_profit', 0))} gp. "
+                f"Refresh clicks={n_clicks or 0}."
+            )
+
             if board_df.empty:
                 return (
-                    summary.get("status", "No Trade Board rows."),
+                    status,
                     cards,
                     [],
                     [],
@@ -78,7 +92,7 @@ def register_dashboard_callbacks(app):
 
             columns = [{"name": column, "id": column} for column in board_df.columns]
             return (
-                summary.get("status", "Trade Board updated."),
+                status,
                 cards,
                 board_df.to_dict("records"),
                 columns,
@@ -86,7 +100,7 @@ def register_dashboard_callbacks(app):
         except Exception as exc:
             cards = [
                 make_card("Trade Board", "Error", "send the status line"),
-                make_card("Phase", "1", "single-table callback"),
+                make_card("Phase", "2.1", "control persistence/callback feedback"),
             ]
             return (
                 f"Trade Board failed: {type(exc).__name__}: {exc}",
