@@ -2275,6 +2275,73 @@ def build_data_health_tab():
                     )
                 ],
             ),
+
+            settings_section(
+                "Retention Safety",
+                "Preview raw scan_results cleanup impact before any future deletion feature exists.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Raw scan retention",
+                                dcc.Dropdown(
+                                    id="raw-scan-retention-days",
+                                    options=[
+                                        {"label": "Keep forever", "value": 0},
+                                        {"label": "Keep last 120 days", "value": 120},
+                                        {"label": "Keep last 90 days", "value": 90},
+                                        {"label": "Keep last 60 days", "value": 60},
+                                        {"label": "Keep last 30 days", "value": 30},
+                                    ],
+                                    value=90,
+                                    clearable=False,
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Preview only. This does not delete raw scan_results."
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Preview"),
+                                    html.Button(
+                                        "Preview Cleanup",
+                                        id="preview-retention-cleanup-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Shows what would be removed if cleanup is added later.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Safety"),
+                                    html.Div("No delete button", className="setting-value"),
+                                    html.Div("This phase only previews cleanup impact.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="data-retention-preview-status",
+                        className="status-text settings-save-status",
+                        children="Retention preview has not been run yet."
+                    ),
+                    dash_table.DataTable(
+                        id="data-retention-preview-table",
+                        data=[],
+                        columns=[],
+                        page_size=12,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    ),
+                ],
+            ),
             settings_section(
                 "Trend Readiness",
                 "Shows whether daily aggregates are ready for short-term, 30-day, and monthly trend analysis.",

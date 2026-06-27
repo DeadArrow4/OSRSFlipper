@@ -39,11 +39,49 @@ empty_figure,
 )
 from data_health import build_data_health_snapshot, build_data_trend_snapshot, build_metrics_automation_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics, refresh_daily_metrics_if_stale
 from data_health import build_item_trend_explorer_snapshot
+from data_health import build_retention_preview_snapshot
 
 def register_dashboard_callbacks(app):
 
 
 
+
+
+    @app.callback(
+        Output("data-retention-preview-status", "children"),
+        Output("data-retention-preview-table", "data"),
+        Output("data-retention-preview-table", "columns"),
+        Input("preview-retention-cleanup-button", "n_clicks"),
+        State("raw-scan-retention-days", "value"),
+    )
+    def update_retention_preview(n_clicks, retention_days):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        try:
+            snapshot = build_retention_preview_snapshot(retention_days=retention_days)
+            rows = snapshot.get("rows", [])
+
+            return (
+                snapshot.get("status", "Retention preview loaded."),
+                rows,
+                columns_for(rows),
+            )
+        except Exception as exc:
+            rows = [
+                {
+                    "Metric": "Retention preview",
+                    "Value": "error",
+                    "Notes": f"{type(exc).__name__}: {str(exc)[:180]}",
+                }
+            ]
+            return (
+                f"Retention preview failed: {type(exc).__name__}: {exc}",
+                rows,
+                columns_for(rows),
+            )
 
     @app.callback(
         Output("item-trend-status", "children"),

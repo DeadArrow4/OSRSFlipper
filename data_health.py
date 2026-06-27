@@ -1503,3 +1503,253 @@ def refresh_daily_metrics_if_stale(
         "rebuild_result": rebuild_result,
         "rebuild_days": safe_days,
     }
+
+def _format_mb(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+
+    return f"{round(float(value), 2)} MB"
+
+
+def build_retention_preview_snapshot(retention_days: int | str | None = 90) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        if not _table_exists(conn, "scan_results"):
+            return {
+                "ok": False,
+                "status": "scan_results table was not found. No retention preview is available.",
+                "rows": [
+                    {
+                        "Metric": "scan_results",
+                        "Value": "missing",
+                        "Notes": "No raw scanner table was found.",
+                    }
+                ],
+            }
+
+        if "scanned_at" not in _columns(conn, "scan_results"):
+            return {
+                "ok": False,
+                "status": "scan_results.scanned_at was not found. No retention preview is available.",
+                "rows": [
+                    {
+                        "Metric": "scan_results.scanned_at",
+                        "Value": "missing",
+                        "Notes": "Retention preview requires scanned_at.",
+                    }
+                ],
+            }
+
+        try:
+            days_int = int(retention_days or 0)
+        except Exception:
+            days_int = 0
+
+        days_int = max(0, min(days_int, 3650))
+
+        total_rows = int(_scalar(conn, "SELECT COUNT(*) FROM scan_results") or 0)
+        oldest_scan = _scalar(conn, "SELECT MIN(scanned_at) FROM scan_results WHERE scanned_at IS NOT NULL AND TRIM(CAST(scanned_at AS TEXT)) <> ''")
+        newest_scan = _scalar(conn, "SELECT MAX(scanned_at) FROM scan_results WHERE scanned_at IS NOT NULL AND TRIM(CAST(scanned_at AS TEXT)) <> ''")
+        distinct_days = int(
+            _scalar(
+                conn,
+                """
+                SELECT COUNT(DISTINCT substr(CAST(scanned_at AS TEXT), 1, 10))
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND TRIM(CAST(scanned_at AS TEXT)) <> ''
+                """
+            )
+            or 0
+        )
+
+        db_size_mb = round(db_path.stat().st_size / 1024 / 1024, 2) if db_path.exists() else 0.0
+
+        if days_int <= 0:
+            rows = [
+                {
+                    "Metric": "Retention mode",
+                    "Value": "Keep forever",
+                    "Notes": "No rows would be removed.",
+                },
+                {
+                    "Metric": "scan_results rows",
+                    "Value": f"{total_rows:,}",
+                    "Notes": "All raw scan rows would be retained.",
+                },
+                {
+                    "Metric": "Scan date coverage",
+                    "Value": f"{distinct_days} day(s)",
+                    "Notes": f"{oldest_scan or ''} -> {newest_scan or ''}",
+                },
+                {
+                    "Metric": "Database size",
+                    "Value": _format_mb(db_size_mb),
+                    "Notes": "Preview only. Database is not changed.",
+                },
+            ]
+
+            return {
+                "ok": True,
+                "status": "Retention preview: Keep forever selected. No raw scan rows would be removed.",
+                "rows": rows,
+                "would_delete_rows": 0,
+                "would_keep_rows": total_rows,
+                "retention_days": days_int,
+                "cutoff_date": "",
+            }
+
+        newest_date = _date_only(newest_scan)
+        cutoff_date = _date_minus_days(newest_date, days_int) if newest_date else None
+
+        if not cutoff_date:
+            return {
+                "ok": False,
+                "status": "Retention preview could not determine a cutoff date from the newest scan.",
+                "rows": [
+                    {
+                        "Metric": "Newest scan",
+                        "Value": newest_scan or "",
+                        "Notes": "Could not parse newest scan date.",
+                    }
+                ],
+            }
+
+        delete_rows = int(
+            _scalar(
+                conn,
+                """
+                SELECT COUNT(*)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+                """,
+                (cutoff_date,),
+            )
+            or 0
+        )
+        keep_rows = max(total_rows - delete_rows, 0)
+
+        newest_deleted_scan = None
+        oldest_retained_scan = None
+
+        if delete_rows:
+            newest_deleted_scan = _scalar(
+                conn,
+                """
+                SELECT MAX(scanned_at)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+                """,
+                (cutoff_date,),
+            )
+
+        if keep_rows:
+            oldest_retained_scan = _scalar(
+                conn,
+                """
+                SELECT MIN(scanned_at)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) >= ?
+                """,
+                (cutoff_date,),
+            )
+
+        delete_pct = round((delete_rows / total_rows) * 100, 2) if total_rows else 0.0
+        keep_pct = round((keep_rows / total_rows) * 100, 2) if total_rows else 0.0
+
+        estimated_raw_scan_mb = None
+        estimated_deleted_mb = None
+        estimated_remaining_mb = None
+
+        if total_rows:
+            # This is intentionally conservative/rough. SQLite file size will
+            # not fully shrink until vacuum/backup compaction, so call it impact,
+            # not guaranteed immediate disk savings.
+            estimated_raw_scan_mb = db_size_mb * min(1.0, total_rows / max(total_rows, 1))
+            estimated_deleted_mb = db_size_mb * (delete_rows / total_rows)
+            estimated_remaining_mb = max(db_size_mb - estimated_deleted_mb, 0)
+
+        rows = [
+            {
+                "Metric": "Retention mode",
+                "Value": f"Keep last {days_int} day(s)",
+                "Notes": "Preview only. No rows are deleted.",
+            },
+            {
+                "Metric": "Cutoff date",
+                "Value": cutoff_date,
+                "Notes": f"Rows before this date would be candidates for cleanup.",
+            },
+            {
+                "Metric": "scan_results rows",
+                "Value": f"{total_rows:,}",
+                "Notes": f"{distinct_days} scan day(s): {oldest_scan or ''} -> {newest_scan or ''}",
+            },
+            {
+                "Metric": "Rows that would be removed",
+                "Value": f"{delete_rows:,}",
+                "Notes": f"{delete_pct}% of scan_results.",
+            },
+            {
+                "Metric": "Rows that would be retained",
+                "Value": f"{keep_rows:,}",
+                "Notes": f"{keep_pct}% of scan_results.",
+            },
+            {
+                "Metric": "Newest deleted scan",
+                "Value": newest_deleted_scan or "",
+                "Notes": "Newest raw scan row that would be removed.",
+            },
+            {
+                "Metric": "Oldest retained scan",
+                "Value": oldest_retained_scan or "",
+                "Notes": "Oldest raw scan row that would remain.",
+            },
+            {
+                "Metric": "Current database size",
+                "Value": _format_mb(db_size_mb),
+                "Notes": str(db_path.name),
+            },
+            {
+                "Metric": "Estimated impacted size",
+                "Value": _format_mb(estimated_deleted_mb),
+                "Notes": "Rough estimate. SQLite may require VACUUM/backup compaction to reclaim file space.",
+            },
+            {
+                "Metric": "Safety",
+                "Value": "Preview only",
+                "Notes": "This release phase does not delete, vacuum, or compact anything.",
+            },
+        ]
+
+        status = (
+            f"Retention preview complete. Keep last {days_int} day(s): "
+            f"{delete_rows:,} scan_results row(s) would be removable and {keep_rows:,} would remain. "
+            "No rows were deleted."
+        )
+
+        if delete_rows == 0:
+            status = (
+                f"Retention preview complete. Keep last {days_int} day(s): no raw scan rows are old enough to remove. "
+                "No rows were deleted."
+            )
+
+        return {
+            "ok": True,
+            "status": status,
+            "rows": rows,
+            "would_delete_rows": delete_rows,
+            "would_keep_rows": keep_rows,
+            "delete_pct": delete_pct,
+            "keep_pct": keep_pct,
+            "retention_days": days_int,
+            "cutoff_date": cutoff_date,
+            "estimated_deleted_mb": estimated_deleted_mb,
+            "estimated_remaining_mb": estimated_remaining_mb,
+        }
+    finally:
+        conn.close()
