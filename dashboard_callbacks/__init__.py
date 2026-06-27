@@ -41,6 +41,7 @@ from data_health import build_data_health_snapshot, build_data_trend_snapshot, b
 from data_health import build_item_trend_explorer_snapshot
 from data_health import build_retention_preview_snapshot
 from data_health import build_database_backup_snapshot, create_database_safety_backup
+from data_health import cleanup_scan_results_with_backup_guard
 
 def register_dashboard_callbacks(app):
 
@@ -110,20 +111,40 @@ def register_dashboard_callbacks(app):
                 columns_for(rows),
             )
 
+
     @app.callback(
         Output("data-retention-preview-status", "children"),
         Output("data-retention-preview-table", "data"),
         Output("data-retention-preview-table", "columns"),
         Input("preview-retention-cleanup-button", "n_clicks"),
+        Input("run-retention-cleanup-button", "n_clicks"),
         State("raw-scan-retention-days", "value"),
+        State("retention-cleanup-confirmation", "value"),
     )
-    def update_retention_preview(n_clicks, retention_days):
+    def update_retention_preview(preview_clicks, cleanup_clicks, retention_days, confirmation_text):
         def columns_for(rows):
             if not rows:
                 return []
             return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
 
         try:
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+
+            if triggered_id == "run-retention-cleanup-button":
+                result = cleanup_scan_results_with_backup_guard(
+                    retention_days=retention_days,
+                    confirmation_text=confirmation_text,
+                    backup_max_age_hours=24,
+                )
+                rows = result.get("rows", [])
+                return (
+                    result.get("status", "Cleanup check completed."),
+                    rows,
+                    columns_for(rows),
+                )
+
             snapshot = build_retention_preview_snapshot(retention_days=retention_days)
             rows = snapshot.get("rows", [])
 
@@ -135,13 +156,13 @@ def register_dashboard_callbacks(app):
         except Exception as exc:
             rows = [
                 {
-                    "Metric": "Retention preview",
+                    "Metric": "Retention cleanup",
                     "Value": "error",
                     "Notes": f"{type(exc).__name__}: {str(exc)[:180]}",
                 }
             ]
             return (
-                f"Retention preview failed: {type(exc).__name__}: {exc}",
+                f"Retention cleanup/preview failed: {type(exc).__name__}: {exc}",
                 rows,
                 columns_for(rows),
             )

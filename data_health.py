@@ -1863,3 +1863,267 @@ def build_database_backup_snapshot(limit: int = 10) -> dict[str, Any]:
         "backup_folder": str(backup_dir),
         "rows": rows,
     }
+
+RETENTION_CLEANUP_CONFIRMATION = "DELETE OLD SCANS"
+
+
+def _latest_safety_backup(max_age_hours: int = 24) -> dict[str, Any]:
+    backup_dir = _backup_dir()
+    max_age = max(1, int(max_age_hours or 24))
+
+    files = sorted(
+        [path for path in backup_dir.glob("*_safety_backup_*.db") if path.is_file()],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    if not files:
+        return {
+            "ok": False,
+            "status": "No database safety backup was found.",
+            "backup_path": "",
+            "backup_age_hours": None,
+            "backup_size_mb": None,
+            "max_age_hours": max_age,
+        }
+
+    latest = files[0]
+    stat = latest.stat()
+    age_hours = max(0.0, (datetime.now(timezone.utc) - datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)).total_seconds() / 3600)
+    size_mb = round(stat.st_size / 1024 / 1024, 2)
+    ok = latest.exists() and stat.st_size > 0 and age_hours <= max_age
+
+    if ok:
+        status = f"Fresh safety backup found: {latest.name} ({round(age_hours, 2)} hour(s) old, {size_mb} MB)."
+    else:
+        status = f"Latest safety backup is not fresh enough: {latest.name} ({round(age_hours, 2)} hour(s) old, {size_mb} MB)."
+
+    return {
+        "ok": ok,
+        "status": status,
+        "backup_path": str(latest),
+        "backup_file": latest.name,
+        "backup_age_hours": round(age_hours, 2),
+        "backup_size_mb": size_mb,
+        "max_age_hours": max_age,
+    }
+
+
+def cleanup_scan_results_with_backup_guard(
+    retention_days: int | str | None = 90,
+    confirmation_text: str | None = None,
+    backup_max_age_hours: int = 24,
+) -> dict[str, Any]:
+    confirmation = str(confirmation_text or "").strip()
+
+    try:
+        days_int = int(retention_days or 0)
+    except Exception:
+        days_int = 0
+
+    days_int = max(0, min(days_int, 3650))
+
+    preview = build_retention_preview_snapshot(retention_days=days_int)
+    preview_rows = list(preview.get("rows", []))
+
+    def rows_with_guard(extra_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return extra_rows + preview_rows
+
+    if days_int <= 0:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "Keep forever selected",
+                    "Notes": "Choose a retention window before cleanup can run.",
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: Keep forever is selected.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    if confirmation != RETENTION_CLEANUP_CONFIRMATION:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "confirmation required",
+                    "Notes": f'Type exactly "{RETENTION_CLEANUP_CONFIRMATION}" before cleanup can run.',
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": f'Cleanup blocked: confirmation text must be "{RETENTION_CLEANUP_CONFIRMATION}".',
+            "rows": rows,
+            "preview": preview,
+        }
+
+    if not preview.get("ok", False):
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "preview failed",
+                    "Notes": preview.get("status", "Retention preview was not successful."),
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: retention preview failed.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    would_delete_rows = int(preview.get("would_delete_rows") or 0)
+
+    if would_delete_rows <= 0:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup skipped",
+                    "Value": "0 rows eligible",
+                    "Notes": "No raw scan_results rows are old enough to remove.",
+                }
+            ]
+        )
+        return {
+            "ok": True,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup skipped: no raw scan rows are old enough to remove.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    backup_check = _latest_safety_backup(max_age_hours=backup_max_age_hours)
+
+    if not backup_check.get("ok", False):
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "fresh backup required",
+                    "Notes": backup_check.get("status", "Create a safety backup first."),
+                },
+                {
+                    "Metric": "Required backup age",
+                    "Value": f"<= {backup_max_age_hours} hours",
+                    "Notes": "Use Database Backup > Create Safety Backup, then retry cleanup.",
+                },
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: create a fresh database safety backup first.",
+            "rows": rows,
+            "preview": preview,
+            "backup_check": backup_check,
+        }
+
+    cutoff_date = preview.get("cutoff_date")
+
+    if not cutoff_date:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "missing cutoff date",
+                    "Notes": "Retention preview did not return a cutoff date.",
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: cutoff date is missing.",
+            "rows": rows,
+            "preview": preview,
+            "backup_check": backup_check,
+        }
+
+    # Preserve aggregate history before raw rows are removed. This is intentionally
+    # broad so long-term daily_item_metrics remains available even after raw
+    # scan_results is trimmed.
+    metrics_result = rebuild_daily_item_metrics(days=3650)
+
+    conn, db_path = _connect()
+
+    try:
+        cursor = conn.execute(
+            """
+            DELETE FROM scan_results
+            WHERE scanned_at IS NOT NULL
+              AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+            """,
+            (cutoff_date,),
+        )
+        deleted_rows = cursor.rowcount if cursor.rowcount is not None else would_delete_rows
+        conn.commit()
+    finally:
+        conn.close()
+
+    after_preview = build_retention_preview_snapshot(retention_days=days_int)
+
+    rows = [
+        {
+            "Metric": "Cleanup action",
+            "Value": "completed",
+            "Notes": "Raw scan_results rows older than the cutoff were deleted.",
+        },
+        {
+            "Metric": "Deleted rows",
+            "Value": f"{int(deleted_rows or 0):,}",
+            "Notes": f"Preview expected {would_delete_rows:,} row(s).",
+        },
+        {
+            "Metric": "Retention window",
+            "Value": f"{days_int} day(s)",
+            "Notes": f"Cutoff date: {cutoff_date}",
+        },
+        {
+            "Metric": "Safety backup used",
+            "Value": backup_check.get("backup_file", ""),
+            "Notes": backup_check.get("status", ""),
+        },
+        {
+            "Metric": "Daily metrics preserved",
+            "Value": "rebuilt before cleanup",
+            "Notes": metrics_result.get("status", ""),
+        },
+        {
+            "Metric": "Compaction",
+            "Value": "not run",
+            "Notes": "SQLite file size may not shrink until a future VACUUM/compact feature.",
+        },
+    ] + list(after_preview.get("rows", []))
+
+    return {
+        "ok": True,
+        "cleanup_ran": True,
+        "deleted_rows": int(deleted_rows or 0),
+        "status": (
+            f"Cleanup complete. Deleted {int(deleted_rows or 0):,} old raw scan_results row(s). "
+            f"Backup used: {backup_check.get('backup_file', '')}. "
+            "Daily metrics were rebuilt before cleanup. Database compaction was not run."
+        ),
+        "rows": rows,
+        "preview": preview,
+        "after_preview": after_preview,
+        "backup_check": backup_check,
+        "metrics_result": metrics_result,
+    }

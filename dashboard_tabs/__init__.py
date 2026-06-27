@@ -2386,6 +2386,45 @@ def build_data_health_tab():
                             ),
                         ],
                     ),
+
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Cleanup confirmation",
+                                dcc.Input(
+                                    id="retention-cleanup-confirmation",
+                                    type="text",
+                                    placeholder="Type DELETE OLD SCANS",
+                                    value="",
+                                    className="settings-input",
+                                    persistence=False,
+                                ),
+                                "Required text: DELETE OLD SCANS"
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Guarded Cleanup"),
+                                    html.Button(
+                                        "Delete Old Raw Scan Rows",
+                                        id="run-retention-cleanup-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Requires preview settings, exact confirmation, and a fresh safety backup.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Backup Guard"),
+                                    html.Div("Fresh backup required", className="setting-value"),
+                                    html.Div("Backup must be 24 hours old or newer.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
                     html.Div(
                         id="data-retention-preview-status",
                         className="status-text settings-save-status",
