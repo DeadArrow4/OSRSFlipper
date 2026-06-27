@@ -2126,6 +2126,36 @@ def build_data_health_tab():
                     )
                 ],
             ),
+            settings_section(
+                "Trend Readiness",
+                "Shows whether daily aggregates are ready for short-term, 30-day, and monthly trend analysis.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-trend-readiness-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+            settings_section(
+                "Early Trend Signals",
+                "Uses daily_item_metrics to rank items with improving margin/score and enough daily observations. This is a signal view, not automatic prediction.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-trend-items-table",
+                        data=[],
+                        columns=[],
+                        page_size=15,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
         ],
     )
 

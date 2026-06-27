@@ -862,3 +862,224 @@ def build_data_health_snapshot() -> dict[str, Any]:
         }
     finally:
         conn.close()
+
+def _trend_value(current_value: float | None, previous_value: float | None) -> tuple[float | None, str]:
+    if current_value is None or previous_value is None:
+        return None, "not enough data"
+
+    delta = current_value - previous_value
+
+    if abs(delta) < 0.01:
+        return delta, "flat"
+
+    return delta, "up" if delta > 0 else "down"
+
+
+def build_data_trend_snapshot(limit: int = 25) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        if not _table_exists(conn, "daily_item_metrics"):
+            return {
+                "ok": False,
+                "status": "daily_item_metrics is missing. Click Apply Data Schema / Indexes, then Rebuild Daily Item Metrics.",
+                "readiness": [
+                    {
+                        "Signal": "Daily metrics",
+                        "Available": "missing",
+                        "Target": "created table",
+                        "Status": "not ready",
+                        "Notes": "daily_item_metrics table has not been created yet.",
+                    }
+                ],
+                "top_trends": [],
+            }
+
+        total_rows = int(_scalar(conn, "SELECT COUNT(*) FROM daily_item_metrics") or 0)
+        distinct_days = int(_scalar(conn, "SELECT COUNT(DISTINCT metric_date) FROM daily_item_metrics") or 0)
+        distinct_items = int(_scalar(conn, "SELECT COUNT(DISTINCT item_name) FROM daily_item_metrics") or 0)
+        newest_date = _scalar(conn, "SELECT MAX(metric_date) FROM daily_item_metrics")
+        oldest_date = _scalar(conn, "SELECT MIN(metric_date) FROM daily_item_metrics")
+
+        readiness = []
+
+        def add_readiness(signal: str, available: Any, target: Any, status: str, notes: str) -> None:
+            readiness.append(
+                {
+                    "Signal": signal,
+                    "Available": available,
+                    "Target": target,
+                    "Status": status,
+                    "Notes": notes,
+                }
+            )
+
+        add_readiness(
+            "Daily aggregate rows",
+            f"{total_rows:,}",
+            "> 0",
+            "ready" if total_rows > 0 else "not ready",
+            "Rows in daily_item_metrics.",
+        )
+        add_readiness(
+            "Distinct metric days",
+            distinct_days,
+            "7+",
+            "ready" if distinct_days >= 7 else "building",
+            f"{oldest_date or ''} -> {newest_date or ''}. Short-term trend scoring improves at 7+ days.",
+        )
+        add_readiness(
+            "30-day trend window",
+            distinct_days,
+            "30+",
+            "ready" if distinct_days >= 30 else "building",
+            "Needed for stronger medium-term direction and stability signals.",
+        )
+        add_readiness(
+            "90-day trend window",
+            distinct_days,
+            "90+",
+            "ready" if distinct_days >= 90 else "building",
+            "Needed before treating monthly/seasonal trend predictions as meaningful.",
+        )
+        add_readiness(
+            "Distinct items",
+            f"{distinct_items:,}",
+            "100+",
+            "ready" if distinct_items >= 100 else "building",
+            "More items give the dashboard better comparison/ranking context.",
+        )
+
+        if total_rows <= 0:
+            return {
+                "ok": True,
+                "status": "Trend readiness loaded, but daily_item_metrics has no rows yet.",
+                "readiness": readiness,
+                "top_trends": [],
+            }
+
+        raw_rows = conn.execute(
+            """
+            WITH per_item AS (
+                SELECT
+                    item_name,
+                    COUNT(DISTINCT metric_date) AS days_seen,
+                    MIN(metric_date) AS first_date,
+                    MAX(metric_date) AS last_date,
+                    AVG(avg_margin) AS avg_margin_all,
+                    AVG(avg_roi) AS avg_roi_all,
+                    AVG(avg_volume) AS avg_volume_all,
+                    AVG(avg_recommendation_score) AS avg_score_all,
+                    AVG(margin_volatility) AS avg_margin_volatility,
+                    SUM(scan_count) AS scan_count_total
+                FROM daily_item_metrics
+                GROUP BY item_name
+            ),
+            first_day AS (
+                SELECT d.item_name, AVG(d.avg_margin) AS first_margin, AVG(d.avg_recommendation_score) AS first_score
+                FROM daily_item_metrics d
+                JOIN per_item p
+                  ON p.item_name = d.item_name
+                 AND p.first_date = d.metric_date
+                GROUP BY d.item_name
+            ),
+            last_day AS (
+                SELECT d.item_name, AVG(d.avg_margin) AS last_margin, AVG(d.avg_recommendation_score) AS last_score
+                FROM daily_item_metrics d
+                JOIN per_item p
+                  ON p.item_name = d.item_name
+                 AND p.last_date = d.metric_date
+                GROUP BY d.item_name
+            )
+            SELECT
+                p.item_name,
+                p.days_seen,
+                p.first_date,
+                p.last_date,
+                ROUND(p.avg_margin_all, 2) AS avg_margin,
+                ROUND(p.avg_roi_all, 2) AS avg_roi,
+                ROUND(p.avg_volume_all, 2) AS avg_volume,
+                ROUND(p.avg_score_all, 2) AS avg_score,
+                ROUND(p.avg_margin_volatility, 2) AS margin_volatility,
+                p.scan_count_total,
+                ROUND(f.first_margin, 2) AS first_margin,
+                ROUND(l.last_margin, 2) AS last_margin,
+                ROUND(f.first_score, 2) AS first_score,
+                ROUND(l.last_score, 2) AS last_score
+            FROM per_item p
+            LEFT JOIN first_day f ON f.item_name = p.item_name
+            LEFT JOIN last_day l ON l.item_name = p.item_name
+            WHERE p.days_seen >= 2
+            ORDER BY p.days_seen DESC, p.avg_score_all DESC
+            LIMIT 500
+            """
+        ).fetchall()
+
+        trend_rows = []
+
+        for row in raw_rows:
+            margin_delta, margin_direction = _trend_value(row["last_margin"], row["first_margin"])
+            score_delta, score_direction = _trend_value(row["last_score"], row["first_score"])
+
+            margin_delta_value = round(margin_delta, 2) if margin_delta is not None else None
+            score_delta_value = round(score_delta, 2) if score_delta is not None else None
+
+            days_seen = int(row["days_seen"] or 0)
+            scan_count_total = int(row["scan_count_total"] or 0)
+            avg_score = row["avg_score"] if row["avg_score"] is not None else 0
+            margin_volatility = row["margin_volatility"] if row["margin_volatility"] is not None else 0
+
+            readiness_weight = min(days_seen / 7, 1.0)
+            score_component = float(avg_score or 0)
+            margin_component = max(float(margin_delta_value or 0), 0) / 100
+            score_delta_component = max(float(score_delta_value or 0), 0)
+            volatility_penalty = min(abs(float(margin_volatility or 0)) / 1000, 25)
+            scan_weight = min(scan_count_total / 25, 10)
+
+            trend_score = round(
+                readiness_weight
+                * (
+                    (score_component * 0.45)
+                    + (score_delta_component * 0.30)
+                    + (margin_component * 0.15)
+                    + (scan_weight * 0.10)
+                    - volatility_penalty
+                ),
+                2,
+            )
+
+            trend_rows.append(
+                {
+                    "Item": row["item_name"],
+                    "Days Seen": days_seen,
+                    "First Date": row["first_date"],
+                    "Last Date": row["last_date"],
+                    "Trend Score": trend_score,
+                    "Avg Score": row["avg_score"],
+                    "Score Δ": score_delta_value,
+                    "Score Direction": score_direction,
+                    "Avg Margin": row["avg_margin"],
+                    "Margin Δ": margin_delta_value,
+                    "Margin Direction": margin_direction,
+                    "Margin Volatility": row["margin_volatility"],
+                    "Total Scans": scan_count_total,
+                }
+            )
+
+        trend_rows.sort(key=lambda item: (item["Trend Score"], item["Days Seen"], item["Total Scans"]), reverse=True)
+        trend_rows = trend_rows[: max(1, min(int(limit or 25), 100))]
+
+        status = (
+            f"Trend readiness loaded from daily_item_metrics. "
+            f"{total_rows:,} metric rows, {distinct_days} day(s), {distinct_items:,} item(s). "
+            f"Top trend rows shown: {len(trend_rows)}."
+        )
+
+        return {
+            "ok": True,
+            "status": status,
+            "readiness": readiness,
+            "top_trends": trend_rows,
+        }
+    finally:
+        conn.close()

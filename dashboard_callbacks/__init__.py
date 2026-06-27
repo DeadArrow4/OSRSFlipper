@@ -37,10 +37,55 @@ empty_figure,
     apply_dark_chart_layout,
     make_card,
 )
-from data_health import build_data_health_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
+from data_health import build_data_health_snapshot, build_data_trend_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
 
 def register_dashboard_callbacks(app):
 
+
+
+    @app.callback(
+        Output("data-health-trend-readiness-table", "data"),
+        Output("data-health-trend-readiness-table", "columns"),
+        Output("data-health-trend-items-table", "data"),
+        Output("data-health-trend-items-table", "columns"),
+        Input("refresh-data-health-button", "n_clicks"),
+        Input("apply-data-health-schema-button", "n_clicks"),
+        Input("rebuild-daily-metrics-button", "n_clicks"),
+    )
+    def update_data_trend_readiness(refresh_clicks, schema_clicks, rebuild_clicks):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        try:
+            snapshot = build_data_trend_snapshot(limit=25)
+
+            readiness = snapshot.get("readiness", [])
+            top_trends = snapshot.get("top_trends", [])
+
+            return (
+                readiness,
+                columns_for(readiness),
+                top_trends,
+                columns_for(top_trends),
+            )
+        except Exception as exc:
+            readiness = [
+                {
+                    "Signal": "Trend readiness",
+                    "Available": "error",
+                    "Target": "load snapshot",
+                    "Status": type(exc).__name__,
+                    "Notes": str(exc)[:120],
+                }
+            ]
+            return (
+                readiness,
+                columns_for(readiness),
+                [],
+                [],
+            )
 
     @app.callback(
         Output("data-health-status", "children"),
