@@ -1329,3 +1329,801 @@ def build_item_trend_explorer_snapshot(item_query: str | None = None, days: int 
         }
     finally:
         conn.close()
+
+def _date_only(value: Any) -> str | None:
+    parsed = _parse_datetime(value)
+
+    if parsed:
+        return parsed.date().isoformat()
+
+    text = str(value or "").strip()
+
+    if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
+        return text[:10]
+
+    return None
+
+
+def _hours_since(value: Any) -> float | None:
+    parsed = _parse_datetime(value)
+
+    if not parsed:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return max(0.0, (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 3600)
+
+
+def build_metrics_automation_snapshot(max_age_hours: int = 12) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        checks: list[dict[str, Any]] = []
+
+        def add_check(check: str, value: Any, status: str, notes: str) -> None:
+            checks.append(
+                {
+                    "Check": check,
+                    "Value": value,
+                    "Status": status,
+                    "Notes": notes,
+                }
+            )
+
+        scan_rows = 0
+        scan_latest = None
+        scan_latest_date = None
+        metric_rows = 0
+        metric_latest_date = None
+        metric_updated_at = None
+        stale_days = None
+
+        if _table_exists(conn, "scan_results"):
+            scan_rows = int(_scalar(conn, "SELECT COUNT(*) FROM scan_results") or 0)
+            if "scanned_at" in _columns(conn, "scan_results"):
+                scan_latest = _scalar(conn, "SELECT MAX(scanned_at) FROM scan_results")
+                scan_latest_date = _date_only(scan_latest)
+
+        if _table_exists(conn, "daily_item_metrics"):
+            metric_rows = int(_scalar(conn, "SELECT COUNT(*) FROM daily_item_metrics") or 0)
+            metric_latest_date = _scalar(conn, "SELECT MAX(metric_date) FROM daily_item_metrics")
+            if "updated_at" in _columns(conn, "daily_item_metrics"):
+                metric_updated_at = _scalar(conn, "SELECT MAX(updated_at) FROM daily_item_metrics")
+
+        if scan_latest_date and metric_latest_date:
+            try:
+                stale_days = (
+                    datetime.strptime(scan_latest_date, "%Y-%m-%d").date()
+                    - datetime.strptime(str(metric_latest_date)[:10], "%Y-%m-%d").date()
+                ).days
+            except Exception:
+                stale_days = None
+
+        updated_age_hours = _hours_since(metric_updated_at)
+        max_age = max(1, int(max_age_hours or 12))
+
+        if not _table_exists(conn, "daily_item_metrics"):
+            freshness_status = "schema missing"
+            freshness_notes = "Click Apply Data Schema / Indexes before refreshing metrics."
+        elif metric_rows <= 0:
+            freshness_status = "empty"
+            freshness_notes = "Click Rebuild Daily Item Metrics or Refresh Stale Metrics."
+        elif stale_days is not None and stale_days > 0:
+            freshness_status = "stale"
+            freshness_notes = f"daily_item_metrics is {stale_days} day(s) behind scan_results."
+        elif updated_age_hours is not None and updated_age_hours > max_age:
+            freshness_status = "aging"
+            freshness_notes = f"Metrics were last rebuilt about {round(updated_age_hours, 1)} hour(s) ago."
+        else:
+            freshness_status = "current"
+            freshness_notes = "daily_item_metrics appears current enough for trend views."
+
+        add_check("scan_results rows", f"{scan_rows:,}", "ok" if scan_rows else "missing", "Raw scanner observations.")
+        add_check("latest scan date", scan_latest_date or "", "ok" if scan_latest_date else "missing", str(scan_latest or ""))
+        add_check("daily_item_metrics rows", f"{metric_rows:,}", "ok" if metric_rows else "empty", "Aggregate rows used by Data Health and Item Trends.")
+        add_check("latest metric date", metric_latest_date or "", "ok" if metric_latest_date else "missing", "Newest daily aggregate date.")
+        add_check(
+            "metrics updated age",
+            "n/a" if updated_age_hours is None else f"{round(updated_age_hours, 1)} hours",
+            "ok" if updated_age_hours is not None and updated_age_hours <= max_age else "aging",
+            f"Target age <= {max_age} hours.",
+        )
+        add_check(
+            "freshness",
+            freshness_status,
+            "ready" if freshness_status == "current" else "needs attention",
+            freshness_notes,
+        )
+
+        return {
+            "ok": True,
+            "database_path": str(db_path),
+            "checks": checks,
+            "scan_rows": scan_rows,
+            "scan_latest_date": scan_latest_date,
+            "metric_rows": metric_rows,
+            "metric_latest_date": metric_latest_date,
+            "metric_updated_at": metric_updated_at,
+            "stale_days": stale_days,
+            "updated_age_hours": updated_age_hours,
+            "freshness_status": freshness_status,
+            "needs_refresh": freshness_status in {"schema missing", "empty", "stale", "aging"},
+        }
+    finally:
+        conn.close()
+
+
+def refresh_daily_metrics_if_stale(
+    max_age_hours: int = 12,
+    rebuild_days: int = 14,
+    force: bool = False,
+) -> dict[str, Any]:
+    schema_result = ensure_data_health_schema()
+    before = build_metrics_automation_snapshot(max_age_hours=max_age_hours)
+
+    stale_days = before.get("stale_days")
+    metric_rows = int(before.get("metric_rows") or 0)
+    needs_refresh = bool(before.get("needs_refresh"))
+
+    should_refresh = bool(force or needs_refresh)
+
+    if not should_refresh:
+        return {
+            "ok": True,
+            "refreshed": False,
+            "status": "Daily metrics are current enough; no rebuild was needed.",
+            "before": before,
+            "after": before,
+            "schema_result": schema_result,
+        }
+
+    safe_days = max(1, min(int(rebuild_days or 14), 3650))
+
+    if stale_days is not None and stale_days > 0:
+        safe_days = max(safe_days, min(int(stale_days) + 3, 3650))
+
+    if metric_rows <= 0:
+        safe_days = max(safe_days, 120)
+
+    rebuild_result = rebuild_daily_item_metrics(days=safe_days)
+    after = build_metrics_automation_snapshot(max_age_hours=max_age_hours)
+
+    return {
+        "ok": bool(rebuild_result.get("ok", False)),
+        "refreshed": True,
+        "status": (
+            f"Stale daily metrics refresh complete. "
+            f"Rebuilt last {safe_days} day(s). {rebuild_result.get('status', '')}"
+        ),
+        "before": before,
+        "after": after,
+        "schema_result": schema_result,
+        "rebuild_result": rebuild_result,
+        "rebuild_days": safe_days,
+    }
+
+def _format_mb(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+
+    return f"{round(float(value), 2)} MB"
+
+
+def build_retention_preview_snapshot(retention_days: int | str | None = 90) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        if not _table_exists(conn, "scan_results"):
+            return {
+                "ok": False,
+                "status": "scan_results table was not found. No retention preview is available.",
+                "rows": [
+                    {
+                        "Metric": "scan_results",
+                        "Value": "missing",
+                        "Notes": "No raw scanner table was found.",
+                    }
+                ],
+            }
+
+        if "scanned_at" not in _columns(conn, "scan_results"):
+            return {
+                "ok": False,
+                "status": "scan_results.scanned_at was not found. No retention preview is available.",
+                "rows": [
+                    {
+                        "Metric": "scan_results.scanned_at",
+                        "Value": "missing",
+                        "Notes": "Retention preview requires scanned_at.",
+                    }
+                ],
+            }
+
+        try:
+            days_int = int(retention_days or 0)
+        except Exception:
+            days_int = 0
+
+        days_int = max(0, min(days_int, 3650))
+
+        total_rows = int(_scalar(conn, "SELECT COUNT(*) FROM scan_results") or 0)
+        oldest_scan = _scalar(conn, "SELECT MIN(scanned_at) FROM scan_results WHERE scanned_at IS NOT NULL AND TRIM(CAST(scanned_at AS TEXT)) <> ''")
+        newest_scan = _scalar(conn, "SELECT MAX(scanned_at) FROM scan_results WHERE scanned_at IS NOT NULL AND TRIM(CAST(scanned_at AS TEXT)) <> ''")
+        distinct_days = int(
+            _scalar(
+                conn,
+                """
+                SELECT COUNT(DISTINCT substr(CAST(scanned_at AS TEXT), 1, 10))
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND TRIM(CAST(scanned_at AS TEXT)) <> ''
+                """
+            )
+            or 0
+        )
+
+        db_size_mb = round(db_path.stat().st_size / 1024 / 1024, 2) if db_path.exists() else 0.0
+
+        if days_int <= 0:
+            rows = [
+                {
+                    "Metric": "Retention mode",
+                    "Value": "Keep forever",
+                    "Notes": "No rows would be removed.",
+                },
+                {
+                    "Metric": "scan_results rows",
+                    "Value": f"{total_rows:,}",
+                    "Notes": "All raw scan rows would be retained.",
+                },
+                {
+                    "Metric": "Scan date coverage",
+                    "Value": f"{distinct_days} day(s)",
+                    "Notes": f"{oldest_scan or ''} -> {newest_scan or ''}",
+                },
+                {
+                    "Metric": "Database size",
+                    "Value": _format_mb(db_size_mb),
+                    "Notes": "Preview only. Database is not changed.",
+                },
+            ]
+
+            return {
+                "ok": True,
+                "status": "Retention preview: Keep forever selected. No raw scan rows would be removed.",
+                "rows": rows,
+                "would_delete_rows": 0,
+                "would_keep_rows": total_rows,
+                "retention_days": days_int,
+                "cutoff_date": "",
+            }
+
+        newest_date = _date_only(newest_scan)
+        cutoff_date = _date_minus_days(newest_date, days_int) if newest_date else None
+
+        if not cutoff_date:
+            return {
+                "ok": False,
+                "status": "Retention preview could not determine a cutoff date from the newest scan.",
+                "rows": [
+                    {
+                        "Metric": "Newest scan",
+                        "Value": newest_scan or "",
+                        "Notes": "Could not parse newest scan date.",
+                    }
+                ],
+            }
+
+        delete_rows = int(
+            _scalar(
+                conn,
+                """
+                SELECT COUNT(*)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+                """,
+                (cutoff_date,),
+            )
+            or 0
+        )
+        keep_rows = max(total_rows - delete_rows, 0)
+
+        newest_deleted_scan = None
+        oldest_retained_scan = None
+
+        if delete_rows:
+            newest_deleted_scan = _scalar(
+                conn,
+                """
+                SELECT MAX(scanned_at)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+                """,
+                (cutoff_date,),
+            )
+
+        if keep_rows:
+            oldest_retained_scan = _scalar(
+                conn,
+                """
+                SELECT MIN(scanned_at)
+                FROM scan_results
+                WHERE scanned_at IS NOT NULL
+                  AND substr(CAST(scanned_at AS TEXT), 1, 10) >= ?
+                """,
+                (cutoff_date,),
+            )
+
+        delete_pct = round((delete_rows / total_rows) * 100, 2) if total_rows else 0.0
+        keep_pct = round((keep_rows / total_rows) * 100, 2) if total_rows else 0.0
+
+        estimated_raw_scan_mb = None
+        estimated_deleted_mb = None
+        estimated_remaining_mb = None
+
+        if total_rows:
+            # This is intentionally conservative/rough. SQLite file size will
+            # not fully shrink until vacuum/backup compaction, so call it impact,
+            # not guaranteed immediate disk savings.
+            estimated_raw_scan_mb = db_size_mb * min(1.0, total_rows / max(total_rows, 1))
+            estimated_deleted_mb = db_size_mb * (delete_rows / total_rows)
+            estimated_remaining_mb = max(db_size_mb - estimated_deleted_mb, 0)
+
+        rows = [
+            {
+                "Metric": "Retention mode",
+                "Value": f"Keep last {days_int} day(s)",
+                "Notes": "Preview only. No rows are deleted.",
+            },
+            {
+                "Metric": "Cutoff date",
+                "Value": cutoff_date,
+                "Notes": f"Rows before this date would be candidates for cleanup.",
+            },
+            {
+                "Metric": "scan_results rows",
+                "Value": f"{total_rows:,}",
+                "Notes": f"{distinct_days} scan day(s): {oldest_scan or ''} -> {newest_scan or ''}",
+            },
+            {
+                "Metric": "Rows that would be removed",
+                "Value": f"{delete_rows:,}",
+                "Notes": f"{delete_pct}% of scan_results.",
+            },
+            {
+                "Metric": "Rows that would be retained",
+                "Value": f"{keep_rows:,}",
+                "Notes": f"{keep_pct}% of scan_results.",
+            },
+            {
+                "Metric": "Newest deleted scan",
+                "Value": newest_deleted_scan or "",
+                "Notes": "Newest raw scan row that would be removed.",
+            },
+            {
+                "Metric": "Oldest retained scan",
+                "Value": oldest_retained_scan or "",
+                "Notes": "Oldest raw scan row that would remain.",
+            },
+            {
+                "Metric": "Current database size",
+                "Value": _format_mb(db_size_mb),
+                "Notes": str(db_path.name),
+            },
+            {
+                "Metric": "Estimated impacted size",
+                "Value": _format_mb(estimated_deleted_mb),
+                "Notes": "Rough estimate. SQLite may require VACUUM/backup compaction to reclaim file space.",
+            },
+            {
+                "Metric": "Safety",
+                "Value": "Preview only",
+                "Notes": "This release phase does not delete, vacuum, or compact anything.",
+            },
+        ]
+
+        status = (
+            f"Retention preview complete. Keep last {days_int} day(s): "
+            f"{delete_rows:,} scan_results row(s) would be removable and {keep_rows:,} would remain. "
+            "No rows were deleted."
+        )
+
+        if delete_rows == 0:
+            status = (
+                f"Retention preview complete. Keep last {days_int} day(s): no raw scan rows are old enough to remove. "
+                "No rows were deleted."
+            )
+
+        return {
+            "ok": True,
+            "status": status,
+            "rows": rows,
+            "would_delete_rows": delete_rows,
+            "would_keep_rows": keep_rows,
+            "delete_pct": delete_pct,
+            "keep_pct": keep_pct,
+            "retention_days": days_int,
+            "cutoff_date": cutoff_date,
+            "estimated_deleted_mb": estimated_deleted_mb,
+            "estimated_remaining_mb": estimated_remaining_mb,
+        }
+    finally:
+        conn.close()
+
+def _backup_dir() -> Path:
+    path = BASE_DIR / "backups" / "database"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def create_database_safety_backup() -> dict[str, Any]:
+    source_conn, db_path = _connect()
+    backup_conn = None
+
+    try:
+        backup_dir = _backup_dir()
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        backup_path = backup_dir / f"{db_path.stem}_safety_backup_{timestamp}{db_path.suffix or '.db'}"
+        metadata_path = backup_path.with_suffix(backup_path.suffix + ".txt")
+
+        backup_conn = sqlite3.connect(backup_path)
+        source_conn.backup(backup_conn)
+        backup_conn.close()
+        backup_conn = None
+
+        source_size = db_path.stat().st_size if db_path.exists() else 0
+        backup_size = backup_path.stat().st_size if backup_path.exists() else 0
+
+        metadata = [
+            "OSRSFlipper database safety backup",
+            f"created_at_utc={datetime.now(timezone.utc).isoformat(timespec='seconds')}",
+            f"source={db_path}",
+            f"backup={backup_path}",
+            f"source_size_bytes={source_size}",
+            f"backup_size_bytes={backup_size}",
+            f"verified_exists={backup_path.exists()}",
+        ]
+        metadata_path.write_text("\n".join(metadata) + "\n", encoding="utf-8")
+
+        ok = backup_path.exists() and backup_size > 0
+
+        if source_size > 0:
+            # sqlite backup API can change size slightly depending on page/free-list
+            # state, so this is an informational check rather than exact equality.
+            size_note = f"source={round(source_size / 1024 / 1024, 2)} MB, backup={round(backup_size / 1024 / 1024, 2)} MB"
+        else:
+            size_note = f"backup={round(backup_size / 1024 / 1024, 2)} MB"
+
+        return {
+            "ok": ok,
+            "status": (
+                f"Database safety backup created: {backup_path.name}. {size_note}."
+                if ok
+                else f"Database safety backup may have failed: {backup_path.name}."
+            ),
+            "source_path": str(db_path),
+            "backup_path": str(backup_path),
+            "metadata_path": str(metadata_path),
+            "source_size_mb": round(source_size / 1024 / 1024, 2),
+            "backup_size_mb": round(backup_size / 1024 / 1024, 2),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+    finally:
+        try:
+            if backup_conn is not None:
+                backup_conn.close()
+        finally:
+            source_conn.close()
+
+
+def build_database_backup_snapshot(limit: int = 10) -> dict[str, Any]:
+    conn, db_path = _connect()
+    conn.close()
+
+    backup_dir = _backup_dir()
+    limit_int = max(1, min(int(limit or 10), 100))
+
+    files = sorted(
+        [path for path in backup_dir.glob("*.db") if path.is_file()],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    rows = []
+
+    for path in files[:limit_int]:
+        stat = path.stat()
+        modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(timespec="seconds")
+        metadata_path = path.with_suffix(path.suffix + ".txt")
+
+        rows.append(
+            {
+                "Backup File": path.name,
+                "Size": f"{round(stat.st_size / 1024 / 1024, 2)} MB",
+                "Modified UTC": modified,
+                "Metadata": "yes" if metadata_path.exists() else "no",
+                "Folder": str(path.parent),
+                "Status": "exists" if path.exists() and stat.st_size > 0 else "check",
+            }
+        )
+
+    if rows:
+        status = f"Found {len(files)} database backup file(s). Showing latest {len(rows)}."
+    else:
+        status = "No database safety backups found yet."
+
+    return {
+        "ok": True,
+        "status": status,
+        "source_database": str(db_path),
+        "backup_folder": str(backup_dir),
+        "rows": rows,
+    }
+
+RETENTION_CLEANUP_CONFIRMATION = "DELETE OLD SCANS"
+
+
+def _latest_safety_backup(max_age_hours: int = 24) -> dict[str, Any]:
+    backup_dir = _backup_dir()
+    max_age = max(1, int(max_age_hours or 24))
+
+    files = sorted(
+        [path for path in backup_dir.glob("*_safety_backup_*.db") if path.is_file()],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    if not files:
+        return {
+            "ok": False,
+            "status": "No database safety backup was found.",
+            "backup_path": "",
+            "backup_age_hours": None,
+            "backup_size_mb": None,
+            "max_age_hours": max_age,
+        }
+
+    latest = files[0]
+    stat = latest.stat()
+    age_hours = max(0.0, (datetime.now(timezone.utc) - datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)).total_seconds() / 3600)
+    size_mb = round(stat.st_size / 1024 / 1024, 2)
+    ok = latest.exists() and stat.st_size > 0 and age_hours <= max_age
+
+    if ok:
+        status = f"Fresh safety backup found: {latest.name} ({round(age_hours, 2)} hour(s) old, {size_mb} MB)."
+    else:
+        status = f"Latest safety backup is not fresh enough: {latest.name} ({round(age_hours, 2)} hour(s) old, {size_mb} MB)."
+
+    return {
+        "ok": ok,
+        "status": status,
+        "backup_path": str(latest),
+        "backup_file": latest.name,
+        "backup_age_hours": round(age_hours, 2),
+        "backup_size_mb": size_mb,
+        "max_age_hours": max_age,
+    }
+
+
+def cleanup_scan_results_with_backup_guard(
+    retention_days: int | str | None = 90,
+    confirmation_text: str | None = None,
+    backup_max_age_hours: int = 24,
+) -> dict[str, Any]:
+    confirmation = str(confirmation_text or "").strip()
+
+    try:
+        days_int = int(retention_days or 0)
+    except Exception:
+        days_int = 0
+
+    days_int = max(0, min(days_int, 3650))
+
+    preview = build_retention_preview_snapshot(retention_days=days_int)
+    preview_rows = list(preview.get("rows", []))
+
+    def rows_with_guard(extra_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return extra_rows + preview_rows
+
+    if days_int <= 0:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "Keep forever selected",
+                    "Notes": "Choose a retention window before cleanup can run.",
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: Keep forever is selected.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    if confirmation != RETENTION_CLEANUP_CONFIRMATION:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "confirmation required",
+                    "Notes": f'Type exactly "{RETENTION_CLEANUP_CONFIRMATION}" before cleanup can run.',
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": f'Cleanup blocked: confirmation text must be "{RETENTION_CLEANUP_CONFIRMATION}".',
+            "rows": rows,
+            "preview": preview,
+        }
+
+    if not preview.get("ok", False):
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "preview failed",
+                    "Notes": preview.get("status", "Retention preview was not successful."),
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: retention preview failed.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    would_delete_rows = int(preview.get("would_delete_rows") or 0)
+
+    if would_delete_rows <= 0:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup skipped",
+                    "Value": "0 rows eligible",
+                    "Notes": "No raw scan_results rows are old enough to remove.",
+                }
+            ]
+        )
+        return {
+            "ok": True,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup skipped: no raw scan rows are old enough to remove.",
+            "rows": rows,
+            "preview": preview,
+        }
+
+    backup_check = _latest_safety_backup(max_age_hours=backup_max_age_hours)
+
+    if not backup_check.get("ok", False):
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "fresh backup required",
+                    "Notes": backup_check.get("status", "Create a safety backup first."),
+                },
+                {
+                    "Metric": "Required backup age",
+                    "Value": f"<= {backup_max_age_hours} hours",
+                    "Notes": "Use Database Backup > Create Safety Backup, then retry cleanup.",
+                },
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: create a fresh database safety backup first.",
+            "rows": rows,
+            "preview": preview,
+            "backup_check": backup_check,
+        }
+
+    cutoff_date = preview.get("cutoff_date")
+
+    if not cutoff_date:
+        rows = rows_with_guard(
+            [
+                {
+                    "Metric": "Cleanup blocked",
+                    "Value": "missing cutoff date",
+                    "Notes": "Retention preview did not return a cutoff date.",
+                }
+            ]
+        )
+        return {
+            "ok": False,
+            "cleanup_ran": False,
+            "deleted_rows": 0,
+            "status": "Cleanup blocked: cutoff date is missing.",
+            "rows": rows,
+            "preview": preview,
+            "backup_check": backup_check,
+        }
+
+    # Preserve aggregate history before raw rows are removed. This is intentionally
+    # broad so long-term daily_item_metrics remains available even after raw
+    # scan_results is trimmed.
+    metrics_result = rebuild_daily_item_metrics(days=3650)
+
+    conn, db_path = _connect()
+
+    try:
+        cursor = conn.execute(
+            """
+            DELETE FROM scan_results
+            WHERE scanned_at IS NOT NULL
+              AND substr(CAST(scanned_at AS TEXT), 1, 10) < ?
+            """,
+            (cutoff_date,),
+        )
+        deleted_rows = cursor.rowcount if cursor.rowcount is not None else would_delete_rows
+        conn.commit()
+    finally:
+        conn.close()
+
+    after_preview = build_retention_preview_snapshot(retention_days=days_int)
+
+    rows = [
+        {
+            "Metric": "Cleanup action",
+            "Value": "completed",
+            "Notes": "Raw scan_results rows older than the cutoff were deleted.",
+        },
+        {
+            "Metric": "Deleted rows",
+            "Value": f"{int(deleted_rows or 0):,}",
+            "Notes": f"Preview expected {would_delete_rows:,} row(s).",
+        },
+        {
+            "Metric": "Retention window",
+            "Value": f"{days_int} day(s)",
+            "Notes": f"Cutoff date: {cutoff_date}",
+        },
+        {
+            "Metric": "Safety backup used",
+            "Value": backup_check.get("backup_file", ""),
+            "Notes": backup_check.get("status", ""),
+        },
+        {
+            "Metric": "Daily metrics preserved",
+            "Value": "rebuilt before cleanup",
+            "Notes": metrics_result.get("status", ""),
+        },
+        {
+            "Metric": "Compaction",
+            "Value": "not run",
+            "Notes": "SQLite file size may not shrink until a future VACUUM/compact feature.",
+        },
+    ] + list(after_preview.get("rows", []))
+
+    return {
+        "ok": True,
+        "cleanup_ran": True,
+        "deleted_rows": int(deleted_rows or 0),
+        "status": (
+            f"Cleanup complete. Deleted {int(deleted_rows or 0):,} old raw scan_results row(s). "
+            f"Backup used: {backup_check.get('backup_file', '')}. "
+            "Daily metrics were rebuilt before cleanup. Database compaction was not run."
+        ),
+        "rows": rows,
+        "preview": preview,
+        "after_preview": after_preview,
+        "backup_check": backup_check,
+        "metrics_result": metrics_result,
+    }

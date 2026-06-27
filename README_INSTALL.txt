@@ -1,7 +1,7 @@
 OSRSFlipper Install / Update
 
 Version:
-OSRSFlipper 1.0.7-rc1 (release-candidate)
+OSRSFlipper 1.0.8-rc1 (release-candidate)
 
 Quick start:
 1. Open PowerShell in this folder.

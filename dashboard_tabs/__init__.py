@@ -2176,6 +2176,13 @@ def build_data_health_tab():
                     html.Div(
                         className="settings-action-row",
                         children=[
+
+                            html.Button(
+                                "Refresh Stale Metrics",
+                                id="refresh-stale-daily-metrics-button",
+                                n_clicks=0,
+                                className="secondary-button"
+                            ),
                             html.Button(
                                 "Rebuild Daily Item Metrics",
                                 id="rebuild-daily-metrics-button",
@@ -2250,6 +2257,188 @@ def build_data_health_tab():
                         filter_action="native",
                         style_table={"overflowX": "auto"},
                     )
+                ],
+            ),
+
+            settings_section(
+                "Metrics Automation",
+                "Shows whether daily_item_metrics is current and provides a safe refresh for stale aggregate data.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-automation-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+
+
+            settings_section(
+                "Database Backup",
+                "Create and verify a SQLite safety backup before any future cleanup action is added.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Safety Backup"),
+                                    html.Button(
+                                        "Create Safety Backup",
+                                        id="create-database-safety-backup-button",
+                                        n_clicks=0,
+                                        className="primary-button"
+                                    ),
+                                    html.Div("Uses SQLite backup API and writes to backups/database.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Refresh List"),
+                                    html.Button(
+                                        "Refresh Backup List",
+                                        id="refresh-database-backup-list-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Shows the newest database backup files.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Cleanup Safety"),
+                                    html.Div("Required before delete", className="setting-value"),
+                                    html.Div("Future cleanup should require a fresh verified backup.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="database-backup-status",
+                        className="status-text settings-save-status",
+                        children="No database safety backup action has run yet."
+                    ),
+                    dash_table.DataTable(
+                        id="database-backup-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    ),
+                ],
+            ),
+            settings_section(
+                "Retention Safety",
+                "Preview raw scan_results cleanup impact before any future deletion feature exists.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Raw scan retention",
+                                dcc.Dropdown(
+                                    id="raw-scan-retention-days",
+                                    options=[
+                                        {"label": "Keep forever", "value": 0},
+                                        {"label": "Keep last 120 days", "value": 120},
+                                        {"label": "Keep last 90 days", "value": 90},
+                                        {"label": "Keep last 60 days", "value": 60},
+                                        {"label": "Keep last 30 days", "value": 30},
+                                    ],
+                                    value=90,
+                                    clearable=False,
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Preview only. This does not delete raw scan_results."
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Preview"),
+                                    html.Button(
+                                        "Preview Cleanup",
+                                        id="preview-retention-cleanup-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Shows what would be removed if cleanup is added later.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Safety"),
+                                    html.Div("Guarded cleanup enabled", className="setting-value"),
+                                    html.Div("Delete is blocked unless confirmation and a fresh safety backup are present.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Cleanup confirmation",
+                                dcc.Input(
+                                    id="retention-cleanup-confirmation",
+                                    type="text",
+                                    placeholder="Type DELETE OLD SCANS",
+                                    value="",
+                                    className="settings-input",
+                                    persistence=False,
+                                ),
+                                "Required text: DELETE OLD SCANS"
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Guarded Cleanup"),
+                                    html.Button(
+                                        "Delete Old Raw Scan Rows",
+                                        id="run-retention-cleanup-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Requires preview settings, exact confirmation, and a fresh safety backup.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Backup Guard"),
+                                    html.Div("Fresh backup required", className="setting-value"),
+                                    html.Div("Backup must be 24 hours old or newer.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="data-retention-preview-status",
+                        className="status-text settings-save-status",
+                        children="Retention preview has not been run yet."
+                    ),
+                    dash_table.DataTable(
+                        id="data-retention-preview-table",
+                        data=[],
+                        columns=[],
+                        page_size=12,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    ),
                 ],
             ),
             settings_section(

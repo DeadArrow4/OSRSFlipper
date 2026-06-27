@@ -71,3 +71,7 @@ release_manifest.json
 # Local data audit outputs
 data_audit_107/
 data_audit_107_report.txt
+
+# Local database safety backups
+backups/database/*.db
+backups/database/*.db.txt
