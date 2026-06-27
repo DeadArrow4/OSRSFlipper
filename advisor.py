@@ -1192,7 +1192,143 @@ def compact_candidates_for_ai(candidates_df, max_rows=MAX_AI_PROMPT_CANDIDATES):
     return work_df.fillna("").to_dict("records")
 
 
-def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, todays_trade_summary=None, excluded_summary=None):
+MAX_TRADE_BOARD_AI_ROWS = int(get_setting("ai_trade_board_rows", 12))
+
+
+def build_trade_board_ai_context(risk_profile="medium", limit=MAX_TRADE_BOARD_AI_ROWS):
+    """Build compact Trade Board context for the AI Advisor."""
+    try:
+        from dashboard_data import get_trade_board_recommendations
+
+        board_df, summary = get_trade_board_recommendations(
+            limit=limit,
+            risk_profile=risk_profile,
+            minimum_profit=None,
+        )
+
+        if board_df is None or board_df.empty:
+            return {
+                "ok": False,
+                "error": "Trade Board returned no rows.",
+                "summary": summary or {},
+                "rows": [],
+            }
+
+        preferred_columns = [
+            "Action",
+            "Item",
+            "Window",
+            "Buy",
+            "Sell",
+            "Qty",
+            "Capital Needed",
+            "Profit/Item",
+            "Total Profit",
+            "ROI",
+            "Profit/1M",
+            "Fill",
+            "Liquidity",
+            "Score",
+            "Risk",
+            "Confidence",
+            "Warning",
+            "Reason",
+        ]
+
+        available_columns = [
+            column for column in preferred_columns
+            if column in board_df.columns
+        ]
+
+        rows = (
+            board_df[available_columns]
+            .head(limit)
+            .fillna("")
+            .to_dict("records")
+        )
+
+        return {
+            "ok": True,
+            "error": "",
+            "summary": summary or {},
+            "rows": rows,
+        }
+    except Exception as error:
+        return {
+            "ok": False,
+            "error": f"{type(error).__name__}: {error}",
+            "summary": {},
+            "rows": [],
+        }
+
+
+def format_trade_board_ai_context(trade_board_context):
+    """Format the Trade Board into a compact prompt block."""
+    if not trade_board_context:
+        return (
+            "TRADE BOARD CONTEXT\\n"
+            "- Trade Board context was not available for this AI run.\\n"
+        )
+
+    if not trade_board_context.get("ok"):
+        return (
+            "TRADE BOARD CONTEXT\\n"
+            f"- Trade Board context failed or returned no rows: {trade_board_context.get('error', 'unknown error')}\\n"
+            "- Fall back to scanner candidates, My Trades history, and safety rules.\\n"
+        )
+
+    summary = trade_board_context.get("summary") or {}
+    rows = trade_board_context.get("rows") or []
+
+    lines = [
+        "TRADE BOARD CONTEXT",
+        (
+            "- Use this as the primary ranked recommendation source. "
+            "The Trade Board already applies OSRSFlipper scoring, liquidity, risk, warnings, capital efficiency, and action labels."
+        ),
+        (
+            f"- Latest scan run: {summary.get('latest_run_id', 'n/a')}; "
+            f"ranked candidates: {summary.get('candidate_count', 0)}; "
+            f"Buy Now: {summary.get('buy_now_count', 0)}; "
+            f"Overnight: {summary.get('overnight_count', 0)}; "
+            f"Test Small: {summary.get('test_small_count', 0)}; "
+            f"Avoid/Wait: {summary.get('avoid_count', 0)}."
+        ),
+        "- Explain the best choices from this board first before discussing lower-ranked raw scanner candidates.",
+        "- Do not blindly copy the board. Explain why a choice is useful, what could go wrong, and what order to test it in.",
+        "",
+        "Top Trade Board rows:",
+    ]
+
+    if not rows:
+        lines.append("- No Trade Board rows were available.")
+        return "\\n".join(lines)
+
+    for index, row in enumerate(rows, start=1):
+        lines.append(
+            (
+                f"{index}. {row.get('Action', 'n/a')} | "
+                f"{row.get('Item', 'n/a')} | "
+                f"Window: {row.get('Window', 'n/a')} | "
+                f"Buy: {row.get('Buy', 'n/a')} | "
+                f"Sell: {row.get('Sell', 'n/a')} | "
+                f"Qty: {row.get('Qty', 'n/a')} | "
+                f"Capital: {row.get('Capital Needed', 'n/a')} | "
+                f"Profit: {row.get('Total Profit', 'n/a')} | "
+                f"ROI: {row.get('ROI', 'n/a')} | "
+                f"Fill: {row.get('Fill', 'n/a')} | "
+                f"Score: {row.get('Score', 'n/a')} | "
+                f"Risk: {row.get('Risk', 'n/a')} | "
+                f"Confidence: {row.get('Confidence', 'n/a')} | "
+                f"Warning: {row.get('Warning', 'n/a')} | "
+                f"Reason: {row.get('Reason', 'n/a')}"
+            )
+        )
+
+    return "\\n".join(lines)
+
+
+def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, todays_trade_summary=None, excluded_summary=None, trade_board_context=None):
     compact_candidates = compact_candidates_for_ai(candidates_df)
     candidate_json = pd.DataFrame(compact_candidates).to_json(
         orient="records",
@@ -1209,6 +1345,8 @@ def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, to
 
     if excluded_summary is None:
         excluded_summary = "No excluded-candidate summary was provided."
+
+    trade_board_context_text = format_trade_board_ai_context(trade_board_context)
 
     cash_stack = int(run_info["cash_stack"])
     minimum_profit = int(run_info["minimum_profit"])
@@ -1291,6 +1429,17 @@ Give:
 
 ## Simple Plan
 Give a short step-by-step plan for what to buy first, what to leave overnight, and what to avoid.
+
+AI Trade Board context:
+{trade_board_context_text}
+
+AI TRADE BOARD INSTRUCTIONS:
+- Start the answer with a short Trade Board summary.
+- Give the first 3 to 5 actions in priority order.
+- Separate Buy Now, Overnight, Test Small, and Avoid / Wait.
+- For each recommended trade, include target buy, target sell, quantity, expected profit, confidence, and caution.
+- When Trade Board and raw scanner candidates disagree, prefer Trade Board unless there is a clear safety reason not to.
+- Keep the answer practical and action-focused.
 
 Today's trade exclusion memory:
 {todays_trade_summary}
@@ -1449,14 +1598,19 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
     todays_trade_summary = format_todays_trade_summary(todays_trades)
     excluded_summary = format_excluded_candidates_summary(excluded_items)
 
+    trade_board_context = build_trade_board_ai_context(
+        risk_profile=risk_profile,
+        limit=MAX_TRADE_BOARD_AI_ROWS,
+    )
+
     prompt = build_ai_prompt(
         run_info=run_info,
         candidates_df=candidates_df,
         risk_profile=risk_profile,
         trade_memory=trade_memory,
         todays_trade_summary=todays_trade_summary,
-        excluded_summary=excluded_summary
-    )
+        excluded_summary=excluded_summary,
+        trade_board_context=trade_board_context,)
 
     advice = ask_ai_for_advice(prompt)
     save_advice(advice)
@@ -1464,7 +1618,7 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
     save_ai_feedback(
         title="Advisor feedback",
         feedback=advice,
-        tags=f"advisor,my-trades,today-filter,expanded-choices,live-slot-fix,stale-exits,slot-recovery,risk-{risk_profile}"
+        tags=f"advisor,trade-board,my-trades,today-filter,expanded-choices,live-slot-fix,stale-exits,slot-recovery,risk-{risk_profile}"
     )
 
     return advice

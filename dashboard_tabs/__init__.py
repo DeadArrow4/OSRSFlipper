@@ -367,13 +367,13 @@ def build_ai_panel():
                         children=[
                             html.Div("AI Flip Advisor", className="section-title"),
                             html.Div(
-                                "Uses liquidity, fill-time estimates, history, and daily/weekly trend scores.",
+                                "Uses the Trade Board, liquidity, fill-time estimates, history, and daily/weekly trend scores.",
                                 className="muted-text"
                             )
                         ]
                     ),
                     html.Div(
-                        "After pressing Ask AI, results may take up to 5 minutes to appear. The dashboard will update when the AI response is ready.",
+                        "After pressing Ask AI, results may take up to 5 minutes to appear. The AI now reviews the Trade Board first, then scanner and trade history context.",
                         className="ai-tip"
                     )
                 ]
