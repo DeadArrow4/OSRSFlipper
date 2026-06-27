@@ -43,8 +43,10 @@ from data_health import build_retention_preview_snapshot
 from data_health import build_database_backup_snapshot, create_database_safety_backup
 from data_health import cleanup_scan_results_with_backup_guard
 from data_health import build_database_compaction_preview_snapshot, build_maintenance_events_snapshot
+from data_health import create_compacted_database_copy
 
 def register_dashboard_callbacks(app):
+
 
 
 
@@ -60,9 +62,11 @@ def register_dashboard_callbacks(app):
         Output("maintenance-history-table", "data"),
         Output("maintenance-history-table", "columns"),
         Input("preview-database-compaction-button", "n_clicks"),
+        Input("create-compacted-database-copy-button", "n_clicks"),
         Input("refresh-maintenance-history-button", "n_clicks"),
+        State("database-compaction-confirmation", "value"),
     )
-    def update_database_compaction_and_history(preview_clicks, history_clicks):
+    def update_database_compaction_and_history(preview_clicks, compact_clicks, history_clicks, confirmation_text):
         def columns_for(rows):
             if not rows:
                 return []
@@ -79,6 +83,13 @@ def register_dashboard_callbacks(app):
                 compaction = build_database_compaction_preview_snapshot(record_event=True)
                 compaction_rows = compaction.get("rows", [])
                 compaction_status = compaction.get("status", compaction_status)
+            elif triggered_id == "create-compacted-database-copy-button":
+                compaction = create_compacted_database_copy(
+                    confirmation_text=confirmation_text,
+                    backup_max_age_hours=24,
+                )
+                compaction_rows = compaction.get("rows", [])
+                compaction_status = compaction.get("status", "Compacted copy action complete.")
 
             history = build_maintenance_events_snapshot(limit=25)
             history_rows = history.get("rows", [])
@@ -110,7 +121,7 @@ def register_dashboard_callbacks(app):
         except Exception as exc:
             compaction_rows = [
                 {
-                    "Metric": "Database compaction preview",
+                    "Metric": "Database compaction",
                     "Value": "error",
                     "Notes": f"{type(exc).__name__}: {str(exc)[:180]}",
                 }
@@ -129,7 +140,7 @@ def register_dashboard_callbacks(app):
                 }
             ]
             return (
-                f"Database compaction preview failed: {type(exc).__name__}: {exc}",
+                f"Database compaction failed: {type(exc).__name__}: {exc}",
                 compaction_rows,
                 columns_for(compaction_rows),
                 "Maintenance history failed to load.",

@@ -75,3 +75,7 @@ data_audit_107_report.txt
 # Local database safety backups
 backups/database/*.db
 backups/database/*.db.txt
+
+# Local compacted database copies
+backups/database/compacted/*.db
+backups/database/compacted/*.db.txt

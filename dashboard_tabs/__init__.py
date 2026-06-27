@@ -2361,8 +2361,8 @@ def build_data_health_tab():
                                 className="setting-card",
                                 children=[
                                     html.Label("Compaction Action"),
-                                    html.Div("Not enabled yet", className="setting-value"),
-                                    html.Div("This phase previews only. Actual compaction will require backup and confirmation.", className="setting-help"),
+                                    html.Div("Compacted copy enabled", className="setting-value"),
+                                    html.Div("Creates a verified compacted copy; live replacement is manual only.", className="setting-help"),
                                 ],
                             ),
                             html.Div(
@@ -2371,6 +2371,45 @@ def build_data_health_tab():
                                     html.Label("Safety"),
                                     html.Div("Backup required later", className="setting-value"),
                                     html.Div("Future compact action should require a fresh safety backup.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Compact confirmation",
+                                dcc.Input(
+                                    id="database-compaction-confirmation",
+                                    type="text",
+                                    placeholder="Type COMPACT DATABASE",
+                                    value="",
+                                    className="settings-input",
+                                    persistence=False,
+                                ),
+                                "Required text: COMPACT DATABASE"
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Guarded Compact Copy"),
+                                    html.Button(
+                                        "Create Compacted Copy",
+                                        id="create-compacted-database-copy-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Requires exact confirmation and a fresh safety backup.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Replacement"),
+                                    html.Div("Manual only", className="setting-value"),
+                                    html.Div("The live database is not replaced while the dashboard is running.", className="setting-help"),
                                 ],
                             ),
                         ],
