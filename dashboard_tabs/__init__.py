@@ -127,6 +127,40 @@ def build_trade_board_tab():
 
             html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
 
+
+            settings_section(
+                "Open Slot Actions",
+                "Read-only live GE slot guidance from RuneLite lastOffers. This does not place, cancel, or change trades.",
+                children=[
+                    html.Div(
+                        "Use this when GE slots are full or offers look stale. It separates live slot blockers from old unmatched trade history.",
+                        className="muted-text"
+                    ),
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Refresh Open Slot Actions",
+                                id="refresh-slot-actions-button",
+                                n_clicks=0,
+                                className="secondary-button"
+                            ),
+                            html.Div(
+                                id="slot-actions-status",
+                                className="status-text settings-save-status",
+                                children="Waiting to build Open Slot Actions."
+                            )
+                        ]
+                    ),
+                    html.Div(id="slot-actions-kpi-cards", className="kpi-grid"),
+                    build_trade_table(
+                        "slot-actions-table",
+                        "Open Slot Actions",
+                        "Live RuneLite GE slot review. Suggested actions are read-only: Hold, Cancel, Reprice, or Controlled Loss review."
+                    )
+                ]
+            ),
+
             build_trade_table(
                 "trade-board-table",
                 "Ranked Trade Recommendations",

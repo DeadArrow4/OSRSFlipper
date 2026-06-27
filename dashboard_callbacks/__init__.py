@@ -41,6 +41,72 @@ from dashboard_theme import (
 
 def register_dashboard_callbacks(app):
 
+    @app.callback(
+        Output("slot-actions-status", "children"),
+        Output("slot-actions-kpi-cards", "children"),
+        Output("slot-actions-table", "data"),
+        Output("slot-actions-table", "columns"),
+        Input("refresh-slot-actions-button", "n_clicks"),
+    )
+    def update_open_slot_actions(n_clicks):
+        try:
+            from datetime import datetime
+
+            actions_df, summary = get_open_slot_actions(limit=12)
+            refreshed_at = datetime.now().strftime("%H:%M:%S")
+
+            cards = [
+                make_card(
+                    "Active Slots",
+                    f"{summary.get('active_slots', 0)}/{summary.get('ge_slot_count', 8)}",
+                    f"{summary.get('free_slots', 0)} free slots"
+                ),
+                make_card(
+                    "Slot Pressure",
+                    "High" if summary.get("slot_pressure") else "Normal",
+                    "based on live RuneLite slots"
+                ),
+                make_card(
+                    "High Priority",
+                    str(summary.get("high_count", 0)),
+                    "review these first"
+                ),
+                make_card(
+                    "Medium Priority",
+                    str(summary.get("medium_count", 0)),
+                    "aging or slot-pressure candidates"
+                ),
+                make_card(
+                    "Controlled Loss",
+                    str(summary.get("controlled_loss_count", 0)),
+                    "review only; never automatic"
+                ),
+            ]
+
+            status = (
+                f"{summary.get('status', 'Open Slot Actions updated.')} "
+                f"Last update {refreshed_at}. Refresh clicks={n_clicks or 0}."
+            )
+
+            if actions_df.empty:
+                return status, cards, [], []
+
+            columns = [{"name": column, "id": column} for column in actions_df.columns]
+            return status, cards, actions_df.to_dict("records"), columns
+
+        except Exception as error:
+            cards = [
+                make_card("Open Slot Actions", "Error", "send the status line"),
+                make_card("Phase", "1", "manual refresh only"),
+            ]
+            return (
+                f"Open Slot Actions failed: {type(error).__name__}: {error}",
+                cards,
+                [],
+                [],
+            )
+
+
 
     @app.callback(
         Output("trade-board-status", "children"),

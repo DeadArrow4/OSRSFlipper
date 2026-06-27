@@ -848,6 +848,281 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
     return display_df, summary
 
 
+def _slot_action_gp(value):
+    try:
+        value = float(value or 0)
+    except Exception:
+        value = 0
+
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+
+    if value >= 1000000:
+        return f"{sign}{value / 1000000:.1f}M"
+
+    return f"{sign}{value:,.0f}"
+
+
+def _slot_action_percent(value):
+    if value is None or value == "":
+        return "n/a"
+
+    try:
+        return f"{float(value):.2f}%"
+    except Exception:
+        return "n/a"
+
+
+def _slot_action_hours(value):
+    try:
+        hours = float(value or 0)
+    except Exception:
+        hours = 0
+
+    if hours <= 0:
+        return "n/a"
+
+    if hours >= 48:
+        return f"{hours:.0f}h"
+
+    if hours >= 1:
+        return f"{hours:.1f}h"
+
+    return f"{hours * 60:.0f}m"
+
+
+def _slot_action_first(mapping, keys, default=""):
+    for key in keys:
+        if key in mapping and mapping.get(key) not in (None, ""):
+            return mapping.get(key)
+
+    return default
+
+
+def _slot_action_priority(action, held_hours, slot_pressure):
+    text = str(action or "").lower()
+
+    try:
+        held_hours = float(held_hours or 0)
+    except Exception:
+        held_hours = 0
+
+    if "controlled loss" in text:
+        return "High"
+
+    if "very stale" in text or held_hours >= 48:
+        return "High"
+
+    if ("cancel" in text or "reprice" in text) and held_hours >= 24:
+        return "High"
+
+    if slot_pressure and ("reprice" in text or "aging" in text or "review" in text):
+        return "Medium"
+
+    if held_hours >= 12:
+        return "Medium"
+
+    return "Low"
+
+
+def _slot_action_reason(position, slot_pressure):
+    state = str(_slot_action_first(position, ["state", "side", "offer_state"], "UNKNOWN")).upper()
+    action = str(position.get("action", "") or "Review manually")
+    held_hours = position.get("held_hours", 0)
+
+    if state == "BUYING":
+        return (
+            f"Live BUYING offer. {_slot_action_hours(held_hours)} old. "
+            "Cancel/reprice only if stale; do not treat this as a loss-cut sell."
+        )
+
+    if state == "SELLING":
+        loss_percent = position.get("loss_percent")
+        return (
+            f"Live SELLING offer. {_slot_action_hours(held_hours)} old. "
+            f"Loss estimate: {_slot_action_percent(loss_percent)}. "
+            f"Suggested action: {action}"
+        )
+
+    if slot_pressure:
+        return "Slot pressure is high. Review this live offer before opening new trades."
+
+    return f"Suggested action: {action}"
+
+
+def get_open_slot_actions(limit=12):
+    """Return read-only Open Slot Action recommendations from live RuneLite lastOffers.
+
+    This uses trade_ai_context's live slot analysis so the dashboard does not
+    mistake old unmatched trade history for current GE slots.
+    """
+    try:
+        limit = int(limit or 12)
+    except Exception:
+        limit = 12
+
+    limit = max(1, min(limit, 50))
+    scope = get_current_trade_scope()
+
+    try:
+        from trade_ai_context import (
+            GE_SLOT_COUNT,
+            get_connection,
+            get_live_slot_recovery_analysis,
+        )
+
+        conn = get_connection()
+
+        try:
+            cursor = conn.cursor()
+            analysis = get_live_slot_recovery_analysis(
+                cursor,
+                account=scope.get("osrs_account_name")
+            )
+        finally:
+            conn.close()
+
+    except Exception as error:
+        return (
+            pd.DataFrame(),
+            {
+                "status": f"Open Slot Actions failed: {type(error).__name__}: {error}",
+                "available": False,
+                "active_slots": 0,
+                "free_slots": 0,
+                "slot_pressure": False,
+                "action_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "controlled_loss_count": 0,
+                "ge_slot_count": 8,
+                "file": "",
+                "error": str(error),
+            }
+        )
+
+    slot_usage = analysis.get("slot_usage", {}) or {}
+    positions = analysis.get("positions", []) or []
+    slot_pressure = bool(analysis.get("slot_pressure", False))
+    ge_slot_count = int(slot_usage.get("ge_slot_count", GE_SLOT_COUNT) or GE_SLOT_COUNT)
+
+    rows = []
+
+    for position in positions[:limit]:
+        state = str(_slot_action_first(position, ["state", "side", "offer_state"], "UNKNOWN")).upper()
+        action = str(position.get("action", "") or "Review manually")
+        held_hours = _slot_action_first(position, ["held_hours", "held", "age_hours"], 0)
+        priority = _slot_action_priority(action, held_hours, slot_pressure)
+
+        item_name = _slot_action_first(
+            position,
+            ["item_name", "name", "item"],
+            f"Item {position.get('item_id', '')}".strip()
+        )
+
+        qty = _slot_action_first(
+            position,
+            ["remaining_quantity", "quantity", "qty", "remaining"],
+            0
+        )
+
+        offer_price = _slot_action_first(
+            position,
+            ["offer_price", "price_each", "price", "target_price"],
+            0
+        )
+
+        open_value = _slot_action_first(
+            position,
+            ["open_value", "value", "slot_value"],
+            0
+        )
+
+        fast_exit_price = _slot_action_first(
+            position,
+            ["fast_exit_price", "target_buy", "exit_price"],
+            ""
+        )
+
+        estimated_pl = _slot_action_first(
+            position,
+            ["estimated_fast_profit_total", "estimated_profit_total", "estimated_pl", "profit_total"],
+            ""
+        )
+
+        rows.append({
+            "Priority": priority,
+            "Slot": str(position.get("slot", "")),
+            "State": state,
+            "Item": item_name,
+            "Held": _slot_action_hours(held_hours),
+            "Qty": int(float(qty or 0)) if str(qty or "").replace(".", "", 1).isdigit() else qty,
+            "Offer Price": _slot_action_gp(offer_price),
+            "Open Value": _slot_action_gp(open_value),
+            "Suggested Action": action,
+            "Loss %": _slot_action_percent(position.get("loss_percent")),
+            "Fast Exit": _slot_action_gp(fast_exit_price) if fast_exit_price not in ("", None) else "n/a",
+            "Est. P/L": _slot_action_gp(estimated_pl) if estimated_pl not in ("", None) else "n/a",
+            "Reason": _slot_action_reason(position, slot_pressure),
+        })
+
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    df = pd.DataFrame(rows)
+
+    if not df.empty:
+        df["_priority_order"] = df["Priority"].map(priority_order).fillna(9)
+        df = df.sort_values(["_priority_order", "State", "Slot"], ascending=[True, True, True])
+        df = df.drop(columns=["_priority_order"])
+
+    controlled_loss_count = sum(
+        1 for position in positions
+        if "controlled loss" in str(position.get("action", "")).lower()
+    )
+
+    high_count = 0
+    medium_count = 0
+
+    for position in positions:
+        action = str(position.get("action", "") or "")
+        held_hours = _slot_action_first(position, ["held_hours", "held", "age_hours"], 0)
+        priority = _slot_action_priority(action, held_hours, slot_pressure)
+
+        if priority == "High":
+            high_count += 1
+        elif priority == "Medium":
+            medium_count += 1
+
+    status = (
+        f"Open Slot Actions built from live RuneLite lastOffers. "
+        f"Active slots: {slot_usage.get('active_slots', 0)}/{ge_slot_count}. "
+        f"Free slots: {slot_usage.get('free_slots', ge_slot_count)}. "
+        f"Slot pressure: {slot_pressure}."
+    )
+
+    if slot_usage.get("error"):
+        status += f" RuneLite read note: {slot_usage.get('error')}"
+
+    if not rows:
+        status += " No active BUYING or SELLING slot blockers found."
+
+    summary = {
+        "status": status,
+        "available": bool(slot_usage.get("available", False)),
+        "active_slots": int(slot_usage.get("active_slots", 0) or 0),
+        "free_slots": int(slot_usage.get("free_slots", ge_slot_count) or 0),
+        "slot_pressure": slot_pressure,
+        "action_count": int(len(positions)),
+        "high_count": int(high_count),
+        "medium_count": int(medium_count),
+        "controlled_loss_count": int(controlled_loss_count),
+        "ge_slot_count": ge_slot_count,
+        "file": str(slot_usage.get("file", "") or ""),
+        "error": str(slot_usage.get("error", "") or ""),
+    }
+
+    return df, summary
+
+
 def read_saved_ai_advice():
     if not os.path.exists(OUTPUT_FILE):
         return (
