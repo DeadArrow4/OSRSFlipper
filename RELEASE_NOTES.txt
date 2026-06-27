@@ -1,3 +1,61 @@
+OSRSFlipper 1.1.0 — Trend-Aware Trade Board
+
+Release type: advisory intelligence and Trade Board upgrade
+
+Included:
+- Added read-only trade trend backend helpers.
+- Added Trade Board trend enrichment from daily_item_metrics.
+- Added Trend Direction column.
+- Added Trend Confidence column.
+- Added Days Seen column.
+- Added Recent Avg Margin column.
+- Added Margin Stability column.
+- Added Score Change column.
+- Added Trend Note column.
+- Added Trade Board status text showing trend enrichment and available history days.
+- Added Trend Filters section to the Trade Board.
+- Added Trend Direction filter.
+- Added Trend Confidence filter.
+- Added Trend History KPI card.
+- Added Trend Filters KPI card.
+- Added optional Trend Boost section.
+- Added Trend Boost mode dropdown with Off, Annotate only, and Reorder view.
+- Added Original Score column when Trend Boost is enabled.
+- Added Trend Boost column when Trend Boost is enabled.
+- Added Trend Adjusted Score column when Trend Boost is enabled.
+- Added Trend Boost Reason column when Trend Boost is enabled.
+- Added Trend Boost Mode column when Trend Boost is enabled.
+- Preserved the original Trade Board score.
+- Kept Trend Boost advisory and display-only.
+- Added Trade Board wiring inspection helper for development visibility.
+
+Not included:
+- Automatic GE trading.
+- Automatic buy/sell/cancel actions.
+- Automatic repricing.
+- Automatic listing placement.
+- Automatic Trend Boost mode changes.
+- Replacement of the original Trade Board score.
+- Machine-learning prediction model.
+- Private database files.
+- Local database backups.
+- Local compacted database copies.
+- Saved logs.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
+
+Notes:
+- Trend-aware Trade Board features use daily_item_metrics history.
+- Trend history may show as building until more metric days are collected.
+- Trend Boost defaults to Off.
+- Annotate only adds advisory adjusted-score columns without changing row order.
+- Reorder view sorts the displayed Trade Board rows only.
+- No database writes are performed by Trade Board trend enrichment.
+- No trading actions are performed by Trend Filters or Trend Boost.
+- This release moves the app from data-maintenance groundwork into advisory trend intelligence.
+
 OSRSFlipper 1.0.9 — Database Compaction and Maintenance History
 
 Release type: database maintenance and safety release
