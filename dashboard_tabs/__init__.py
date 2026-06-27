@@ -1992,6 +1992,144 @@ def build_settings_tab():
     )
 
 
+def build_data_health_tab():
+    return html.Div(
+        className="settings-page data-health-page",
+        children=[
+            settings_section(
+                "Data Health",
+                "Review database growth, scanner coverage, recommended indexes, and daily aggregate readiness.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Daily metrics rebuild days",
+                                dcc.Input(
+                                    id="daily-metrics-days",
+                                    type="number",
+                                    min=1,
+                                    max=3650,
+                                    step=1,
+                                    value=120,
+                                    className="settings-input",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "How many recent days to rebuild into daily_item_metrics."
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Refresh"),
+                                    html.Button(
+                                        "Refresh Data Health",
+                                        id="refresh-data-health-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Reload current data health snapshot.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Schema / Indexes"),
+                                    html.Button(
+                                        "Apply Data Schema / Indexes",
+                                        id="apply-data-health-schema-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                    html.Div("Creates daily_item_metrics and recommended indexes if missing.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        className="settings-action-row",
+                        children=[
+                            html.Button(
+                                "Rebuild Daily Item Metrics",
+                                id="rebuild-daily-metrics-button",
+                                n_clicks=0,
+                                className="primary-button"
+                            ),
+                            html.Div(
+                                id="data-health-status",
+                                className="status-text settings-save-status",
+                                children="Data Health has not been refreshed yet."
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            html.Div(id="data-health-cards", className="kpi-grid"),
+            settings_section(
+                "Largest Tables",
+                "Raw table size overview.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-tables-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+            settings_section(
+                "Time Coverage",
+                "Shows whether the database has enough history for short-term, 30-day, or monthly trend views.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-time-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+            settings_section(
+                "Recommended Indexes",
+                "Indexes keep dashboard history, trend, and aggregation queries fast as scan_results grows.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-index-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+            settings_section(
+                "Daily Item Metrics",
+                "Aggregated item/day rows used for future long-term trend views and prediction scoring.",
+                children=[
+                    dash_table.DataTable(
+                        id="data-health-metrics-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        sort_action="native",
+                        filter_action="native",
+                        style_table={"overflowX": "auto"},
+                    )
+                ],
+            ),
+        ],
+    )
+
+
 def build_admin_tab():
     return html.Div(
         className="settings-page admin-page",
@@ -2025,7 +2163,15 @@ def build_admin_tab():
                         selected_className="custom-tab--selected",
                         children=[build_status_logs_tab()]
                     ),
+                    
                     dcc.Tab(
+                        label="Data Health",
+                        value="admin-data-health",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_data_health_tab()]
+                    ),
+dcc.Tab(
                         label="Maintenance",
                         value="admin-maintenance",
                         className="custom-tab",

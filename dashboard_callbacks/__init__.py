@@ -33,13 +33,99 @@ from dashboard_data import *
 from dashboard_formatters import *
 from dashboard_tabs import build_status_cards
 from dashboard_theme import (
-    empty_figure,
+empty_figure,
     apply_dark_chart_layout,
     make_card,
 )
-
+from data_health import build_data_health_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
 
 def register_dashboard_callbacks(app):
+
+
+    @app.callback(
+        Output("data-health-status", "children"),
+        Output("data-health-cards", "children"),
+        Output("data-health-tables-table", "data"),
+        Output("data-health-tables-table", "columns"),
+        Output("data-health-time-table", "data"),
+        Output("data-health-time-table", "columns"),
+        Output("data-health-index-table", "data"),
+        Output("data-health-index-table", "columns"),
+        Output("data-health-metrics-table", "data"),
+        Output("data-health-metrics-table", "columns"),
+        Input("refresh-data-health-button", "n_clicks"),
+        Input("apply-data-health-schema-button", "n_clicks"),
+        Input("rebuild-daily-metrics-button", "n_clicks"),
+        State("daily-metrics-days", "value"),
+    )
+    def update_data_health(refresh_clicks, schema_clicks, rebuild_clicks, rebuild_days):
+        try:
+            from dash import ctx as dash_ctx
+
+            triggered_id = dash_ctx.triggered_id or "initial-load"
+            action_status = ""
+
+            if triggered_id == "apply-data-health-schema-button":
+                result = ensure_data_health_schema()
+                action_status = result.get("status", "Schema/index check complete.")
+            elif triggered_id == "rebuild-daily-metrics-button":
+                result = rebuild_daily_item_metrics(days=rebuild_days or 120)
+                action_status = result.get("status", "Daily metrics rebuild complete.")
+
+            snapshot = build_data_health_snapshot()
+
+            def columns_for(rows):
+                if not rows:
+                    return []
+                return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+            cards = [
+                make_card(card.get("Title", ""), card.get("Value", ""), card.get("Detail", ""))
+                for card in snapshot.get("cards", [])
+            ]
+
+            status = snapshot.get("status", "Data Health loaded.")
+
+            if action_status:
+                status = f"{action_status} {status}"
+
+            if triggered_id and triggered_id != "initial-load":
+                status = f"{status} Trigger: {triggered_id}."
+
+            tables = snapshot.get("tables", [])
+            time_rows = snapshot.get("time_coverage", [])
+            index_rows = snapshot.get("index_status", [])
+            metric_rows = snapshot.get("daily_metrics", [])
+
+            return (
+                status,
+                cards,
+                tables,
+                columns_for(tables),
+                time_rows,
+                columns_for(time_rows),
+                index_rows,
+                columns_for(index_rows),
+                metric_rows,
+                columns_for(metric_rows),
+            )
+        except Exception as exc:
+            cards = [
+                make_card("Data Health", "Error", "send the status line"),
+                make_card("Exception", type(exc).__name__, str(exc)[:90]),
+            ]
+            return (
+                f"Data Health failed: {type(exc).__name__}: {exc}",
+                cards,
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
     @app.callback(
         Output("slot-actions-status", "children"),
