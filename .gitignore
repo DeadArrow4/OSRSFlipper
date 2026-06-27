@@ -79,3 +79,6 @@ backups/database/*.db.txt
 # Local compacted database copies
 backups/database/compacted/*.db
 backups/database/compacted/*.db.txt
+runtime/runelite_state.json
+runtime/runelite_state.*.json
+!runtime/runelite_state.example.json

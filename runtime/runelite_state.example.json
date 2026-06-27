@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "account_name": "runelite_demo",
+  "captured_at": "2026-06-27T00:00:00Z",
+  "inventory_gp": 8000000,
+  "bank_gp": 2000000,
+  "include_bank_gp": true,
+  "safety_reserve_gp": 500000,
+  "active_ge_offers": [
+    {
+      "slot": 0,
+      "item_id": 554,
+      "item_name": "Fire rune",
+      "side": "buy",
+      "price": 5,
+      "quantity_total": 400000,
+      "quantity_filled": 100000,
+      "quantity_remaining": 300000,
+      "offer_age_minutes": 140,
+      "state": "buying"
+    },
+    {
+      "slot": 1,
+      "item_id": 560,
+      "item_name": "Death rune",
+      "side": "sell",
+      "price": 180,
+      "quantity_total": 20000,
+      "quantity_filled": 5000,
+      "quantity_remaining": 15000,
+      "offer_age_minutes": 210,
+      "state": "selling"
+    }
+  ]
+}
