@@ -827,7 +827,36 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
 
     filtered_count = int(len(df))
 
+
+    try:
+        from capital_trade_board import apply_capital_limits_to_trade_board
+        df, capital_fit_summary = apply_capital_limits_to_trade_board(df)
+    except Exception as capital_error:
+        capital_fit_summary = {"capital_fit_error": str(capital_error)}
+        for _column, _default in {
+            "Capital Needed Live": 0,
+            "Capital Fit": "Unknown",
+            "Capital Fit Qty": 0,
+            "Capital Fit Cost": 0,
+            "Capital Fit Profit": 0,
+            "Capital Note": f"Capital fit unavailable: {capital_error}",
+        }.items():
+            if _column not in df.columns:
+                df[_column] = _default
+
     top_df = df.head(limit).copy()
+
+    for _column, _default in {
+        "Capital Needed Live": 0,
+        "Capital Fit": "Unknown",
+        "Capital Fit Qty": 0,
+        "Capital Fit Cost": 0,
+        "Capital Fit Profit": 0,
+        "Capital Note": "Capital state not checked.",
+    }.items():
+        if _column not in top_df.columns:
+            top_df[_column] = _default
+
 
     display_df = pd.DataFrame({
         "Action": top_df["Action"],
@@ -841,6 +870,11 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
         "Total Profit": top_df["total_profit"].apply(_trade_board_gp),
         "ROI": top_df["roi_percent"].apply(_trade_board_percent),
         "Profit/1M": top_df["Profit Per 1M Capital"].apply(_trade_board_gp),
+        "Capital Fit": top_df["Capital Fit"],
+        "Fit Qty": top_df["Capital Fit Qty"].round(0).astype(int),
+        "Fit Cost": top_df["Capital Fit Cost"].apply(_trade_board_gp),
+        "Fit Profit": top_df["Capital Fit Profit"].apply(_trade_board_gp),
+        "Capital Note": top_df["Capital Note"],
         "Fill": top_df["Fill"],
         "Volume": top_df["volume"].round(0).astype(int),
         "Liquidity": top_df["liquidity_score"].round(1),
