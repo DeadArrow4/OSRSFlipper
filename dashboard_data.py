@@ -685,7 +685,7 @@ def _trade_board_phase2_reason(row):
     )
 
 
-def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_profit=None):
+def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_profit=None, action_filter="all", confidence_filter="all", fill_filter="all"):
     """Return the v1.0.5 Phase 2 one-table Trade Board.
 
     Phase 2 keeps the stable Phase 1 layout and callback, but improves:
@@ -809,6 +809,24 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
     else:
         df = df.drop_duplicates(subset=["item_name", "window_name"], keep="first")
 
+
+    filter_source_count = int(len(df))
+
+    active_action_filter = str(action_filter or "all")
+    active_confidence_filter = str(confidence_filter or "all")
+    active_fill_filter = str(fill_filter or "all")
+
+    if active_action_filter != "all" and "Action" in df.columns:
+        df = df[df["Action"].astype(str) == active_action_filter]
+
+    if active_confidence_filter != "all" and "Confidence" in df.columns:
+        df = df[df["Confidence"].astype(str) == active_confidence_filter]
+
+    if active_fill_filter != "all" and "Fill" in df.columns:
+        df = df[df["Fill"].astype(str) == active_fill_filter]
+
+    filtered_count = int(len(df))
+
     top_df = df.head(limit).copy()
 
     display_df = pd.DataFrame({
@@ -844,6 +862,13 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
         "best_profit": int(df["total_profit"].max()) if "total_profit" in df.columns else 0,
         "minimum_profit": minimum_profit,
     }
+
+
+    summary["filter_source_count"] = filter_source_count
+    summary["filtered_count"] = filtered_count
+    summary["action_filter"] = active_action_filter
+    summary["confidence_filter"] = active_confidence_filter
+    summary["fill_filter"] = active_fill_filter
 
     return display_df, summary
 

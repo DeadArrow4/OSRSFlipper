@@ -104,6 +104,66 @@ def build_trade_board_tab():
                                 ),
                                 "Minimum estimated total profit for Buy Now/Test Small recommendations."
                             ),
+
+                            setting_card(
+                                "Action filter",
+                                dcc.Dropdown(
+                                    id="trade-board-action-filter",
+                                    options=[
+                                        {"label": "All actions", "value": "all"},
+                                        {"label": "Buy Now", "value": "Buy Now"},
+                                        {"label": "Overnight", "value": "Overnight"},
+                                        {"label": "Test Small", "value": "Test Small"},
+                                        {"label": "Avoid / Wait", "value": "Avoid / Wait"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Show only one action type."
+                            ),
+                            setting_card(
+                                "Confidence filter",
+                                dcc.Dropdown(
+                                    id="trade-board-confidence-filter",
+                                    options=[
+                                        {"label": "All confidence levels", "value": "all"},
+                                        {"label": "High", "value": "High"},
+                                        {"label": "Medium", "value": "Medium"},
+                                        {"label": "Low", "value": "Low"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Show only High, Medium, or Low confidence rows."
+                            ),
+                            setting_card(
+                                "Fill filter",
+                                dcc.Dropdown(
+                                    id="trade-board-fill-filter",
+                                    options=[
+                                        {"label": "All fill speeds", "value": "all"},
+                                        {"label": "Fast", "value": "Fast"},
+                                        {"label": "Moderate", "value": "Moderate"},
+                                        {"label": "Thin", "value": "Thin"},
+                                        {"label": "Slow", "value": "Slow"},
+                                    ],
+                                    value="all",
+                                    clearable=False,
+                                    className="dark-dropdown",
+                                    persistence=True,
+                                    persisted_props=["value"],
+                                    persistence_type="local",
+                                ),
+                                "Filter by estimated fill quality."
+                            ),
                         ]
                     ),
                     html.Div(
