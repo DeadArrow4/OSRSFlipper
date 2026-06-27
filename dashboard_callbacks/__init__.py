@@ -44,6 +44,39 @@ from data_health import build_database_backup_snapshot, create_database_safety_b
 from data_health import cleanup_scan_results_with_backup_guard
 from data_health import build_database_compaction_preview_snapshot, build_maintenance_events_snapshot
 from data_health import create_compacted_database_copy
+from trade_trends import enrich_trade_board_rows_with_trends, summarize_trade_board_trend_health
+from trade_trends import apply_trade_board_trend_boost
+
+def _enrich_trade_board_dataframe_with_trends(board_df):
+    """Add read-only trend columns to the Trade Board dataframe.
+
+    This helper is intentionally defensive. If trend history is missing or a
+    schema edge case appears, the Trade Board still loads with the original rows.
+    """
+
+    try:
+        if board_df is None:
+            return board_df, "no Trade Board rows"
+
+        if getattr(board_df, "empty", False):
+            return board_df, "no Trade Board rows"
+
+        if hasattr(board_df, "to_dict"):
+            records = board_df.to_dict("records")
+        else:
+            records = list(board_df or [])
+
+        if not records:
+            return board_df, "no Trade Board rows"
+
+        enriched_records = enrich_trade_board_rows_with_trends(records)
+
+        if hasattr(board_df, "columns"):
+            return board_df.__class__(enriched_records), f"trend columns added to {len(enriched_records)} row(s)"
+
+        return enriched_records, f"trend columns added to {len(enriched_records)} row(s)"
+    except Exception as exc:
+        return board_df, f"trend enrichment skipped: {type(exc).__name__}: {str(exc)[:120]}"
 
 def register_dashboard_callbacks(app):
 
@@ -645,6 +678,9 @@ def register_dashboard_callbacks(app):
         Input("trade-board-action-filter", "value"),
         Input("trade-board-confidence-filter", "value"),
         Input("trade-board-fill-filter", "value"),
+        Input("trade-board-trend-direction-filter", "value"),
+        Input("trade-board-trend-confidence-filter", "value"),
+        Input("trade-board-trend-boost-mode", "value"),
     )
     def update_trade_board_phase1(
         n_clicks,
@@ -654,6 +690,9 @@ def register_dashboard_callbacks(app):
         action_filter,
         confidence_filter,
         fill_filter,
+        trend_direction_filter,
+        trend_confidence_filter,
+        trend_boost_mode,
     ):
         try:
             from datetime import datetime
@@ -678,6 +717,81 @@ def register_dashboard_callbacks(app):
                 fill_filter=fill_filter,
             )
 
+            board_df, trade_trend_status = _enrich_trade_board_dataframe_with_trends(board_df)
+            trade_trend_health = summarize_trade_board_trend_health()
+            if isinstance(summary, dict):
+                summary["trend_status"] = trade_trend_status
+                summary["trend_history_days"] = trade_trend_health.get("metric_days", 0)
+                summary["trend_items_with_history"] = trade_trend_health.get("items_with_history", 0)
+
+
+            try:
+                trend_boost_mode_value = str(trend_boost_mode or "off").lower()
+
+                if hasattr(board_df, "to_dict"):
+                    boost_records = board_df.to_dict("records")
+                    boosted_records = apply_trade_board_trend_boost(
+                        boost_records,
+                        mode=trend_boost_mode_value,
+                    )
+
+                    if trend_boost_mode_value in {"annotate", "reorder"}:
+                        board_df = board_df.__class__(boosted_records)
+
+                if isinstance(summary, dict):
+                    summary["trend_boost_mode"] = trend_boost_mode_value
+                    summary["trend_boost_status"] = (
+                        "off"
+                        if trend_boost_mode_value == "off"
+                        else f"{trend_boost_mode_value} applied to displayed rows"
+                    )
+            except Exception as trend_boost_exc:
+                if isinstance(summary, dict):
+                    summary["trend_boost_mode"] = trend_boost_mode or "off"
+                    summary["trend_boost_status"] = f"trend boost skipped: {type(trend_boost_exc).__name__}"
+
+            trend_filter_notes = []
+
+            try:
+                if hasattr(board_df, "columns"):
+                    if (
+                        trend_direction_filter
+                        and trend_direction_filter != "all"
+                        and "Trend Direction" in board_df.columns
+                    ):
+                        board_df = board_df[
+                            board_df["Trend Direction"]
+                            .fillna("")
+                            .astype(str)
+                            .str.lower()
+                            == str(trend_direction_filter).lower()
+                        ]
+                        trend_filter_notes.append(f"direction={trend_direction_filter}")
+
+                    if (
+                        trend_confidence_filter
+                        and trend_confidence_filter != "all"
+                        and "Trend Confidence" in board_df.columns
+                    ):
+                        board_df = board_df[
+                            board_df["Trend Confidence"]
+                            .fillna("")
+                            .astype(str)
+                            .str.lower()
+                            == str(trend_confidence_filter).lower()
+                        ]
+                        trend_filter_notes.append(f"confidence={trend_confidence_filter}")
+
+                    if isinstance(summary, dict):
+                        summary["trend_direction_filter"] = trend_direction_filter or "all"
+                        summary["trend_confidence_filter"] = trend_confidence_filter or "all"
+                        summary["trend_filtered_rows"] = int(len(board_df))
+                        summary["trend_filter_status"] = ", ".join(trend_filter_notes) if trend_filter_notes else "no trend filters"
+            except Exception as trend_filter_exc:
+                if isinstance(summary, dict):
+                    summary["trend_filter_status"] = f"trend filters skipped: {type(trend_filter_exc).__name__}"
+
+
             visible_count = len(board_df)
             filtered_count = int(summary.get("filtered_count", visible_count))
             source_count = int(summary.get("filter_source_count", filtered_count))
@@ -692,10 +806,43 @@ def register_dashboard_callbacks(app):
                 make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
             ]
 
+
+            try:
+                cards.extend(
+                    [
+                        make_card(
+                            "Trend History",
+                            f"{summary.get('trend_history_days', 0)} days",
+                            f"{summary.get('trend_items_with_history', 0)} items with history"
+                        ),
+                        make_card(
+                            "Trend Filters",
+                            str(summary.get("trend_filtered_rows", len(board_df) if hasattr(board_df, "__len__") else 0)),
+                            summary.get("trend_filter_status", "no trend filters")
+                        ),
+                    ]
+                )
+            except Exception:
+                pass
+
+
+            try:
+                cards.append(
+                    make_card(
+                        "Trend Boost",
+                        str(summary.get("trend_boost_mode", "off")),
+                        summary.get("trend_boost_status", "off")
+                    )
+                )
+            except Exception:
+                pass
+
             status = (
                 f"{summary.get('status', 'Trade Board updated.')} "
                 f"Last update {refreshed_at}. Trigger: {triggered_id}. "
                 f"Risk={risk_profile or 'medium'}, Rows={visible_limit}, Min profit={format_gp(summary.get('minimum_profit', 0))} gp. "
+                f"Trends={summary.get('trend_status', 'trend enrichment not checked')}; "
+                f"history days={summary.get('trend_history_days', 0)}. "
                 f"Action filter={summary.get('action_filter', action_filter or 'all')}, "
                 f"Confidence filter={summary.get('confidence_filter', confidence_filter or 'all')}, "
                 f"Fill filter={summary.get('fill_filter', fill_filter or 'all')}. "
