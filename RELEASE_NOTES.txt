@@ -1,28 +1,33 @@
-OSRSFlipper 1.0.5 — Trade Board and Slot Actions
+OSRSFlipper 1.0.6 — Dashboard Tab Cleanup
 
-Release type: feature patch
+Release type: UI cleanup patch
 
 Included:
-- Added Trade Board tab.
-- Added stable one-table ranked trade recommendations.
-- Added Buy Now / Overnight / Test Small / Avoid-Wait action labels.
-- Added Trade Board scoring improvements.
-- Added Capital Needed, Profit/1M, Fill, Confidence, Warning, and Reason columns.
-- Added persistent Trade Board controls.
-- Added Trade Board filters for Action, Confidence, and Fill.
-- Fixed Trade Board filters so filtering happens before the visible row limit.
-- Added Open Slot Actions from live RuneLite lastOffers.
-- Added read-only GE slot pressure guidance.
-- Added read-only Hold / Cancel / Reprice / Controlled Loss review suggestions.
-- Added AI Advisor context from the Trade Board.
-- Improved AI Advisor output to prioritize Trade Board recommendations.
-- Kept Trade Board and Open Slot Actions manual-refresh only for stability.
+- Consolidated Account, Status / Logs, Maintenance, Settings, and About into one final Admin tab.
+- Added Admin inner tabs:
+  - Account
+  - Status / Logs
+  - Maintenance
+  - Settings
+  - About
+- Consolidated Latest Flips, Item History, and Recurring Flips into one Market Data tab.
+- Added Market Data inner tabs:
+  - Latest Flips
+  - Item History
+  - Recurring Flips
+- Restored the Item History search dropdown inside Market Data.
+- Kept the existing Item History graph behavior.
+- Reduced main dashboard tab-row clutter.
+- Kept low-frequency tools at the end of the main tab row.
+- Kept existing dashboard functionality intact.
 
 Not included:
+- New trading automation.
 - Automatic GE trading.
 - Automatic cancel/reprice actions.
-- Automatic selling.
-- Auto-refresh Trade Board polling.
+- Database schema changes.
+- AI behavior changes.
+- Auto-refresh behavior changes.
 - Private database files.
 - Saved logs.
 - Backups.
@@ -32,6 +37,6 @@ Not included:
 - API keys.
 
 Notes:
-- Open Slot Actions are read-only guidance only.
-- Controlled-loss suggestions require manual review.
-- RuneLite lastOffers is used for live slot blockers so old unmatched trade history is not treated as a current GE offer.
+- Admin is intended for setup, account management, diagnostics, maintenance, settings, and about information.
+- Market Data is intended for scanner/history views that are useful but do not need separate main-row tabs.
+- This release is focused on dashboard organization and usability.
