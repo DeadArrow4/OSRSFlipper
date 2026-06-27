@@ -1083,3 +1083,249 @@ def build_data_trend_snapshot(limit: int = 25) -> dict[str, Any]:
         }
     finally:
         conn.close()
+
+def _date_minus_days(date_text: str | None, days: int) -> str | None:
+    parsed = _parse_datetime(date_text)
+
+    if not parsed:
+        return None
+
+    return (parsed - timedelta(days=max(1, int(days)))).date().isoformat()
+
+
+def build_item_trend_explorer_snapshot(item_query: str | None = None, days: int = 90) -> dict[str, Any]:
+    conn, db_path = _connect()
+
+    try:
+        if not _table_exists(conn, "daily_item_metrics"):
+            return {
+                "ok": False,
+                "status": "daily_item_metrics is missing. Open Admin > Data Health, click Apply Data Schema / Indexes, then Rebuild Daily Item Metrics.",
+                "matched_item": "",
+                "summary_cards": [],
+                "rows": [],
+                "matches": [],
+            }
+
+        total_rows = int(_scalar(conn, "SELECT COUNT(*) FROM daily_item_metrics") or 0)
+
+        if total_rows <= 0:
+            return {
+                "ok": False,
+                "status": "daily_item_metrics has no rows yet. Open Admin > Data Health and click Rebuild Daily Item Metrics.",
+                "matched_item": "",
+                "summary_cards": [],
+                "rows": [],
+                "matches": [],
+            }
+
+        safe_days = max(1, min(int(days or 90), 3650))
+        query_text = str(item_query or "").strip()
+
+        if query_text:
+            like = f"%{query_text.lower()}%"
+            prefix = f"{query_text.lower()}%"
+            match_rows = conn.execute(
+                """
+                SELECT
+                    item_name,
+                    COUNT(DISTINCT metric_date) AS days_seen,
+                    COUNT(*) AS metric_rows,
+                    ROUND(AVG(avg_margin), 2) AS avg_margin,
+                    ROUND(AVG(avg_recommendation_score), 2) AS avg_score,
+                    MAX(metric_date) AS newest_date
+                FROM daily_item_metrics
+                WHERE LOWER(item_name) LIKE ?
+                GROUP BY item_name
+                ORDER BY
+                    CASE
+                        WHEN LOWER(item_name) = ? THEN 0
+                        WHEN LOWER(item_name) LIKE ? THEN 1
+                        ELSE 2
+                    END,
+                    days_seen DESC,
+                    avg_score DESC
+                LIMIT 15
+                """,
+                (like, query_text.lower(), prefix),
+            ).fetchall()
+        else:
+            match_rows = conn.execute(
+                """
+                SELECT
+                    item_name,
+                    COUNT(DISTINCT metric_date) AS days_seen,
+                    COUNT(*) AS metric_rows,
+                    ROUND(AVG(avg_margin), 2) AS avg_margin,
+                    ROUND(AVG(avg_recommendation_score), 2) AS avg_score,
+                    MAX(metric_date) AS newest_date
+                FROM daily_item_metrics
+                GROUP BY item_name
+                ORDER BY days_seen DESC, avg_score DESC, avg_margin DESC
+                LIMIT 15
+                """
+            ).fetchall()
+
+        matches = [
+            {
+                "Item": row["item_name"],
+                "Days Seen": row["days_seen"],
+                "Metric Rows": row["metric_rows"],
+                "Avg Margin": row["avg_margin"],
+                "Avg Score": row["avg_score"],
+                "Newest Date": row["newest_date"],
+            }
+            for row in match_rows
+        ]
+
+        if not match_rows:
+            return {
+                "ok": False,
+                "status": f"No daily metrics matched {query_text!r}. Try a broader item name.",
+                "matched_item": "",
+                "summary_cards": [],
+                "rows": [],
+                "matches": [],
+            }
+
+        matched_item = match_rows[0]["item_name"]
+        newest_date = _scalar(
+            conn,
+            "SELECT MAX(metric_date) FROM daily_item_metrics WHERE item_name = ?",
+            (matched_item,),
+        )
+        cutoff = _date_minus_days(newest_date, safe_days) if newest_date else None
+
+        params: list[Any] = [matched_item]
+        where = "WHERE item_name = ?"
+
+        if cutoff:
+            where += " AND metric_date >= ?"
+            params.append(cutoff)
+
+        metric_rows = conn.execute(
+            f"""
+            SELECT
+                metric_date,
+                SUM(scan_count) AS scan_count,
+                SUM(profitable_count) AS profitable_count,
+                ROUND(AVG(avg_margin), 2) AS avg_margin,
+                ROUND(AVG(avg_total_profit), 2) AS avg_total_profit,
+                ROUND(AVG(avg_profit_per_item), 2) AS avg_profit_per_item,
+                ROUND(AVG(avg_roi), 2) AS avg_roi,
+                ROUND(AVG(avg_volume), 2) AS avg_volume,
+                ROUND(AVG(avg_quick_score), 2) AS avg_quick_score,
+                ROUND(AVG(avg_overnight_score), 2) AS avg_overnight_score,
+                ROUND(AVG(avg_recommendation_score), 2) AS avg_recommendation_score,
+                ROUND(AVG(margin_volatility), 2) AS margin_volatility,
+                MIN(min_margin) AS min_margin,
+                MAX(max_margin) AS max_margin
+            FROM daily_item_metrics
+            {where}
+            GROUP BY metric_date
+            ORDER BY metric_date
+            """,
+            tuple(params),
+        ).fetchall()
+
+        rows = [
+            {
+                "Metric Date": row["metric_date"],
+                "Scan Count": row["scan_count"],
+                "Profitable Count": row["profitable_count"],
+                "Avg Margin": row["avg_margin"],
+                "Avg Total Profit": row["avg_total_profit"],
+                "Avg Profit / Item": row["avg_profit_per_item"],
+                "Avg ROI": row["avg_roi"],
+                "Avg Volume": row["avg_volume"],
+                "Quick Score": row["avg_quick_score"],
+                "Overnight Score": row["avg_overnight_score"],
+                "Recommendation Score": row["avg_recommendation_score"],
+                "Margin Volatility": row["margin_volatility"],
+                "Min Margin": row["min_margin"],
+                "Max Margin": row["max_margin"],
+            }
+            for row in metric_rows
+        ]
+
+        if not rows:
+            return {
+                "ok": False,
+                "status": f"{matched_item} matched, but no rows were found in the selected {safe_days}-day window.",
+                "matched_item": matched_item,
+                "summary_cards": [],
+                "rows": [],
+                "matches": matches,
+            }
+
+        first = rows[0]
+        last = rows[-1]
+
+        margin_delta, margin_direction = _trend_value(last.get("Avg Margin"), first.get("Avg Margin"))
+        score_delta, score_direction = _trend_value(last.get("Recommendation Score"), first.get("Recommendation Score"))
+
+        total_scans = sum(int(row.get("Scan Count") or 0) for row in rows)
+        total_profitable = sum(int(row.get("Profitable Count") or 0) for row in rows)
+        avg_score = _avg([_safe_float(row.get("Recommendation Score")) for row in rows])
+        avg_margin = _avg([_safe_float(row.get("Avg Margin")) for row in rows])
+        avg_volatility = _avg([_safe_float(row.get("Margin Volatility")) for row in rows])
+
+        best_row = max(rows, key=lambda row: _safe_float(row.get("Recommendation Score")) or -999999)
+
+        summary_cards = [
+            {
+                "Title": "Matched Item",
+                "Value": matched_item,
+                "Detail": f"{len(matches)} match(es), {len(rows)} metric day(s)",
+            },
+            {
+                "Title": "Date Range",
+                "Value": f"{first.get('Metric Date')} -> {last.get('Metric Date')}",
+                "Detail": f"selected window: {safe_days} day(s)",
+            },
+            {
+                "Title": "Avg Margin",
+                "Value": round(avg_margin, 2) if avg_margin is not None else "n/a",
+                "Detail": f"delta {round(margin_delta, 2) if margin_delta is not None else 'n/a'} ({margin_direction})",
+            },
+            {
+                "Title": "Avg Score",
+                "Value": round(avg_score, 2) if avg_score is not None else "n/a",
+                "Detail": f"delta {round(score_delta, 2) if score_delta is not None else 'n/a'} ({score_direction})",
+            },
+            {
+                "Title": "Total Scans",
+                "Value": f"{total_scans:,}",
+                "Detail": f"profitable observations: {total_profitable:,}",
+            },
+            {
+                "Title": "Margin Volatility",
+                "Value": round(avg_volatility, 2) if avg_volatility is not None else "n/a",
+                "Detail": "lower is usually more stable",
+            },
+            {
+                "Title": "Best Score Day",
+                "Value": best_row.get("Metric Date"),
+                "Detail": f"score {best_row.get('Recommendation Score')}",
+            },
+        ]
+
+        status = (
+            f"Loaded trend explorer for {matched_item}. "
+            f"{len(rows)} daily point(s), {total_scans:,} total scan observations, "
+            f"margin direction={margin_direction}, score direction={score_direction}."
+        )
+
+        if query_text and matched_item.lower() != query_text.lower():
+            status += f" Search {query_text!r} matched closest item {matched_item!r}."
+
+        return {
+            "ok": True,
+            "status": status,
+            "matched_item": matched_item,
+            "summary_cards": summary_cards,
+            "rows": rows,
+            "matches": matches,
+        }
+    finally:
+        conn.close()

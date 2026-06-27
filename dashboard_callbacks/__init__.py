@@ -38,10 +38,170 @@ empty_figure,
     make_card,
 )
 from data_health import build_data_health_snapshot, build_data_trend_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics
+from data_health import build_item_trend_explorer_snapshot
 
 def register_dashboard_callbacks(app):
 
 
+
+
+    @app.callback(
+        Output("item-trend-status", "children"),
+        Output("item-trend-summary-cards", "children"),
+        Output("item-trend-margin-graph", "figure"),
+        Output("item-trend-score-graph", "figure"),
+        Output("item-trend-matches-table", "data"),
+        Output("item-trend-matches-table", "columns"),
+        Output("item-trend-history-table", "data"),
+        Output("item-trend-history-table", "columns"),
+        Input("load-item-trend-button", "n_clicks"),
+        State("item-trend-search-input", "value"),
+        State("item-trend-days-input", "value"),
+    )
+    def update_item_trend_explorer(n_clicks, item_query, days):
+        def columns_for(rows):
+            if not rows:
+                return []
+            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+        def empty_figure(title):
+            return {
+                "data": [],
+                "layout": {
+                    "title": title,
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "margin": {"l": 40, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+        try:
+            snapshot = build_item_trend_explorer_snapshot(item_query=item_query, days=days or 90)
+            rows = snapshot.get("rows", [])
+            matches = snapshot.get("matches", [])
+
+            cards = [
+                make_card(card.get("Title", ""), card.get("Value", ""), card.get("Detail", ""))
+                for card in snapshot.get("summary_cards", [])
+            ]
+
+            if not rows:
+                return (
+                    snapshot.get("status", "No trend rows found."),
+                    cards,
+                    empty_figure("Margin Trend"),
+                    empty_figure("Score Trend"),
+                    matches,
+                    columns_for(matches),
+                    rows,
+                    columns_for(rows),
+                )
+
+            dates = [row.get("Metric Date") for row in rows]
+
+            margin_figure = {
+                "data": [
+                    {
+                        "x": dates,
+                        "y": [row.get("Avg Margin") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Avg Margin",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Avg Profit / Item") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Avg Profit / Item",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Margin Volatility") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Margin Volatility",
+                    },
+                ],
+                "layout": {
+                    "title": f"Margin Trend — {snapshot.get('matched_item', '')}",
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "xaxis": {"title": "Metric Date"},
+                    "yaxis": {"title": "GP / Volatility"},
+                    "hovermode": "x unified",
+                    "margin": {"l": 50, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+            score_figure = {
+                "data": [
+                    {
+                        "x": dates,
+                        "y": [row.get("Recommendation Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Recommendation Score",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Quick Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Quick Score",
+                    },
+                    {
+                        "x": dates,
+                        "y": [row.get("Overnight Score") for row in rows],
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Overnight Score",
+                    },
+                ],
+                "layout": {
+                    "title": f"Score Trend — {snapshot.get('matched_item', '')}",
+                    "template": "plotly_dark",
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {"color": "#e5e7eb"},
+                    "xaxis": {"title": "Metric Date"},
+                    "yaxis": {"title": "Score"},
+                    "hovermode": "x unified",
+                    "margin": {"l": 50, "r": 20, "t": 50, "b": 40},
+                },
+            }
+
+            return (
+                snapshot.get("status", "Loaded item trend."),
+                cards,
+                margin_figure,
+                score_figure,
+                matches,
+                columns_for(matches),
+                rows,
+                columns_for(rows),
+            )
+        except Exception as exc:
+            error_rows = [
+                {
+                    "Error": type(exc).__name__,
+                    "Details": str(exc)[:200],
+                }
+            ]
+            return (
+                f"Item Trend Explorer failed: {type(exc).__name__}: {exc}",
+                [make_card("Item Trend", "Error", str(exc)[:90])],
+                empty_figure("Margin Trend"),
+                empty_figure("Score Trend"),
+                error_rows,
+                columns_for(error_rows),
+                [],
+                [],
+            )
 
     @app.callback(
         Output("data-health-trend-readiness-table", "data"),
