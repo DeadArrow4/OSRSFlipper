@@ -246,6 +246,52 @@ def build_trade_board_tab():
                 ],
             ),
 
+
+            settings_section(
+                "Trend Boost",
+                "Optional advisory scoring overlay. Original Trade Board score stays visible.",
+                children=[
+                    html.Div(
+                        className="settings-grid settings-grid-3",
+                        children=[
+                            setting_card(
+                                "Trend boost mode",
+                                dcc.Dropdown(
+                                    id="trade-board-trend-boost-mode",
+                                    options=[
+                                        {"label": "Off", "value": "off"},
+                                        {"label": "Annotate only", "value": "annotate"},
+                                        {"label": "Reorder view", "value": "reorder"},
+                                    ],
+                                    value="off",
+                                    clearable=False,
+                                    persistence=True,
+                                    persistence_type="local",
+                                    className="settings-dropdown"
+                                ),
+                                "Annotate adds adjusted-score columns. Reorder sorts the displayed table only."
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Safety"),
+                                    html.Div("Display only", className="setting-value"),
+                                    html.Div("Trend Boost does not buy, sell, cancel, or reprice.", className="setting-help"),
+                                ],
+                            ),
+                            html.Div(
+                                className="setting-card",
+                                children=[
+                                    html.Label("Scoring"),
+                                    html.Div("Original score preserved", className="setting-value"),
+                                    html.Div("Trend Adjusted Score is an advisory overlay, not a replacement.", className="setting-help"),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+
             html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
 
 

@@ -45,6 +45,7 @@ from data_health import cleanup_scan_results_with_backup_guard
 from data_health import build_database_compaction_preview_snapshot, build_maintenance_events_snapshot
 from data_health import create_compacted_database_copy
 from trade_trends import enrich_trade_board_rows_with_trends, summarize_trade_board_trend_health
+from trade_trends import apply_trade_board_trend_boost
 
 def _enrich_trade_board_dataframe_with_trends(board_df):
     """Add read-only trend columns to the Trade Board dataframe.
@@ -679,6 +680,7 @@ def register_dashboard_callbacks(app):
         Input("trade-board-fill-filter", "value"),
         Input("trade-board-trend-direction-filter", "value"),
         Input("trade-board-trend-confidence-filter", "value"),
+        Input("trade-board-trend-boost-mode", "value"),
     )
     def update_trade_board_phase1(
         n_clicks,
@@ -690,6 +692,7 @@ def register_dashboard_callbacks(app):
         fill_filter,
         trend_direction_filter,
         trend_confidence_filter,
+        trend_boost_mode,
     ):
         try:
             from datetime import datetime
@@ -720,6 +723,32 @@ def register_dashboard_callbacks(app):
                 summary["trend_status"] = trade_trend_status
                 summary["trend_history_days"] = trade_trend_health.get("metric_days", 0)
                 summary["trend_items_with_history"] = trade_trend_health.get("items_with_history", 0)
+
+
+            try:
+                trend_boost_mode_value = str(trend_boost_mode or "off").lower()
+
+                if hasattr(board_df, "to_dict"):
+                    boost_records = board_df.to_dict("records")
+                    boosted_records = apply_trade_board_trend_boost(
+                        boost_records,
+                        mode=trend_boost_mode_value,
+                    )
+
+                    if trend_boost_mode_value in {"annotate", "reorder"}:
+                        board_df = board_df.__class__(boosted_records)
+
+                if isinstance(summary, dict):
+                    summary["trend_boost_mode"] = trend_boost_mode_value
+                    summary["trend_boost_status"] = (
+                        "off"
+                        if trend_boost_mode_value == "off"
+                        else f"{trend_boost_mode_value} applied to displayed rows"
+                    )
+            except Exception as trend_boost_exc:
+                if isinstance(summary, dict):
+                    summary["trend_boost_mode"] = trend_boost_mode or "off"
+                    summary["trend_boost_status"] = f"trend boost skipped: {type(trend_boost_exc).__name__}"
 
             trend_filter_notes = []
 
@@ -792,6 +821,18 @@ def register_dashboard_callbacks(app):
                             summary.get("trend_filter_status", "no trend filters")
                         ),
                     ]
+                )
+            except Exception:
+                pass
+
+
+            try:
+                cards.append(
+                    make_card(
+                        "Trend Boost",
+                        str(summary.get("trend_boost_mode", "off")),
+                        summary.get("trend_boost_status", "off")
+                    )
                 )
             except Exception:
                 pass

@@ -561,3 +561,141 @@ def summarize_trade_board_trend_health(database_path: str | Path | None = None) 
 if __name__ == "__main__":
     summary = summarize_trade_board_trend_health()
     print(summary)
+
+def _trend_boost_score_adjustment(row: dict[str, Any]) -> tuple[float, str]:
+    direction = str(row.get("Trend Direction") or "").strip().lower()
+    confidence = str(row.get("Trend Confidence") or "").strip().lower()
+    days_seen = _safe_int(row.get("Days Seen")) or 0
+    stability = _safe_float(row.get("Margin Stability")) or 0.0
+    score_change = _safe_float(row.get("Score Change")) or 0.0
+
+    adjustment = 0.0
+    reasons: list[str] = []
+
+    if direction == "up":
+        adjustment += 4.0
+        reasons.append("up trend")
+    elif direction == "flat":
+        adjustment += 1.0
+        reasons.append("flat trend")
+    elif direction == "mixed":
+        adjustment += 0.0
+        reasons.append("mixed trend")
+    elif direction == "down":
+        adjustment -= 5.0
+        reasons.append("down trend")
+    elif direction == "building":
+        adjustment -= 1.0
+        reasons.append("building history")
+    elif direction == "unavailable":
+        adjustment -= 2.0
+        reasons.append("trend unavailable")
+
+    if confidence == "high":
+        adjustment += 3.0
+        reasons.append("high confidence")
+    elif confidence == "medium":
+        adjustment += 1.0
+        reasons.append("medium confidence")
+    elif confidence == "low":
+        adjustment -= 1.0
+        reasons.append("low confidence")
+
+    if days_seen >= 14:
+        adjustment += 2.0
+        reasons.append("14+ days")
+    elif days_seen >= 7:
+        adjustment += 1.0
+        reasons.append("7+ days")
+    elif days_seen > 0:
+        adjustment -= 0.5
+        reasons.append("short history")
+
+    if stability >= 75:
+        adjustment += 2.0
+        reasons.append("stable margin")
+    elif stability >= 50:
+        adjustment += 1.0
+        reasons.append("usable stability")
+    elif stability > 0:
+        adjustment -= 1.0
+        reasons.append("unstable margin")
+
+    if score_change >= 10:
+        adjustment += 2.0
+        reasons.append("score improving")
+    elif score_change <= -10:
+        adjustment -= 2.0
+        reasons.append("score weakening")
+
+    adjustment = max(-10.0, min(10.0, adjustment))
+
+    if not reasons:
+        reasons.append("no trend signal")
+
+    return adjustment, ", ".join(reasons)
+
+
+def apply_trade_board_trend_boost(
+    rows: list[dict[str, Any]],
+    mode: str = "off",
+) -> list[dict[str, Any]]:
+    """Add advisory trend boost columns to Trade Board rows.
+
+    Modes:
+    - off: return rows unchanged
+    - annotate: add Original Score, Trend Boost, Trend Adjusted Score, Trend Boost Reason
+    - reorder: add the same columns and sort by Trend Adjusted Score desc
+
+    This function is display-only. It does not write to the database and does not
+    automate any GE action.
+    """
+
+    mode_value = str(mode or "off").strip().lower()
+
+    if mode_value not in {"annotate", "reorder"}:
+        return rows
+
+    if not rows:
+        return rows
+
+    score_keys = [
+        "Score",
+        "score",
+        "Trade Score",
+        "trade_score",
+        "Flip Score",
+        "flip_score",
+        "Rank Score",
+        "rank_score",
+    ]
+
+    enriched: list[dict[str, Any]] = []
+
+    for row in rows:
+        new_row = dict(row)
+
+        score_key = next((key for key in score_keys if key in new_row), None)
+        original_score = _safe_float(new_row.get(score_key)) if score_key else None
+
+        if original_score is None:
+            original_score = _safe_float(new_row.get("Expected Profit")) or _safe_float(new_row.get("Total Profit")) or 0.0
+
+        boost, reason = _trend_boost_score_adjustment(new_row)
+        adjusted = original_score + boost
+
+        new_row["Original Score"] = _round_or_none(original_score)
+        new_row["Trend Boost"] = _round_or_none(boost)
+        new_row["Trend Adjusted Score"] = _round_or_none(adjusted)
+        new_row["Trend Boost Reason"] = reason
+        new_row["Trend Boost Mode"] = mode_value
+
+        enriched.append(new_row)
+
+    if mode_value == "reorder":
+        enriched.sort(
+            key=lambda item: _safe_float(item.get("Trend Adjusted Score")) or 0.0,
+            reverse=True,
+        )
+
+    return enriched
