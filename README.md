@@ -1,5 +1,10 @@
 # OSRSFlipper
 
+## Latest Release: 1.2.0
+
+OSRSFlipper 1.2.0 adds capital-aware AI recommendations, local RuneLite telemetry import, a Capital-Aware RuneLite State panel, and Trade Board capital-fit quantities. RuneLite telemetry is read-only and local-only.
+
+
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
 
 The project is designed to run locally on your machine. Private runtime data such as databases, logs, backups, exports, API keys, and account files should not be committed to GitHub.

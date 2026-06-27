@@ -8,7 +8,7 @@ except Exception:
 
 
 APP_NAME = "OSRSFlipper"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
 BUILD_CHANNEL = "stable"
 PROJECT_URL = ""
 APP_DESCRIPTION = (

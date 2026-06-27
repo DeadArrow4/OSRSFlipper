@@ -1,3 +1,49 @@
+OSRSFlipper 1.2.0 - Capital-Aware AI and RuneLite Telemetry
+
+Release type: feature release
+
+Highlights:
+- Added local RuneLite telemetry importer for live GP and Grand Exchange offer state.
+- Added read-only RuneLite companion plugin scaffold/wrapper for local telemetry export.
+- Added capital memory backend for usable GP, locked buy GP, sell-side value, open slots, and stuck offers.
+- Added Capital-Aware RuneLite State panel to the Trade Board.
+- Added live import/refresh controls and 30-second dashboard refresh for capital state.
+- Added AI Advisor capital context so AI recommendations account for usable GP, locked offers, open slots, stuck offers, and low-margin risk.
+- Added Trade Board capital-fit columns:
+  - Capital Fit
+  - Fit Qty
+  - Fit Cost
+  - Fit Profit
+  - Capital Note
+- Added capital-fit calculations to scale recommendation quantities to live usable GP and per-trade capital caps.
+- Added inspection utilities for RuneLite import, capital dashboard, AI capital context, and Trade Board capital fit.
+
+Safety:
+- RuneLite integration is read-only.
+- No OSRS clicks, buy/sell actions, cancels, repricing, or automation are performed.
+- Telemetry is written to local runtime JSON only.
+- Private runtime telemetry files are ignored by Git.
+- API keys, database files, backups, and local runtime state remain excluded from releases.
+
+Included:
+- Python dashboard and backend updates.
+- RuneLite telemetry importer.
+- RuneLite companion plugin source/wrapper.
+- Capital-aware dashboard panel.
+- AI Advisor capital context helper.
+- Trade Board capital-fit helper.
+- Inspection scripts.
+- Runtime example telemetry JSON.
+
+Not included:
+- Private database files.
+- Saved account data.
+- Saved OpenAI API keys.
+- Local runtime telemetry JSON.
+- Local backup folders.
+
+========================================================================
+
 # OSRSFlipper EXE Build Notes
 
 ## What this builds
