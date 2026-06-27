@@ -36,257 +36,264 @@ def build_trade_board_tab():
     return html.Div(
         className="settings-page trade-board-page",
         children=[
-            settings_section(
-                "Trade Board",
-                "Phase 2.1: one stable ranked table from the latest scanner run. Controls persist after refresh.",
+            html.Details(
+                className="osrs-tradeboard-settings-drawer",
+                open=False,
                 children=[
+                    html.Summary("Trade Board settings"),
                     html.Div(
-                        "Use this as a quick local view of the strongest current trade candidates. The board refreshes when you click the button or change the controls.",
-                        className="muted-text"
-                    )
-                ]
-            ),
-
-            settings_section(
-                "Controls",
-                children=[
-                    html.Div(
-                        className="settings-grid trade-board-control-grid",
+                        className="osrs-tradeboard-settings-grid",
                         children=[
-                            setting_card(
-                                "Risk profile",
-                                dcc.Dropdown(
-                                    id="trade-board-risk-profile",
-                                    options=[
-                                        {"label": "Low", "value": "low"},
-                                        {"label": "Medium", "value": "medium"},
-                                        {"label": "High", "value": "high"},
+                    settings_section(
+                                    "Controls",
+                                    children=[
+                                        html.Div(
+                                            className="settings-grid trade-board-control-grid osrs-tradeboard-controls-restored",
+                                            children=[
+                                                setting_card(
+                                                    "Risk profile",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-risk-profile",
+                                                        options=[
+                                                            {"label": "Low", "value": "low"},
+                                                            {"label": "Medium", "value": "medium"},
+                                                            {"label": "High", "value": "high"},
+                                                        ],
+                                                        value="medium",
+                                                        clearable=False,
+                                                        className="dark-dropdown",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Low hides medium/high-risk items. Medium allows low/medium. High allows all."
+                                                ),
+                                                setting_card(
+                                                    "Rows",
+                                                    dcc.Input(
+                                                        id="trade-board-limit",
+                                                        type="number",
+                                                        min=5,
+                                                        max=100,
+                                                        step=5,
+                                                        value=25,
+                                                        placeholder="25",
+                                                        className="settings-input",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Maximum recommendations to show."
+                                                ),
+                                                setting_card(
+                                                    "Minimum total profit",
+                                                    dcc.Input(
+                                                        id="trade-board-min-profit",
+                                                        type="number",
+                                                        min=0,
+                                                        max=1000000000,
+                                                        step=10000,
+                                                        value=50000,
+                                                        placeholder="50000",
+                                                        className="settings-input",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Minimum estimated total profit for Buy Now/Test Small recommendations."
+                                                ),
+                    
+                                                setting_card(
+                                                    "Action filter",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-action-filter",
+                                                        options=[
+                                                            {"label": "All actions", "value": "all"},
+                                                            {"label": "Buy Now", "value": "Buy Now"},
+                                                            {"label": "Overnight", "value": "Overnight"},
+                                                            {"label": "Test Small", "value": "Test Small"},
+                                                            {"label": "Avoid / Wait", "value": "Avoid / Wait"},
+                                                        ],
+                                                        value="all",
+                                                        clearable=False,
+                                                        className="dark-dropdown",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Show only one action type."
+                                                ),
+                                                setting_card(
+                                                    "Confidence filter",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-confidence-filter",
+                                                        options=[
+                                                            {"label": "All confidence levels", "value": "all"},
+                                                            {"label": "High", "value": "High"},
+                                                            {"label": "Medium", "value": "Medium"},
+                                                            {"label": "Low", "value": "Low"},
+                                                        ],
+                                                        value="all",
+                                                        clearable=False,
+                                                        className="dark-dropdown",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Show only High, Medium, or Low confidence rows."
+                                                ),
+                                                setting_card(
+                                                    "Fill filter",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-fill-filter",
+                                                        options=[
+                                                            {"label": "All fill speeds", "value": "all"},
+                                                            {"label": "Fast", "value": "Fast"},
+                                                            {"label": "Moderate", "value": "Moderate"},
+                                                            {"label": "Thin", "value": "Thin"},
+                                                            {"label": "Slow", "value": "Slow"},
+                                                        ],
+                                                        value="all",
+                                                        clearable=False,
+                                                        className="dark-dropdown",
+                                                        persistence=True,
+                                                        persisted_props=["value"],
+                                                        persistence_type="local",
+                                                    ),
+                                                    "Filter by estimated fill quality."
+                                                ),
+                                            ]
+                                        ),
+                                        html.Div(
+                                            className="settings-action-row",
+                                            children=[
+                                                html.Button(
+                                                    "Refresh Trade Board",
+                                                    id="refresh-trade-board-button",
+                                                    n_clicks=0,
+                                                    className="primary-button"
+                                                ),
+                                                html.Div(
+                                                    id="trade-board-status",
+                                                    className="status-text settings-save-status",
+                                                    children="Waiting to build Trade Board."
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                ),
+                    settings_section(
+                                    "Trade Board",
+                                    "Phase 2.1: one stable ranked table from the latest scanner run. Controls persist after refresh.",
+                                    children=[
+                                        html.Div(
+                                            "Use this as a quick local view of the strongest current trade candidates. The board refreshes when you click the button or change the controls.",
+                                            className="muted-text"
+                                        )
+                                    ]
+                                ),
+                    settings_section(
+                                    "Trend Filters",
+                                    "Read-only filters for the trend-aware Trade Board columns.",
+                                    children=[
+                                        html.Div(
+                                            className="settings-grid settings-grid-3",
+                                            children=[
+                                                setting_card(
+                                                    "Trend direction",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-trend-direction-filter",
+                                                        options=[
+                                                            {"label": "All trend directions", "value": "all"},
+                                                            {"label": "Up", "value": "up"},
+                                                            {"label": "Flat", "value": "flat"},
+                                                            {"label": "Mixed", "value": "mixed"},
+                                                            {"label": "Down", "value": "down"},
+                                                            {"label": "Building", "value": "building"},
+                                                            {"label": "Unavailable", "value": "unavailable"},
+                                                        ],
+                                                        value="all",
+                                                        clearable=False,
+                                                        persistence=True,
+                                                        persistence_type="local",
+                                                        className="settings-dropdown"
+                                                    ),
+                                                    "Filters the enriched Trend Direction column."
+                                                ),
+                                                setting_card(
+                                                    "Trend confidence",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-trend-confidence-filter",
+                                                        options=[
+                                                            {"label": "All trend confidence levels", "value": "all"},
+                                                            {"label": "High", "value": "high"},
+                                                            {"label": "Medium", "value": "medium"},
+                                                            {"label": "Low", "value": "low"},
+                                                        ],
+                                                        value="all",
+                                                        clearable=False,
+                                                        persistence=True,
+                                                        persistence_type="local",
+                                                        className="settings-dropdown"
+                                                    ),
+                                                    "Filters the enriched Trend Confidence column."
+                                                ),
+                                                html.Div(
+                                                    className="setting-card",
+                                                    children=[
+                                                        html.Label("Mode"),
+                                                        html.Div("Read-only advisory", className="setting-value"),
+                                                        html.Div("Trend filters do not change buy/sell/cancel behavior.", className="setting-help"),
+                                                    ],
+                                                ),
+                                            ],
+                                        ),
                                     ],
-                                    value="medium",
-                                    clearable=False,
-                                    className="dark-dropdown",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
                                 ),
-                                "Low hides medium/high-risk items. Medium allows low/medium. High allows all."
-                            ),
-                            setting_card(
-                                "Rows",
-                                dcc.Input(
-                                    id="trade-board-limit",
-                                    type="number",
-                                    min=5,
-                                    max=100,
-                                    step=5,
-                                    value=25,
-                                    placeholder="25",
-                                    className="settings-input",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
-                                ),
-                                "Maximum recommendations to show."
-                            ),
-                            setting_card(
-                                "Minimum total profit",
-                                dcc.Input(
-                                    id="trade-board-min-profit",
-                                    type="number",
-                                    min=0,
-                                    max=1000000000,
-                                    step=10000,
-                                    value=50000,
-                                    placeholder="50000",
-                                    className="settings-input",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
-                                ),
-                                "Minimum estimated total profit for Buy Now/Test Small recommendations."
-                            ),
-
-                            setting_card(
-                                "Action filter",
-                                dcc.Dropdown(
-                                    id="trade-board-action-filter",
-                                    options=[
-                                        {"label": "All actions", "value": "all"},
-                                        {"label": "Buy Now", "value": "Buy Now"},
-                                        {"label": "Overnight", "value": "Overnight"},
-                                        {"label": "Test Small", "value": "Test Small"},
-                                        {"label": "Avoid / Wait", "value": "Avoid / Wait"},
+                    settings_section(
+                                    "Trend Boost",
+                                    "Optional advisory scoring overlay. Original Trade Board score stays visible.",
+                                    children=[
+                                        html.Div(
+                                            className="settings-grid settings-grid-3",
+                                            children=[
+                                                setting_card(
+                                                    "Trend boost mode",
+                                                    dcc.Dropdown(
+                                                        id="trade-board-trend-boost-mode",
+                                                        options=[
+                                                            {"label": "Off", "value": "off"},
+                                                            {"label": "Annotate only", "value": "annotate"},
+                                                            {"label": "Reorder view", "value": "reorder"},
+                                                        ],
+                                                        value="off",
+                                                        clearable=False,
+                                                        persistence=True,
+                                                        persistence_type="local",
+                                                        className="settings-dropdown"
+                                                    ),
+                                                    "Annotate adds adjusted-score columns. Reorder sorts the displayed table only."
+                                                ),
+                                                html.Div(
+                                                    className="setting-card",
+                                                    children=[
+                                                        html.Label("Safety"),
+                                                        html.Div("Display only", className="setting-value"),
+                                                        html.Div("Trend Boost does not buy, sell, cancel, or reprice.", className="setting-help"),
+                                                    ],
+                                                ),
+                                                html.Div(
+                                                    className="setting-card",
+                                                    children=[
+                                                        html.Label("Scoring"),
+                                                        html.Div("Original score preserved", className="setting-value"),
+                                                        html.Div("Trend Adjusted Score is an advisory overlay, not a replacement.", className="setting-help"),
+                                                    ],
+                                                ),
+                                            ],
+                                        ),
                                     ],
-                                    value="all",
-                                    clearable=False,
-                                    className="dark-dropdown",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
-                                ),
-                                "Show only one action type."
-                            ),
-                            setting_card(
-                                "Confidence filter",
-                                dcc.Dropdown(
-                                    id="trade-board-confidence-filter",
-                                    options=[
-                                        {"label": "All confidence levels", "value": "all"},
-                                        {"label": "High", "value": "High"},
-                                        {"label": "Medium", "value": "Medium"},
-                                        {"label": "Low", "value": "Low"},
-                                    ],
-                                    value="all",
-                                    clearable=False,
-                                    className="dark-dropdown",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
-                                ),
-                                "Show only High, Medium, or Low confidence rows."
-                            ),
-                            setting_card(
-                                "Fill filter",
-                                dcc.Dropdown(
-                                    id="trade-board-fill-filter",
-                                    options=[
-                                        {"label": "All fill speeds", "value": "all"},
-                                        {"label": "Fast", "value": "Fast"},
-                                        {"label": "Moderate", "value": "Moderate"},
-                                        {"label": "Thin", "value": "Thin"},
-                                        {"label": "Slow", "value": "Slow"},
-                                    ],
-                                    value="all",
-                                    clearable=False,
-                                    className="dark-dropdown",
-                                    persistence=True,
-                                    persisted_props=["value"],
-                                    persistence_type="local",
-                                ),
-                                "Filter by estimated fill quality."
-                            ),
-                        ]
-                    ),
-                    html.Div(
-                        className="settings-action-row",
-                        children=[
-                            html.Button(
-                                "Refresh Trade Board",
-                                id="refresh-trade-board-button",
-                                n_clicks=0,
-                                className="primary-button"
-                            ),
-                            html.Div(
-                                id="trade-board-status",
-                                className="status-text settings-save-status",
-                                children="Waiting to build Trade Board."
-                            )
-                        ]
-                    )
-                ]
-            ),
-
-
-            settings_section(
-                "Trend Filters",
-                "Read-only filters for the trend-aware Trade Board columns.",
-                children=[
-                    html.Div(
-                        className="settings-grid settings-grid-3",
-                        children=[
-                            setting_card(
-                                "Trend direction",
-                                dcc.Dropdown(
-                                    id="trade-board-trend-direction-filter",
-                                    options=[
-                                        {"label": "All trend directions", "value": "all"},
-                                        {"label": "Up", "value": "up"},
-                                        {"label": "Flat", "value": "flat"},
-                                        {"label": "Mixed", "value": "mixed"},
-                                        {"label": "Down", "value": "down"},
-                                        {"label": "Building", "value": "building"},
-                                        {"label": "Unavailable", "value": "unavailable"},
-                                    ],
-                                    value="all",
-                                    clearable=False,
-                                    persistence=True,
-                                    persistence_type="local",
-                                    className="settings-dropdown"
-                                ),
-                                "Filters the enriched Trend Direction column."
-                            ),
-                            setting_card(
-                                "Trend confidence",
-                                dcc.Dropdown(
-                                    id="trade-board-trend-confidence-filter",
-                                    options=[
-                                        {"label": "All trend confidence levels", "value": "all"},
-                                        {"label": "High", "value": "high"},
-                                        {"label": "Medium", "value": "medium"},
-                                        {"label": "Low", "value": "low"},
-                                    ],
-                                    value="all",
-                                    clearable=False,
-                                    persistence=True,
-                                    persistence_type="local",
-                                    className="settings-dropdown"
-                                ),
-                                "Filters the enriched Trend Confidence column."
-                            ),
-                            html.Div(
-                                className="setting-card",
-                                children=[
-                                    html.Label("Mode"),
-                                    html.Div("Read-only advisory", className="setting-value"),
-                                    html.Div("Trend filters do not change buy/sell/cancel behavior.", className="setting-help"),
-                                ],
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-
-
-            settings_section(
-                "Trend Boost",
-                "Optional advisory scoring overlay. Original Trade Board score stays visible.",
-                children=[
-                    html.Div(
-                        className="settings-grid settings-grid-3",
-                        children=[
-                            setting_card(
-                                "Trend boost mode",
-                                dcc.Dropdown(
-                                    id="trade-board-trend-boost-mode",
-                                    options=[
-                                        {"label": "Off", "value": "off"},
-                                        {"label": "Annotate only", "value": "annotate"},
-                                        {"label": "Reorder view", "value": "reorder"},
-                                    ],
-                                    value="off",
-                                    clearable=False,
-                                    persistence=True,
-                                    persistence_type="local",
-                                    className="settings-dropdown"
-                                ),
-                                "Annotate adds adjusted-score columns. Reorder sorts the displayed table only."
-                            ),
-                            html.Div(
-                                className="setting-card",
-                                children=[
-                                    html.Label("Safety"),
-                                    html.Div("Display only", className="setting-value"),
-                                    html.Div("Trend Boost does not buy, sell, cancel, or reprice.", className="setting-help"),
-                                ],
-                            ),
-                            html.Div(
-                                className="setting-card",
-                                children=[
-                                    html.Label("Scoring"),
-                                    html.Div("Original score preserved", className="setting-value"),
-                                    html.Div("Trend Adjusted Score is an advisory overlay, not a replacement.", className="setting-help"),
-                                ],
-                            ),
+                                )
                         ],
                     ),
                 ],
@@ -355,7 +362,16 @@ def build_my_trades_tab():
                 ]
             ),
 
-            settings_section(
+            html.Div(
+                className="osrs-hidden-legacy-filters",
+                style={"display": "none"},
+                children=[
+                    html.Details(
+                className="ux-collapsible-panel overview-legacy-filters",
+                open=False,
+                children=[
+                    html.Summary("Legacy scanner filters"),
+                    settings_section(
                 "Trade Refresh",
                 "Use this to pull the newest RuneLite Flipping Utilities JSON into the local database before viewing results.",
                 children=[
@@ -400,6 +416,10 @@ def build_my_trades_tab():
                         ]
                     )
                 ]
+            )
+                ],
+            )
+                ],
             ),
 
             html.Div(id="trade-kpi-cards", className="kpi-grid"),
@@ -439,6 +459,14 @@ def build_filters():
             html.Div("Filters", className="section-title"),
 
             html.Div(
+                className="osrs-hidden-legacy-top-filters",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                className="osrs-hidden-legacy-filters",
+                style={"display": "none"},
+                children=[
+                    html.Div(
                 className="filter-row",
                 children=[
                     html.Div(
@@ -550,6 +578,10 @@ def build_filters():
                         ],
                         className="filter-box-small"
                     ),                ]
+            )
+                ],
+            )
+                ],
             )
         ]
     )
@@ -2778,21 +2810,7 @@ def build_app_layout():
     return html.Div(
         className="app-shell",
         children=[
-            html.Div(
-                className="top-bar",
-                children=[
-                    html.Div(
-                        children=[
-                            html.Div("OSRS Grand Exchange Flip Dashboard", className="app-title"),
-                            html.Div(
-                                "Live scanner, SQLite history, dashboard analytics, daily/weekly trends, and AI flip advice.",
-                                className="app-subtitle"
-                            )
-                        ]
-                    ),
-                    html.Div("Local dashboard", className="env-badge")
-                ]
-            ),
+            html.Div(className="osrs-hidden-legacy-top-banner", style={"display": "none"}),
 
             dcc.Interval(
                 id="auto-refresh",
@@ -2802,7 +2820,13 @@ def build_app_layout():
 
             build_filters(),
 
-            html.Div(id="kpi-cards", className="kpi-grid"),
+            html.Div(
+                className="osrs-hidden-legacy-top-kpis",
+                style={"display": "none"},
+                children=[
+                    html.Div(id="kpi-cards", className="kpi-grid")
+                ],
+            ),
 
             dcc.Tabs(
                 id="main-tabs",
