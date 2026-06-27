@@ -93,3 +93,6 @@ runelite_companion/**/.settings/
 runelite_companion/**/.metadata/
 runelite_companion/**/.run/
 runelite_companion/**/hs_err_pid*.log
+runtime/runelite_state.json.status.txt
+runtime/runelite_plugin_started.txt
+runtime/write_test.txt

@@ -31,8 +31,14 @@ from dashboard_data import (
 from dashboard_theme import base_table_styles
 from dashboard_data import get_item_options
 
+try:
+    from capital_dashboard import build_capital_ai_panel
+except Exception:
+    build_capital_ai_panel = None
 
-def build_trade_board_tab():
+
+
+def _build_trade_board_tab_original_120():
     return html.Div(
         className="settings-page trade-board-page",
         children=[
@@ -2916,4 +2922,18 @@ dcc.Tab(
             )
         ]
     )
+
+
+
+def build_trade_board_tab(*args, **kwargs):
+    """Trade Board wrapper with capital-aware RuneLite state panel."""
+    try:
+        panel = build_capital_ai_panel() if build_capital_ai_panel else html.Div()
+    except Exception as exc:
+        panel = html.Div(
+            f"Capital-aware panel unavailable: {exc}",
+            style={"padding": "10px", "border": "1px solid rgba(255,255,255,0.12)", "borderRadius": "10px"},
+        )
+
+    return html.Div([panel, _build_trade_board_tab_original_120(*args, **kwargs)])
 

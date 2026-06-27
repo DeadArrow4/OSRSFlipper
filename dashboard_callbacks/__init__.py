@@ -47,6 +47,13 @@ from data_health import create_compacted_database_copy
 from trade_trends import enrich_trade_board_rows_with_trends, summarize_trade_board_trend_health
 from trade_trends import apply_trade_board_trend_boost
 
+try:
+    from capital_dashboard import register_capital_ai_callbacks
+except Exception:
+    def register_capital_ai_callbacks(app):
+        return None
+
+
 def _enrich_trade_board_dataframe_with_trends(board_df):
     """Add read-only trend columns to the Trade Board dataframe.
 
