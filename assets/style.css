@@ -1189,3 +1189,1317 @@ div[role="option"][aria-selected="true"],
     -webkit-appearance: none !important;
     appearance: none !important;
 }
+
+/* === OSRSFlipper 1.1.1 UI density and readability pass ===
+   Goal: reduce dashboard sprawl, tighten Trade Board spacing, and tone down
+   overly loud surfaces without changing trading/scanner logic.
+*/
+
+:root {
+    --ux-card-radius: 12px;
+    --ux-card-padding: 10px;
+    --ux-gap-sm: 6px;
+    --ux-gap-md: 10px;
+    --ux-muted-text: rgba(226, 232, 240, 0.68);
+    --ux-soft-border: rgba(148, 163, 184, 0.18);
+    --ux-soft-surface: rgba(15, 23, 42, 0.72);
+    --ux-soft-surface-2: rgba(17, 24, 39, 0.82);
+}
+
+/* Global page density */
+.settings-page,
+.dashboard-page,
+.trade-board-page {
+    padding: 12px 14px !important;
+}
+
+.settings-page > *,
+.trade-board-page > * {
+    margin-top: 0 !important;
+}
+
+.settings-section {
+    margin-bottom: 10px !important;
+    padding: 12px 14px !important;
+    border-radius: var(--ux-card-radius) !important;
+    border-color: var(--ux-soft-border) !important;
+    background: var(--ux-soft-surface) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18) !important;
+}
+
+.settings-section-title,
+.section-title,
+.card-title {
+    margin-bottom: 4px !important;
+    font-size: 0.96rem !important;
+    line-height: 1.25 !important;
+}
+
+.settings-section-subtitle,
+.muted-text,
+.setting-help,
+.ai-tip {
+    color: var(--ux-muted-text) !important;
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+}
+
+.settings-grid {
+    gap: var(--ux-gap-md) !important;
+}
+
+.settings-grid-3,
+.trade-board-control-grid {
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)) !important;
+}
+
+.setting-card {
+    min-height: 0 !important;
+    padding: var(--ux-card-padding) 11px !important;
+    border-radius: var(--ux-card-radius) !important;
+    border-color: var(--ux-soft-border) !important;
+    background: var(--ux-soft-surface-2) !important;
+}
+
+.setting-card label,
+.setting-card .setting-label {
+    margin-bottom: 4px !important;
+    font-size: 0.78rem !important;
+    letter-spacing: 0.01em !important;
+}
+
+.setting-value {
+    font-size: 0.9rem !important;
+    line-height: 1.25 !important;
+}
+
+/* Controls */
+.settings-input,
+input,
+textarea,
+.Select-control,
+.Select-placeholder,
+.Select-value,
+.Select-input,
+.Select-menu-outer {
+    min-height: 30px !important;
+    font-size: 0.8rem !important;
+}
+
+.Select-control {
+    border-radius: 9px !important;
+}
+
+button,
+.primary-button,
+.secondary-button {
+    min-height: 31px !important;
+    padding: 6px 10px !important;
+    border-radius: 9px !important;
+    font-size: 0.78rem !important;
+    letter-spacing: 0.01em !important;
+}
+
+.settings-action-row {
+    gap: 8px !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+}
+
+.status-text,
+.settings-save-status {
+    margin: 6px 0 !important;
+    padding: 6px 8px !important;
+    border-radius: 9px !important;
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+}
+
+/* KPI cards */
+.kpi-grid {
+    gap: 8px !important;
+    margin: 8px 0 10px 0 !important;
+}
+
+.kpi-card,
+.metric-card,
+.summary-card,
+.stat-card,
+.info-card {
+    min-height: 0 !important;
+    padding: 9px 10px !important;
+    border-radius: var(--ux-card-radius) !important;
+    border-color: var(--ux-soft-border) !important;
+    background: var(--ux-soft-surface-2) !important;
+}
+
+.kpi-card *,
+.metric-card *,
+.summary-card *,
+.stat-card *,
+.info-card * {
+    line-height: 1.25 !important;
+}
+
+/* Trade Board: keep filters, status, KPIs, and table visually closer. */
+.trade-board-page .settings-section {
+    margin-bottom: 8px !important;
+}
+
+.trade-board-page .settings-section:first-child {
+    margin-bottom: 8px !important;
+}
+
+.trade-board-page #trade-board-status {
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+}
+
+.trade-board-page #trade-board-kpi-cards {
+    margin-top: 4px !important;
+    margin-bottom: 8px !important;
+}
+
+.trade-board-page #trade-board-table,
+#trade-board-table {
+    margin-top: 0 !important;
+}
+
+/* DataTables: denser rows and less horizontal visual noise. */
+.dash-table-container,
+.dash-spreadsheet-container {
+    margin-top: 4px !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+    font-size: 0.76rem !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td,
+.dash-cell {
+    padding: 4px 6px !important;
+    line-height: 1.25 !important;
+}
+
+.dash-header {
+    font-weight: 650 !important;
+}
+
+/* Tabs: reduce top navigation height and color intensity. */
+.tab,
+.tab--selected {
+    padding: 8px 11px !important;
+    font-size: 0.8rem !important;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.tab--selected {
+    box-shadow: none !important;
+}
+
+/* Tone down harsh alert/badge surfaces where existing classes are reused. */
+.badge,
+.status-badge,
+.pill,
+.tag {
+    border-radius: 999px !important;
+    padding: 2px 7px !important;
+    font-size: 0.72rem !important;
+    filter: saturate(0.82) brightness(0.96) !important;
+}
+
+/* Responsive density: keep mobile readable instead of cramped. */
+@media (max-width: 900px) {
+    .settings-page,
+    .dashboard-page,
+    .trade-board-page {
+        padding: 10px !important;
+    }
+
+    .settings-grid-3,
+    .trade-board-control-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .settings-section {
+        padding: 11px !important;
+    }
+}
+
+/* === End OSRSFlipper 1.1.1 UI density and readability pass === */
+
+/* === OSRSFlipper 1.1.1 navigation clutter cleanup ===
+   Removes the repeated global hero feel and pushes legacy scanner summary blocks
+   into compact/collapsible UI.
+*/
+
+.dashboard-global-banner-removed {
+    display: none !important;
+}
+
+.overview-compact-hero {
+    margin: 0 0 10px 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid rgba(148, 163, 184, 0.16) !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.62) !important;
+}
+
+.overview-compact-hero .section-title {
+    margin: 0 0 2px 0 !important;
+    font-size: 1rem !important;
+}
+
+.ux-collapsible-panel {
+    margin: 8px 0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.58) !important;
+    overflow: hidden !important;
+}
+
+.ux-collapsible-panel > summary {
+    cursor: pointer !important;
+    padding: 8px 11px !important;
+    font-size: 0.82rem !important;
+    font-weight: 650 !important;
+    color: rgba(226, 232, 240, 0.86) !important;
+    user-select: none !important;
+}
+
+.ux-collapsible-panel > summary::marker {
+    color: rgba(148, 163, 184, 0.82) !important;
+}
+
+.ux-collapsible-panel[open] > summary {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14) !important;
+    background: rgba(30, 41, 59, 0.45) !important;
+}
+
+.ux-collapsible-panel > .settings-section,
+.ux-collapsible-panel > .kpi-grid,
+.ux-collapsible-panel > div {
+    margin: 8px !important;
+}
+
+.overview-legacy-filters .settings-section,
+.overview-legacy-kpis .kpi-grid {
+    margin-bottom: 8px !important;
+}
+
+/* Make old scanner KPI cards less dominant when the drawer is opened. */
+.overview-legacy-kpis .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+.overview-legacy-kpis .kpi-card,
+.overview-legacy-kpis .metric-card,
+.overview-legacy-kpis .summary-card,
+.overview-legacy-kpis .stat-card {
+    padding: 7px 8px !important;
+    min-height: 0 !important;
+}
+
+/* Pull primary data tables upward after old controls are collapsed. */
+.overview-page .dash-table-container,
+.trade-board-page .dash-table-container {
+    margin-top: 2px !important;
+}
+
+/* === End OSRSFlipper 1.1.1 navigation clutter cleanup === */
+
+/* === OSRSFlipper 1.1.1 modern top tabs shell ===
+   Makes the main Dash tabs feel more like a modern app navigation bar.
+   This is intentionally CSS/JS-assets only: no trading/scanner logic changes.
+*/
+
+:root {
+    --modern-nav-bg: rgba(2, 6, 23, 0.94);
+    --modern-nav-border: rgba(148, 163, 184, 0.16);
+    --modern-nav-text: rgba(226, 232, 240, 0.76);
+    --modern-nav-text-active: rgba(248, 250, 252, 0.98);
+    --modern-nav-pill: rgba(30, 41, 59, 0.86);
+    --modern-nav-pill-active: rgba(56, 189, 248, 0.16);
+    --modern-nav-pill-active-border: rgba(56, 189, 248, 0.38);
+}
+
+/* JS helper adds this class to the dcc.Tabs parent so we can style the real tab bar. */
+.osrs-top-tabs-bar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 10px !important;
+    margin: 0 0 10px 0 !important;
+    background: var(--modern-nav-bg) !important;
+    border-bottom: 1px solid var(--modern-nav-border) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: thin !important;
+}
+
+.osrs-top-tabs-bar::-webkit-scrollbar {
+    height: 7px !important;
+}
+
+.osrs-top-tabs-bar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.22) !important;
+    border-radius: 999px !important;
+}
+
+/* Modern tab pills */
+.osrs-top-tabs-bar .tab,
+.osrs-top-tabs-bar .tab--selected,
+.tab,
+.tab--selected {
+    min-height: 32px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    padding: 7px 12px !important;
+    margin: 0 !important;
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: var(--modern-nav-text) !important;
+    font-size: 0.79rem !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.01em !important;
+    white-space: nowrap !important;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease !important;
+}
+
+.osrs-top-tabs-bar .tab:hover,
+.tab:hover {
+    background: var(--modern-nav-pill) !important;
+    color: var(--modern-nav-text-active) !important;
+    border-color: var(--modern-nav-border) !important;
+}
+
+.osrs-top-tabs-bar .tab--selected,
+.tab--selected {
+    background: var(--modern-nav-pill-active) !important;
+    color: var(--modern-nav-text-active) !important;
+    border-color: var(--modern-nav-pill-active-border) !important;
+    box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.08) !important;
+}
+
+/* Reduce dead vertical space between navigation and content. */
+.osrs-top-tabs-bar + *,
+.osrs-top-tabs-bar ~ * {
+    margin-top: 0 !important;
+}
+
+/* App shell cleanup */
+body {
+    background: #020617 !important;
+}
+
+/* Keep content readable under sticky tabs. */
+.settings-page,
+.dashboard-page,
+.trade-board-page {
+    scroll-margin-top: 54px !important;
+}
+
+/* Optional: small app-name chip injected by JS. */
+.osrs-nav-brand {
+    flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 32px !important;
+    padding: 0 10px !important;
+    margin-right: 3px !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.18) !important;
+    color: rgba(248, 250, 252, 0.9) !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+}
+
+/* On narrower screens, keep tabs usable without wrapping into a tall stack. */
+@media (max-width: 900px) {
+    .osrs-top-tabs-bar {
+        padding: 6px 8px !important;
+        gap: 5px !important;
+    }
+
+    .osrs-nav-brand {
+        display: none !important;
+    }
+
+    .osrs-top-tabs-bar .tab,
+    .osrs-top-tabs-bar .tab--selected,
+    .tab,
+    .tab--selected {
+        min-height: 30px !important;
+        padding: 6px 10px !important;
+        font-size: 0.76rem !important;
+    }
+}
+
+/* === End OSRSFlipper 1.1.1 modern top tabs shell === */
+
+/* === OSRSFlipper 1.1.1 remove pre-tab clutter ===
+   The main tabs should be the first visible dashboard element.
+   Old global scanner banner/filter/KPI blocks are hidden by the UI helper.
+*/
+
+.osrs-pre-tab-clutter,
+.osrs-legacy-top-banner,
+.osrs-legacy-top-filters,
+.osrs-legacy-top-kpis {
+    display: none !important;
+}
+
+.osrs-top-tabs-bar {
+    margin-top: 0 !important;
+}
+
+body .osrs-top-tabs-bar:first-child,
+#react-entry-point .osrs-top-tabs-bar {
+    top: 0 !important;
+}
+
+/* Remove visual leftovers if a hidden pre-tab card had margins/padding around it. */
+.osrs-pre-tab-clutter + .osrs-top-tabs-bar,
+.osrs-legacy-top-banner + .osrs-top-tabs-bar,
+.osrs-legacy-top-filters + .osrs-top-tabs-bar,
+.osrs-legacy-top-kpis + .osrs-top-tabs-bar {
+    margin-top: 0 !important;
+}
+
+/* === End OSRSFlipper 1.1.1 remove pre-tab clutter === */
+
+/* === OSRSFlipper 1.1.1 hard remove legacy top chrome ===
+   Source-level classes plus JS fallback. The main tab bar should be the first
+   visible dashboard element.
+*/
+
+.osrs-hidden-legacy-top-banner,
+.osrs-hidden-legacy-top-filters,
+.osrs-hidden-legacy-top-kpis,
+.osrs-pre-tab-clutter,
+.osrs-legacy-top-banner,
+.osrs-legacy-top-filters,
+.osrs-legacy-top-kpis {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+.osrs-top-tabs-bar {
+    margin-top: 0 !important;
+}
+
+/* === End OSRSFlipper 1.1.1 hard remove legacy top chrome === */
+
+/* === OSRSFlipper 1.1.1 overview blank recovery ===
+   Keep the modern tab shell, but neutralize the overly broad JS/CSS hide rules
+   that could blank the Overview tab.
+*/
+
+/* JS safe mode no longer applies these classes. If the browser reused cached DOM
+   during hot reload, these rules prevent stale class-based hiding from winning.
+   Source-level osrs-hidden-legacy-top-* remains hidden separately. */
+.osrs-pre-tab-clutter:not(.osrs-hidden-legacy-top-banner):not(.osrs-hidden-legacy-top-filters):not(.osrs-hidden-legacy-top-kpis) {
+    display: revert !important;
+    visibility: visible !important;
+    height: auto !important;
+    min-height: initial !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* === End OSRSFlipper 1.1.1 overview blank recovery === */
+
+/* === OSRSFlipper 1.1.1 hide remaining legacy Filters box ===
+   Keep filter components mounted for callbacks, but remove the old global
+   pre-tab Filters panel from view.
+*/
+
+.osrs-hidden-legacy-filters,
+.overview-legacy-filters,
+.osrs-force-hide-filters {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+/* === End OSRSFlipper 1.1.1 hide remaining legacy Filters box === */
+
+/* === OSRSFlipper 1.1.1 force hide top Filters panel ===
+   Narrowly hides only the legacy Filters panel that appears above the tabs.
+*/
+
+.osrs-force-hide-top-filters {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+/* === End OSRSFlipper 1.1.1 force hide top Filters panel === */
+
+/* === OSRSFlipper 1.1.1 hide orphan Filters header ===
+   The OSRSFlipper tab bar should be the first visible dashboard element.
+*/
+
+.osrs-hide-orphan-filters-header {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+
+.osrs-top-tabs-bar {
+    margin-top: 0 !important;
+}
+
+/* === End OSRSFlipper 1.1.1 hide orphan Filters header === */
+
+/* === OSRSFlipper 1.1.1 dropdown palette and Trade Board subtabs ===
+   Modernizes dropdown colors globally and condenses Trade Board controls/data
+   into smaller client-side subtab groups.
+*/
+
+:root {
+    --ux-dropdown-bg: rgba(15, 23, 42, 0.98);
+    --ux-dropdown-bg-2: rgba(30, 41, 59, 0.98);
+    --ux-dropdown-border: rgba(148, 163, 184, 0.26);
+    --ux-dropdown-border-focus: rgba(125, 211, 252, 0.44);
+    --ux-dropdown-text: rgba(241, 245, 249, 0.94);
+    --ux-dropdown-muted: rgba(203, 213, 225, 0.70);
+    --ux-dropdown-hover: rgba(51, 65, 85, 0.94);
+    --ux-dropdown-selected: rgba(14, 116, 144, 0.28);
+}
+
+/* Global Dash dcc.Dropdown / React Select v1 cleanup */
+.Select-control,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control {
+    background: var(--ux-dropdown-bg) !important;
+    border: 1px solid var(--ux-dropdown-border) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    min-height: 31px !important;
+}
+
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control {
+    border-color: var(--ux-dropdown-border-focus) !important;
+}
+
+.Select-placeholder,
+.Select--single > .Select-control .Select-value,
+.Select-value-label,
+.Select-input,
+.Select-input > input {
+    color: var(--ux-dropdown-text) !important;
+    font-size: 0.8rem !important;
+}
+
+.Select-placeholder {
+    color: var(--ux-dropdown-muted) !important;
+}
+
+.Select-arrow-zone,
+.Select-clear-zone {
+    color: var(--ux-dropdown-muted) !important;
+}
+
+.Select-arrow {
+    border-color: var(--ux-dropdown-muted) transparent transparent !important;
+}
+
+.Select-menu-outer {
+    background: var(--ux-dropdown-bg-2) !important;
+    border: 1px solid var(--ux-dropdown-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38) !important;
+    margin-top: 5px !important;
+    overflow: hidden !important;
+    z-index: 4000 !important;
+}
+
+.Select-menu {
+    background: var(--ux-dropdown-bg-2) !important;
+}
+
+.Select-option {
+    background: transparent !important;
+    color: var(--ux-dropdown-text) !important;
+    font-size: 0.8rem !important;
+    padding: 7px 10px !important;
+}
+
+.Select-option.is-focused {
+    background: var(--ux-dropdown-hover) !important;
+    color: var(--ux-dropdown-text) !important;
+}
+
+.Select-option.is-selected,
+.Select-option.is-selected.is-focused {
+    background: var(--ux-dropdown-selected) !important;
+    color: var(--ux-dropdown-text) !important;
+}
+
+/* Trade Board client-side subtabs */
+.trade-board-settings-switcher,
+.trade-board-data-switcher {
+    display: inline-flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin: 6px 0 8px 0 !important;
+    padding: 6px !important;
+    border: 1px solid rgba(148, 163, 184, 0.16) !important;
+    border-radius: 999px !important;
+    background: rgba(2, 6, 23, 0.62) !important;
+}
+
+.trade-board-settings-switcher::before {
+    content: "Settings";
+}
+
+.trade-board-data-switcher::before {
+    content: "Data";
+}
+
+.trade-board-settings-switcher::before,
+.trade-board-data-switcher::before {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 27px !important;
+    padding: 0 8px 0 4px !important;
+    color: rgba(203, 213, 225, 0.62) !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+}
+
+.osrs-subtab-button {
+    min-height: 27px !important;
+    padding: 5px 10px !important;
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: rgba(203, 213, 225, 0.78) !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+}
+
+.osrs-subtab-button:hover {
+    background: rgba(30, 41, 59, 0.88) !important;
+    color: rgba(248, 250, 252, 0.96) !important;
+}
+
+.osrs-subtab-button.osrs-subtab-active {
+    background: rgba(14, 116, 144, 0.24) !important;
+    border-color: rgba(125, 211, 252, 0.36) !important;
+    color: rgba(248, 250, 252, 0.98) !important;
+}
+
+.osrs-subtab-hidden {
+    display: none !important;
+}
+
+.trade-board-page .settings-section {
+    transition: opacity 120ms ease !important;
+}
+
+/* Reduce the visual dominance of Trade Board setting cards after subtabbing. */
+.trade-board-page .setting-card {
+    padding: 8px 9px !important;
+}
+
+.trade-board-page .settings-section-title,
+.trade-board-page .section-title {
+    font-size: 0.9rem !important;
+}
+
+/* === End OSRSFlipper 1.1.1 dropdown palette and Trade Board subtabs === */
+
+/* === OSRSFlipper 1.1.1 Trade Board compact toolbar ===
+   Removes bulky Trade Board setting/KPI boxes from the main flow and replaces
+   them with compact client-side controls.
+*/
+
+:root {
+    --ux-dropdown-bg: #0b1220;
+    --ux-dropdown-bg-2: #111827;
+    --ux-dropdown-border: rgba(71, 85, 105, 0.82);
+    --ux-dropdown-border-focus: rgba(148, 163, 184, 0.72);
+    --ux-dropdown-text: rgba(248, 250, 252, 0.96);
+    --ux-dropdown-muted: rgba(203, 213, 225, 0.74);
+    --ux-dropdown-hover: rgba(30, 41, 59, 0.96);
+    --ux-dropdown-selected: rgba(51, 65, 85, 0.98);
+    --ux-panel-bg: rgba(2, 6, 23, 0.96);
+    --ux-panel-border: rgba(71, 85, 105, 0.55);
+}
+
+/* Stronger global dropdown palette override. This targets Dash/React Select
+   states that were still showing bright blue borders/fills. */
+.Select-control,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control,
+.Select.has-value.Select--single > .Select-control,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control {
+    background: var(--ux-dropdown-bg) !important;
+    border-color: var(--ux-dropdown-border) !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-radius: 9px !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.Select-control:hover,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control {
+    border-color: var(--ux-dropdown-border-focus) !important;
+    box-shadow: none !important;
+}
+
+.Select--single > .Select-control .Select-value,
+.Select-value,
+.Select-value-label,
+.Select-placeholder,
+.Select-input,
+.Select-input > input {
+    background: transparent !important;
+    color: var(--ux-dropdown-text) !important;
+}
+
+.Select-placeholder {
+    color: var(--ux-dropdown-muted) !important;
+}
+
+.Select-menu-outer,
+.Select-menu,
+.VirtualizedSelectOption {
+    background: var(--ux-dropdown-bg-2) !important;
+    color: var(--ux-dropdown-text) !important;
+    border-color: var(--ux-dropdown-border) !important;
+}
+
+.Select-menu-outer {
+    border-radius: 9px !important;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45) !important;
+    overflow: hidden !important;
+    z-index: 9000 !important;
+}
+
+.Select-option,
+.VirtualizedSelectOption {
+    color: var(--ux-dropdown-text) !important;
+    background: var(--ux-dropdown-bg-2) !important;
+}
+
+.Select-option.is-focused,
+.VirtualizedSelectFocusedOption {
+    background: var(--ux-dropdown-hover) !important;
+    color: var(--ux-dropdown-text) !important;
+}
+
+.Select-option.is-selected,
+.Select-option.is-selected.is-focused {
+    background: var(--ux-dropdown-selected) !important;
+    color: var(--ux-dropdown-text) !important;
+}
+
+.Select-arrow-zone,
+.Select-clear-zone {
+    color: var(--ux-dropdown-muted) !important;
+}
+
+.Select-arrow {
+    border-color: var(--ux-dropdown-muted) transparent transparent !important;
+}
+
+/* Compact Trade Board shell */
+.trade-board-page.osrs-tradeboard-compact-active {
+    padding-top: 8px !important;
+}
+
+.osrs-tradeboard-toolbar {
+    position: sticky !important;
+    top: 46px !important;
+    z-index: 950 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin: 6px 0 8px 0 !important;
+    padding: 7px 8px !important;
+    border: 1px solid rgba(71, 85, 105, 0.42) !important;
+    border-radius: 14px !important;
+    background: rgba(2, 6, 23, 0.92) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.osrs-tradeboard-toolbar-left,
+.osrs-tradeboard-toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+.osrs-tradeboard-title-chip {
+    padding: 5px 9px !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.18) !important;
+    color: rgba(248, 250, 252, 0.96) !important;
+    font-size: 0.78rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.02em !important;
+}
+
+.osrs-toolbar-button,
+.osrs-subtab-button {
+    min-height: 28px !important;
+    padding: 5px 10px !important;
+    border: 1px solid rgba(71, 85, 105, 0.45) !important;
+    border-radius: 999px !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    color: rgba(226, 232, 240, 0.86) !important;
+    font-size: 0.76rem !important;
+    font-weight: 750 !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+}
+
+.osrs-toolbar-button:hover,
+.osrs-subtab-button:hover {
+    background: rgba(30, 41, 59, 0.95) !important;
+    color: rgba(248, 250, 252, 0.98) !important;
+    border-color: rgba(148, 163, 184, 0.55) !important;
+}
+
+.osrs-toolbar-button.osrs-active,
+.osrs-subtab-button.osrs-subtab-active {
+    background: rgba(30, 64, 96, 0.78) !important;
+    border-color: rgba(125, 211, 252, 0.34) !important;
+    color: rgba(248, 250, 252, 0.98) !important;
+}
+
+.osrs-tradeboard-summary-strip {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    min-width: 0 !important;
+}
+
+.osrs-summary-pill {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+    max-width: 190px !important;
+    padding: 4px 8px !important;
+    border: 1px solid rgba(71, 85, 105, 0.38) !important;
+    border-radius: 999px !important;
+    background: rgba(15, 23, 42, 0.72) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.osrs-summary-pill-label {
+    color: rgba(148, 163, 184, 0.82) !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+}
+
+.osrs-summary-pill-value {
+    color: rgba(248, 250, 252, 0.95) !important;
+    font-size: 0.78rem !important;
+    font-weight: 850 !important;
+}
+
+/* Hide the bulky Trade Board panels from the main flow. They remain mounted and
+   are revealed inside the drawer when selected. */
+.osrs-tradeboard-config-panel,
+.osrs-tradeboard-kpi-panel {
+    display: none !important;
+}
+
+.osrs-tradeboard-config-panel.osrs-panel-open {
+    display: block !important;
+}
+
+.osrs-tradeboard-drawer {
+    display: none !important;
+    margin: 0 0 8px 0 !important;
+    padding: 9px !important;
+    border: 1px solid var(--ux-panel-border) !important;
+    border-radius: 14px !important;
+    background: var(--ux-panel-bg) !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.30) !important;
+}
+
+.osrs-tradeboard-drawer.osrs-drawer-open {
+    display: block !important;
+}
+
+.osrs-tradeboard-drawer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+.osrs-tradeboard-drawer-title {
+    color: rgba(248, 250, 252, 0.94) !important;
+    font-size: 0.82rem !important;
+    font-weight: 850 !important;
+}
+
+/* Make the revealed config panel less boxy inside the drawer. */
+.osrs-tradeboard-drawer .settings-section,
+.osrs-tradeboard-config-panel.osrs-panel-open {
+    margin: 0 !important;
+    padding: 8px !important;
+    border-color: rgba(71, 85, 105, 0.28) !important;
+    background: rgba(15, 23, 42, 0.46) !important;
+    box-shadow: none !important;
+}
+
+.osrs-tradeboard-drawer .settings-section-title,
+.osrs-tradeboard-drawer .settings-section-subtitle {
+    display: none !important;
+}
+
+/* Trade Board data subtabs remain visible but compact. */
+.trade-board-data-switcher {
+    margin-top: 4px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Reduce the visual bulk of Trade Board card remnants. */
+.trade-board-page .kpi-grid {
+    margin: 0 !important;
+    gap: 6px !important;
+}
+
+@media (max-width: 1100px) {
+    .osrs-tradeboard-toolbar {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        top: 42px !important;
+    }
+
+    .osrs-tradeboard-toolbar-left,
+    .osrs-tradeboard-toolbar-right {
+        width: 100% !important;
+    }
+}
+
+/* === End OSRSFlipper 1.1.1 Trade Board compact toolbar === */
+
+/* === OSRSFlipper 1.1.1 hard-condense Trade Board settings ===
+   Controls, Trend Filters, and Trend Boost should not render as large cards.
+   They live inside one compact collapsed drawer above the data.
+*/
+
+.trade-board-page .osrs-tradeboard-settings-drawer {
+    margin: 6px 0 8px 0 !important;
+    border: 1px solid rgba(71, 85, 105, 0.42) !important;
+    border-radius: 12px !important;
+    background: rgba(2, 6, 23, 0.72) !important;
+    overflow: hidden !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer > summary {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    min-height: 34px !important;
+    padding: 7px 10px !important;
+    color: rgba(248, 250, 252, 0.92) !important;
+    font-size: 0.82rem !important;
+    font-weight: 850 !important;
+    user-select: none !important;
+    list-style: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer > summary::-webkit-details-marker {
+    display: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer > summary::after {
+    content: "Open settings";
+    margin-left: auto !important;
+    padding: 3px 8px !important;
+    border: 1px solid rgba(71, 85, 105, 0.55) !important;
+    border-radius: 999px !important;
+    color: rgba(203, 213, 225, 0.76) !important;
+    font-size: 0.7rem !important;
+    font-weight: 750 !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer[open] > summary::after {
+    content: "Hide settings";
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    border-top: 1px solid rgba(71, 85, 105, 0.28) !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid > .settings-section,
+.trade-board-page .osrs-tradeboard-settings-grid > div {
+    margin: 0 !important;
+    padding: 8px !important;
+    min-height: 0 !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(71, 85, 105, 0.26) !important;
+    background: rgba(15, 23, 42, 0.42) !important;
+    box-shadow: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .settings-section-title,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-section-subtitle,
+.trade-board-page .osrs-tradeboard-settings-grid > div > .section-title {
+    display: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid-3,
+.trade-board-page .osrs-tradeboard-settings-grid .trade-board-control-grid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .setting-card {
+    padding: 6px 7px !important;
+    border-radius: 8px !important;
+    min-height: 0 !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .setting-card label,
+.trade-board-page .osrs-tradeboard-settings-grid .setting-card .setting-label {
+    margin-bottom: 3px !important;
+    font-size: 0.68rem !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .setting-help {
+    display: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid button,
+.trade-board-page .osrs-tradeboard-settings-grid .primary-button,
+.trade-board-page .osrs-tradeboard-settings-grid .secondary-button {
+    min-height: 28px !important;
+    padding: 5px 8px !important;
+    font-size: 0.72rem !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .Select-control {
+    min-height: 28px !important;
+}
+
+/* Strong hard override for ugly bright dropdown fills/borders */
+.trade-board-page .Select-control,
+.trade-board-page .Select.is-focused > .Select-control,
+.trade-board-page .Select.is-open > .Select-control,
+.trade-board-page .Select.has-value.Select--single > .Select-control,
+.Select-control,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control,
+.Select.has-value.Select--single > .Select-control {
+    background-color: #0b1220 !important;
+    background-image: none !important;
+    border: 1px solid rgba(71, 85, 105, 0.85) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.trade-board-page .Select-control:hover,
+.trade-board-page .Select.is-focused > .Select-control,
+.trade-board-page .Select.is-open > .Select-control,
+.Select-control:hover,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control {
+    border-color: rgba(148, 163, 184, 0.75) !important;
+    box-shadow: none !important;
+}
+
+.trade-board-page .Select-value,
+.trade-board-page .Select-value-label,
+.trade-board-page .Select-placeholder,
+.trade-board-page .Select-input,
+.trade-board-page .Select-input input,
+.Select-value,
+.Select-value-label,
+.Select-placeholder,
+.Select-input,
+.Select-input input {
+    color: rgba(248, 250, 252, 0.95) !important;
+    background: transparent !important;
+}
+
+.Select-menu-outer,
+.Select-menu,
+.Select-option,
+.VirtualizedSelectOption {
+    background-color: #111827 !important;
+    color: rgba(248, 250, 252, 0.95) !important;
+}
+
+.Select-option.is-focused,
+.VirtualizedSelectFocusedOption {
+    background-color: #1f2937 !important;
+}
+
+.Select-option.is-selected {
+    background-color: #334155 !important;
+}
+
+/* Keep KPI/data content closer after settings are collapsed */
+.trade-board-page .kpi-grid {
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+}
+
+.trade-board-page .settings-section {
+    margin-bottom: 8px !important;
+}
+
+/* === End OSRSFlipper 1.1.1 hard-condense Trade Board settings === */
+
+/* === OSRSFlipper 1.1.1 restore compact Trade Board controls ===
+   Recovery styling for restored Controls inside the Trade Board settings drawer.
+*/
+
+.trade-board-page .osrs-tradeboard-settings-drawer {
+    margin: 6px 0 8px 0 !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer:not([open]) {
+    max-height: 38px !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid {
+    grid-template-columns: 1.35fr 1fr 1fr !important;
+    align-items: start !important;
+}
+
+.trade-board-page .osrs-tradeboard-controls-restored {
+    border-color: rgba(125, 211, 252, 0.22) !important;
+}
+
+.trade-board-page .osrs-tradeboard-controls-restored::before {
+    content: "Controls";
+    display: block !important;
+    margin: 0 0 6px 0 !important;
+    color: rgba(248, 250, 252, 0.92) !important;
+    font-size: 0.72rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .settings-section {
+    max-width: none !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid-3,
+.trade-board-page .osrs-tradeboard-settings-grid .trade-board-control-grid {
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+}
+
+/* Re-apply neutral dropdown palette at very high specificity. */
+body .Select-control,
+body .Select.is-focused > .Select-control,
+body .Select.is-open > .Select-control,
+body .Select.has-value.Select--single > .Select-control,
+body .Select.has-value.is-pseudo-focused.Select--single > .Select-control {
+    background: #0b1220 !important;
+    background-color: #0b1220 !important;
+    background-image: none !important;
+    border: 1px solid rgba(71, 85, 105, 0.86) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+body .Select-control:hover,
+body .Select.is-focused > .Select-control,
+body .Select.is-open > .Select-control {
+    border-color: rgba(148, 163, 184, 0.78) !important;
+    box-shadow: none !important;
+}
+
+body .Select-value,
+body .Select-value-label,
+body .Select-placeholder,
+body .Select-input,
+body .Select-input input {
+    color: rgba(248, 250, 252, 0.96) !important;
+    background: transparent !important;
+}
+
+body .Select-menu-outer,
+body .Select-menu,
+body .Select-option,
+body .VirtualizedSelectOption {
+    background: #111827 !important;
+    background-color: #111827 !important;
+    color: rgba(248, 250, 252, 0.96) !important;
+}
+
+body .Select-option.is-focused,
+body .VirtualizedSelectFocusedOption {
+    background: #1f2937 !important;
+}
+
+body .Select-option.is-selected {
+    background: #334155 !important;
+}
+
+/* === End OSRSFlipper 1.1.1 restore compact Trade Board controls === */

@@ -1,3 +1,53 @@
+OSRSFlipper 1.1.1 — UI/UX Polish and Dashboard Readability
+
+Release type: interface polish and readability release
+
+Included:
+- Added compact UI density styling.
+- Reduced dashboard section spacing.
+- Reduced card, button, input, tab, and table row size.
+- Removed the large repeated top dashboard banner from the main view.
+- Added modern sticky top tab navigation.
+- Added an OSRSFlipper brand chip in the top navigation.
+- Hid legacy pre-tab dashboard clutter.
+- Hid the orphan Filters header above the main tabs.
+- Improved dashboard top-level readability so tabs are the first visible dashboard element.
+- Updated dropdown styling with a calmer dark palette.
+- Improved dropdown colors across AI Advisor, Trade Board, Market Data, Admin, and Settings.
+- Added Trade Board data subtabs for Ranked Recommendations and Open Slot Actions.
+- Condensed Trade Board Controls, Trend Filters, and Trend Boost into a compact settings drawer.
+- Restored Trade Board control inputs inside the compact settings drawer.
+- Preserved Risk Profile, Rows, Minimum Total Profit, Action Filter, Confidence Filter, Fill Filter, and Refresh Trade Board controls.
+- Kept Trade Board recommendations functional after UI compaction.
+- Reduced visual bulk of Trade Board settings and summary areas.
+- Added safe client-side UI helper under assets/osrs_ui_modernizer.js.
+- Kept UI modernization limited to Dash layout/assets without changing scanner or trading logic.
+
+Not included:
+- Full JavaScript or React rewrite.
+- Automatic GE trading.
+- Automatic buy/sell/cancel actions.
+- Automatic repricing.
+- Automatic listing placement.
+- Machine-learning prediction model.
+- Private database files.
+- Local database backups.
+- Local compacted database copies.
+- Saved logs.
+- Exports.
+- Runtime cache files.
+- .env.
+- API keys.
+
+Notes:
+- This release focuses on making the growing dashboard easier to navigate.
+- The app remains Python/Dash based.
+- JavaScript is used only as a small UI helper loaded through the Dash assets folder.
+- Trade Board settings are now available from a compact drawer instead of taking over the page.
+- Ranked Trade Recommendations and Open Slot Actions are separated with client-side data subtabs.
+- Overview, My Trades, AI Advisor, Trade Board, Market Data, and Admin should remain functional.
+- More UI/UX changes are expected in a future release.
+
 OSRSFlipper 1.1.0 — Trend-Aware Trade Board
 
 Release type: advisory intelligence and Trade Board upgrade
