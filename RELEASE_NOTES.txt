@@ -9,6 +9,8 @@ Added:
 - Added optional official Jagex item detail/graph cross-check helpers for small top-candidate sets.
 - Added market context warning visibility to Trade Board warning logic.
 - Added market context fields to AI candidate context and live slot recovery context.
+- Added quiet control-center launcher mode so the console no longer repaints every few seconds by default.
+- Added app-window dashboard launch mode using Edge/Chrome app mode when available.
 - Added release checks for market_features.py, market_price_snapshots, and key 24h market columns.
 
 Notes:

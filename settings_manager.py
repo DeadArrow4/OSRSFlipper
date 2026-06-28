@@ -27,6 +27,8 @@ DEFAULT_SETTINGS = {
     "start_collector": {"value": True, "type": "bool", "description": "Start market collector automatically."},
     "start_trade_watcher": {"value": True, "type": "bool", "description": "Start RuneLite trade watcher automatically."},
     "open_browser": {"value": True, "type": "bool", "description": "Open dashboard in browser when control center starts."},
+    "dashboard_open_mode": {"value": "app", "type": "str", "description": "Open dashboard as app-style window or normal browser tab."},
+    "control_center_status_mode": {"value": "quiet", "type": "str", "description": "Control center console mode: quiet or status."},
     "open_jagex_launcher_with_dashboard": {"value": False, "type": "bool", "description": "Open Jagex Launcher when the dashboard starts."},
     "auto_start_runelite_telemetry_dev_client": {"value": False, "type": "bool", "description": "Start the RuneLite telemetry dev client when the dashboard starts."},
 

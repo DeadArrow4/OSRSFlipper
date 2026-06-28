@@ -48,6 +48,14 @@ def build_settings_tab():
         {"label": "Live usable GP", "value": "live"},
         {"label": "Live usable GP capped by Cash stack", "value": "live_capped"},
     ]
+    dashboard_open_options = [
+        {"label": "App window", "value": "app"},
+        {"label": "Browser tab", "value": "browser"},
+    ]
+    status_mode_options = [
+        {"label": "Quiet launcher", "value": "quiet"},
+        {"label": "Live status screen", "value": "status"},
+    ]
 
     return html.Div(
         className="settings-page",
@@ -150,6 +158,24 @@ def build_settings_tab():
                                     boolean_options,
                                     "true" if setting_value("open_browser", True) else "false"
                                 )
+                            ),
+                            setting_card(
+                                "Dashboard window",
+                                setting_select(
+                                    "setting-dashboard-open-mode",
+                                    dashboard_open_options,
+                                    setting_value("dashboard_open_mode", "app")
+                                ),
+                                "App window uses Edge/Chrome app mode when available."
+                            ),
+                            setting_card(
+                                "Control window",
+                                setting_select(
+                                    "setting-control-center-status-mode",
+                                    status_mode_options,
+                                    setting_value("control_center_status_mode", "quiet")
+                                ),
+                                "Quiet launcher stops the console from repainting every few seconds."
                             )
                         ]
                     ),

@@ -1510,9 +1510,24 @@ def register_dashboard_callbacks(app):
         State("setting-start-collector", "value"),
         State("setting-start-trade-watcher", "value"),
         State("setting-open-browser", "value"),
+        State("setting-dashboard-open-mode", "value"),
+        State("setting-control-center-status-mode", "value"),
         prevent_initial_call=True
     )
-    def save_core_settings(n_clicks, cash_stack, capital_budget_mode, minimum_profit, risk_profile, watch_seconds, start_dashboard, start_collector, start_trade_watcher, open_browser):
+    def save_core_settings(
+        n_clicks,
+        cash_stack,
+        capital_budget_mode,
+        minimum_profit,
+        risk_profile,
+        watch_seconds,
+        start_dashboard,
+        start_collector,
+        start_trade_watcher,
+        open_browser,
+        dashboard_open_mode,
+        control_center_status_mode,
+    ):
         if not n_clicks:
             return ""
 
@@ -1526,6 +1541,8 @@ def register_dashboard_callbacks(app):
             set_setting("start_collector", start_collector == "true", "bool")
             set_setting("start_trade_watcher", start_trade_watcher == "true", "bool")
             set_setting("open_browser", open_browser == "true", "bool")
+            set_setting("dashboard_open_mode", dashboard_open_mode or "app", "str")
+            set_setting("control_center_status_mode", control_center_status_mode or "quiet", "str")
 
             return "Startup / collector settings saved. Restart the control center for startup changes to take effect."
 

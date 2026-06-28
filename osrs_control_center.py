@@ -1,5 +1,6 @@
 import argparse
 import os
+import shutil
 from security_runtime import scrub_shared_openai_env
 from runelite_telemetry_control import (
     build_runelite_telemetry_status,
@@ -46,6 +47,8 @@ DB_FILE = BASE_DIR / "osrs_flip_scanner.db"
 LOG_DIR = BASE_DIR / "logs"
 DEFAULT_ACCOUNT = "DeadArrow98"
 DASHBOARD_URL = "http://127.0.0.1:8050"
+DEFAULT_DASHBOARD_OPEN_MODE = "app"
+DEFAULT_STATUS_MODE = "quiet"
 
 STOP_EVENT = threading.Event()
 
@@ -293,11 +296,15 @@ def process_running(process):
     return process is not None and process.poll() is None
 
 
-def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_client=False):
+def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_client=False, verbose=True):
     """Print RuneLite telemetry status and optional launch guidance when the dashboard starts."""
+    def emit(message=""):
+        if verbose:
+            print(message)
+
     try:
-        print()
-        print(dashboard_startup_telemetry_message())
+        emit()
+        emit(dashboard_startup_telemetry_message())
         status = build_runelite_telemetry_status()
 
         try:
@@ -311,12 +318,12 @@ def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_cli
             auto_start_dev_client = False
 
         if auto_open_jagex:
-            print(open_jagex_launcher())
+            emit(open_jagex_launcher())
 
         if auto_start_dev_client:
-            print(start_runelite_telemetry_dev_client())
+            emit(start_runelite_telemetry_dev_client())
         else:
-            print(
+            emit(
                 "RuneLite telemetry auto-start is off. "
                 "If the plugin is not available in Jagex-launched RuneLite, run: "
                 "python runelite_telemetry_control.py start-dev"
@@ -324,18 +331,18 @@ def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_cli
 
         if status.get("ready"):
             try:
-                print(import_runelite_state_now())
+                emit(import_runelite_state_now())
             except Exception as import_error:
-                print(f"RuneLite telemetry import skipped: {import_error}")
+                emit(f"RuneLite telemetry import skipped: {import_error}")
         else:
-            print(f"RuneLite telemetry import skipped: {status.get('problem') or 'not ready'}.")
-            print(
+            emit(f"RuneLite telemetry import skipped: {status.get('problem') or 'not ready'}.")
+            emit(
                 "Normal Jagex-launched RuneLite will not list this local plugin unless it is installed there. "
                 "Use the telemetry dev client until the plugin is available in your normal RuneLite client."
             )
 
     except Exception as telemetry_error:
-        print(f"RuneLite telemetry startup check failed: {telemetry_error}")
+        emit(f"RuneLite telemetry startup check failed: {telemetry_error}")
 
 def start_dashboard():
     log_path = LOG_DIR / "dashboard.log"
@@ -464,7 +471,55 @@ def trade_watcher_loop(account, seconds, status):
         status.running = False
 
 
-def open_dashboard():
+def normalize_dashboard_open_mode(value):
+    value = str(value or DEFAULT_DASHBOARD_OPEN_MODE).strip().lower()
+
+    if value in {"browser", "tab"}:
+        return "browser"
+
+    return "app"
+
+
+def dashboard_app_browser_command():
+    if os.name != "nt":
+        return None
+
+    executable_candidates = [
+        shutil.which("msedge"),
+        shutil.which("chrome"),
+        shutil.which("chrome.exe"),
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ]
+
+    for executable in executable_candidates:
+        if executable and Path(executable).exists():
+            return [executable, f"--app={DASHBOARD_URL}", "--new-window"]
+
+    return None
+
+
+def open_dashboard(open_mode=DEFAULT_DASHBOARD_OPEN_MODE):
+    open_mode = normalize_dashboard_open_mode(open_mode)
+
+    if open_mode == "app":
+        command = dashboard_app_browser_command()
+
+        if command:
+            try:
+                subprocess.Popen(
+                    command,
+                    cwd=str(BASE_DIR),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=windows_creationflags()
+                )
+                return "Opened dashboard in app window."
+            except Exception:
+                pass
+
     if os.name == "nt":
         subprocess.Popen(
             f'start "" "{DASHBOARD_URL}"',
@@ -472,6 +527,9 @@ def open_dashboard():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
+        return "Opened dashboard in browser."
+
+    return "Dashboard URL: " + DASHBOARD_URL
 
 
 def read_key_nonblocking():
@@ -490,7 +548,7 @@ def read_key_nonblocking():
     return None
 
 
-def draw_screen(dashboard_process, collector_process, trade_status, started_at):
+def draw_screen(dashboard_process, collector_process, trade_status, started_at, clear=True):
     dashboard_status = "RUNNING" if process_running(dashboard_process) else "STOPPED"
     collector_status = "RUNNING" if process_running(collector_process) else "STOPPED"
 
@@ -504,7 +562,8 @@ def draw_screen(dashboard_process, collector_process, trade_status, started_at):
     telemetry_state = "READY" if telemetry_status.get("ready") else "NOT READY"
     telemetry_problem = telemetry_status.get("problem") or "OK"
 
-    clear_screen()
+    if clear:
+        clear_screen()
 
     print("==============================")
     print(" OSRSFlipper Control Center")
@@ -583,6 +642,24 @@ def draw_screen(dashboard_process, collector_process, trade_status, started_at):
     print("Note: Dashboard is running hidden. Only this control window stays visible.")
 
 
+def print_quiet_startup_summary(dashboard_process, collector_process, trade_status, started_at, dashboard_open_mode):
+    dashboard_status = "RUNNING" if process_running(dashboard_process) else "STOPPED"
+    collector_status = "RUNNING" if process_running(collector_process) else "STOPPED"
+
+    print()
+    print("==============================")
+    print(" OSRSFlipper Launcher")
+    print("==============================")
+    print(f"Started:          {started_at}")
+    print(f"Dashboard:        {dashboard_status} at {DASHBOARD_URL}")
+    print(f"Dashboard window: {normalize_dashboard_open_mode(dashboard_open_mode)}")
+    print(f"Market collector: {collector_status}")
+    print(f"Trade watcher:    {'RUNNING' if trade_status.running else 'STARTING'}")
+    print()
+    print("The dashboard is the main app surface now.")
+    print("Press S for a status snapshot, O to reopen dashboard, R to refresh status, Q to stop everything.")
+
+
 def stop_process(process, name):
     if not process_running(process):
         return
@@ -634,6 +711,9 @@ def parse_args():
     parser.add_argument("--no-collector", action="store_true")
     parser.add_argument("--no-trade-watcher", action="store_true")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--dashboard-open-mode", choices=["app", "browser"], default=None, help="Open dashboard as app window or normal browser tab.")
+    parser.add_argument("--quiet", action="store_true", help="Start services without repainting the console status screen.")
+    parser.add_argument("--status-screen", action="store_true", help="Show the continuously refreshed control-center status screen.")
     parser.add_argument("--skip-setup", action="store_true")
     parser.add_argument("--no-login", action="store_true")
     parser.add_argument("--open-jagex-launcher", action="store_true", help="Open Jagex Launcher when the dashboard starts.")
@@ -736,6 +816,19 @@ def main():
     saved_cash = get_setting("cash_stack", 10000000)
     saved_min_profit = get_setting("minimum_profit", 50000)
     saved_watch_seconds = get_setting("watch_seconds", 10)
+    dashboard_open_mode = normalize_dashboard_open_mode(
+        args.dashboard_open_mode or get_setting("dashboard_open_mode", DEFAULT_DASHBOARD_OPEN_MODE)
+    )
+    status_mode = str(get_setting("control_center_status_mode", DEFAULT_STATUS_MODE) or DEFAULT_STATUS_MODE).strip().lower()
+
+    if status_mode not in {"quiet", "status"}:
+        status_mode = DEFAULT_STATUS_MODE
+
+    if args.status_screen:
+        status_mode = "status"
+
+    if args.quiet:
+        status_mode = "quiet"
 
     risk_profile = args.risk or saved_risk
     manual_cash_stack = args.cash if args.cash is not None else saved_cash
@@ -776,7 +869,8 @@ def main():
             dashboard_process = start_dashboard()
             runelite_telemetry_startup_check(
                 force_open_jagex=args.open_jagex_launcher,
-                force_start_dev_client=args.start_runelite_telemetry_dev
+                force_start_dev_client=args.start_runelite_telemetry_dev,
+                verbose=status_mode == "status"
             )
 
         if not args.no_collector:
@@ -801,15 +895,29 @@ def main():
 
         if not args.no_dashboard and not args.no_browser:
             time.sleep(2)
-            open_dashboard()
+            message = open_dashboard(dashboard_open_mode)
+            if status_mode == "status":
+                print(message)
+
+        quiet_summary_printed = False
 
         while not STOP_EVENT.is_set():
-            draw_screen(
-                dashboard_process=dashboard_process,
-                collector_process=collector_process,
-                trade_status=trade_status,
-                started_at=started_at
-            )
+            if status_mode == "status":
+                draw_screen(
+                    dashboard_process=dashboard_process,
+                    collector_process=collector_process,
+                    trade_status=trade_status,
+                    started_at=started_at
+                )
+            elif not quiet_summary_printed:
+                print_quiet_startup_summary(
+                    dashboard_process=dashboard_process,
+                    collector_process=collector_process,
+                    trade_status=trade_status,
+                    started_at=started_at,
+                    dashboard_open_mode=dashboard_open_mode
+                )
+                quiet_summary_printed = True
 
             # Refresh loop with keyboard checks.
             for _ in range(10):
@@ -820,7 +928,9 @@ def main():
                     break
 
                 if key == "o":
-                    open_dashboard()
+                    message = open_dashboard(dashboard_open_mode)
+                    if status_mode == "quiet":
+                        print(message)
 
                 if key == "j":
                     print(open_jagex_launcher())
@@ -831,7 +941,24 @@ def main():
                 if key == "t":
                     print(import_runelite_state_now())
 
+                if key == "s":
+                    draw_screen(
+                        dashboard_process=dashboard_process,
+                        collector_process=collector_process,
+                        trade_status=trade_status,
+                        started_at=started_at,
+                        clear=False
+                    )
+
                 if key == "r":
+                    if status_mode == "quiet":
+                        draw_screen(
+                            dashboard_process=dashboard_process,
+                            collector_process=collector_process,
+                            trade_status=trade_status,
+                            started_at=started_at,
+                            clear=False
+                        )
                     break
 
                 time.sleep(0.5)

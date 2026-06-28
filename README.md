@@ -98,6 +98,8 @@ Dashboard URL:
 http://127.0.0.1:8050
 ```
 
+By default, the control center opens the local dashboard in an app-style Edge/Chrome window when available and keeps the console quiet. Use `python osrs_control_center.py --status-screen` to show the older continuously refreshed status screen.
+
 ## Updating an Existing Install
 
 Before replacing files in `C:\OSRSFlipper`, run:

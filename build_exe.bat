@@ -91,6 +91,7 @@ pyinstaller ^
   --hidden-import data_health_modules.snapshots ^
   --hidden-import data_health_modules.trends ^
   --hidden-import scanner ^
+  --hidden-import market_features ^
   --hidden-import api ^
   --hidden-import trend_analyzer ^
   --hidden-import recommender ^
