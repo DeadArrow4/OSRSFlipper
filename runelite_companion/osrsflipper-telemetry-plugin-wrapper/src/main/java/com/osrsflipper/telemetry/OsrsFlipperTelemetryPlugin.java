@@ -46,10 +46,11 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
     private static final int COINS_ITEM_ID = 995;
     private static final int MAX_TRADE_HISTORY = 2000;
     private static final DateTimeFormatter ISO_UTC = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
-    private static final Gson GSON = new Gson();
-
     @Inject
     private Client client;
+
+    @Inject
+    private Gson gson;
 
     @Inject
     private ItemManager itemManager;
@@ -560,7 +561,7 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
             String text = Files.readString(output, StandardCharsets.UTF_8);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> payload = GSON.fromJson(text, Map.class);
+            Map<String, Object> payload = gson.fromJson(text, Map.class);
 
             if (payload == null)
             {
@@ -755,7 +756,7 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
             Files.createDirectories(parent);
         }
 
-        String json = GSON.toJson(payload);
+        String json = gson.toJson(payload);
         Path temp = output.resolveSibling(output.getFileName().toString() + ".tmp");
 
         Files.writeString(temp, json + System.lineSeparator(), StandardCharsets.UTF_8);

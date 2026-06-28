@@ -207,7 +207,17 @@ def _copy_plugin_tree(source: Path, destination: Path) -> None:
         if resolved_export_root not in resolved_destination.parents and resolved_destination != resolved_export_root:
             raise RuntimeError(f"Refusing to delete unexpected package path: {destination}")
 
-        shutil.rmtree(destination)
+        if (destination / ".git").exists():
+            for item in destination.iterdir():
+                if item.name == ".git":
+                    continue
+
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        else:
+            shutil.rmtree(destination)
 
     destination.mkdir(parents=True, exist_ok=True)
 
