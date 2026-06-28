@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.2.4
+## Latest Release: 1.3.0
 
-OSRSFlipper 1.2.4 adds 24h market context to scanner recommendations, stores compact local market snapshots for candidate items, and adds optional official Jagex item cross-check helpers. It keeps the 1.2.x capital-aware AI and RuneLite telemetry behavior.
+OSRSFlipper 1.3.0 modernizes the dashboard UI around a new Trading workspace with Recommendations, Open Slots, My Trades, and History subtabs. It tightens the capital-aware Trade Board, removes noisy recommendation summary cards, adds compact dashboard service controls, and keeps the 1.2.x capital-aware AI, RuneLite telemetry, and 24h market context behavior.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
@@ -12,6 +12,7 @@ The project is designed to run locally on your machine. Private runtime data suc
 ## Features
 
 * Local Dash dashboard
+* Trading workspace with Recommendations, Open Slots, My Trades, and History subtabs
 * SQLite trade tracking
 * OSRSFlipper RuneLite telemetry JSON import
 * FIFO matched completed flips
@@ -64,7 +65,7 @@ When downloading a GitHub release ZIP:
 3. Confirm the final path is `C:\OSRSFlipper\osrs_control_center.py`.
 4. Open PowerShell in `C:\OSRSFlipper`.
 
-Current 1.2.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, saved session, and telemetry state. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
+Current 1.3.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, saved session, and telemetry state. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
 
 Create and activate a virtual environment:
 
