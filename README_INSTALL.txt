@@ -1,7 +1,7 @@
 OSRSFlipper Install / Update
 
 Version:
-OSRSFlipper 1.2.0 (stable)
+OSRSFlipper 1.2.1 (stable)
 
 New install:
 1. Move or rename this extracted app folder to:

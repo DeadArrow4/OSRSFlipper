@@ -357,7 +357,7 @@ def write_manifest(release_dir, manifest):
 
 
 def create_zip(release_dir):
-    zip_path = release_dir.with_suffix(".zip")
+    zip_path = release_dir.parent / f"{release_dir.name}.zip"
 
     if zip_path.exists():
         zip_path.unlink()

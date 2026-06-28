@@ -1,3 +1,22 @@
+OSRSFlipper 1.2.1 - Release Package Patch
+
+Release type: patch release
+
+Fixed:
+- Added missing 1.2.0 Python modules to the clean release package.
+- Added release checks for the capital-aware dashboard, RuneLite telemetry control, data health, reports, and trade trend modules.
+- Fixed release ZIP naming so patch builds produce a unique timestamped ZIP instead of overwriting OSRSFlipper_1.2.zip.
+- Updated ZIP install guidance to use C:\OSRSFlipper as the stable local install folder.
+- Updated packaged README_INSTALL.txt to match the 1.2.x runtime-folder behavior.
+
+Notes:
+- This patch does not change trading behavior.
+- This patch does not add automatic GE trading.
+- Private runtime data remains excluded from release ZIPs.
+- Published 1.2.0 users should install 1.2.1 instead of reusing the original 1.2.0 ZIP.
+
+========================================================================
+
 OSRSFlipper 1.2.0 - Capital-Aware AI and RuneLite Telemetry
 
 Release type: feature release
