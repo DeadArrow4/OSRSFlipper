@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 
-from api import load_market_data, load_trend_data_for_items
+from api import load_market_data_with_24h, load_trend_data_for_items
 from scanner import parse_gp, scan_market, format_gp
 from recommender import apply_recommendations
 from trend_analyzer import enrich_rows_with_trends, TREND_DATA_MAX_ITEMS
@@ -9,6 +9,7 @@ from database import (
     init_db,
     create_scan_run,
     save_scan_rows,
+    save_market_price_snapshots,
     enrich_rows_with_history
 )
 
@@ -263,7 +264,7 @@ def run_collection_cycle(cash_stack, minimum_profit, risk_profile):
     print(f"Minimum profit: {format_gp(minimum_profit)}")
     print(f"Risk profile: {risk_profile}")
 
-    latest_data, recent_data, older_data, item_lookup = load_market_data()
+    latest_data, recent_data, older_data, daily_data, item_lookup = load_market_data_with_24h()
 
     recent_results, recent_watchlist = scan_market(
         price_data=recent_data,
@@ -274,7 +275,8 @@ def run_collection_cycle(cash_stack, minimum_profit, risk_profile):
         minimum_profit=minimum_profit,
         latest_data=latest_data,
         use_latest=True,
-        hourly_data=older_data
+        hourly_data=older_data,
+        daily_data=daily_data
     )
 
     older_results, older_watchlist = scan_market(
@@ -286,7 +288,8 @@ def run_collection_cycle(cash_stack, minimum_profit, risk_profile):
         minimum_profit=minimum_profit,
         latest_data=latest_data,
         use_latest=True,
-        hourly_data=older_data
+        hourly_data=older_data,
+        daily_data=daily_data
     )
 
     # Add historical analysis before saving this run.
@@ -376,6 +379,24 @@ def run_collection_cycle(cash_stack, minimum_profit, risk_profile):
     )
 
     print(f"\nSaved {saved_count} rows to SQLite.")
+
+    snapshot_count = save_market_price_snapshots(
+        run_id=run_id,
+        captured_at=scanned_at,
+        row_groups=[
+            recent_results,
+            older_results,
+            recent_watchlist[:TOP_WATCHLIST_TO_SAVE],
+            older_watchlist[:TOP_WATCHLIST_TO_SAVE],
+        ],
+        latest_data=latest_data,
+        recent_data=recent_data,
+        older_data=older_data,
+        daily_data=daily_data,
+        item_lookup=item_lookup,
+    )
+
+    print(f"Saved {snapshot_count} candidate market snapshots.")
 
     print_cycle_summary(
         recent_results=recent_results,

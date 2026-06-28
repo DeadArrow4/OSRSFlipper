@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from api import load_market_data, load_trend_data_for_items
+from api import load_market_data_with_24h, load_trend_data_for_items
 from capital_budget import get_effective_cash_stack
 from scanner import parse_gp, scan_market, format_gp
 from recommender import apply_recommendations
@@ -13,6 +13,7 @@ from database import (
     init_db,
     create_scan_run,
     save_scan_rows,
+    save_market_price_snapshots,
     get_recent_profitable,
     enrich_rows_with_history
 )
@@ -49,6 +50,13 @@ DISPLAY_COLUMNS = [
     "Target Sell",
     "Avg Low",
     "Avg High",
+    "Avg Low 24h",
+    "Avg High 24h",
+    "Volume 24h",
+    "Window vs 24h %",
+    "Volume vs 24h %",
+    "Market Momentum",
+    "Market Context Warning",
 
     "Buy vs Avg Low %",
     "Sell vs Avg High %",
@@ -442,7 +450,7 @@ def main():
 
     init_db()
 
-    latest_data, recent_data, older_data, item_lookup = load_market_data()
+    latest_data, recent_data, older_data, daily_data, item_lookup = load_market_data_with_24h()
 
     recent_results, recent_watchlist = scan_market(
         price_data=recent_data,
@@ -453,7 +461,8 @@ def main():
         minimum_profit=minimum_profit,
         latest_data=latest_data,
         use_latest=True,
-        hourly_data=older_data
+        hourly_data=older_data,
+        daily_data=daily_data
     )
 
     older_results, older_watchlist = scan_market(
@@ -465,7 +474,8 @@ def main():
         minimum_profit=minimum_profit,
         latest_data=latest_data,
         use_latest=True,
-        hourly_data=older_data
+        hourly_data=older_data,
+        daily_data=daily_data
     )
 
     # Add historical analysis before saving this run.
@@ -557,6 +567,22 @@ def main():
         result_type="watchlist"
     )
 
+    snapshot_count = save_market_price_snapshots(
+        run_id=run_id,
+        captured_at=scanned_at,
+        row_groups=[
+            recent_results,
+            older_results,
+            recent_watchlist[:TOP_RESULTS],
+            older_watchlist[:TOP_RESULTS],
+        ],
+        latest_data=latest_data,
+        recent_data=recent_data,
+        older_data=older_data,
+        daily_data=daily_data,
+        item_lookup=item_lookup,
+    )
+
     print("\n========== SAVE SUMMARY ==========\n")
 
     if recent_csv:
@@ -566,6 +592,7 @@ def main():
         print(f"Saved older flips to:  {older_csv}")
 
     print(f"Saved {saved_count} rows to SQLite database.")
+    print(f"Saved {snapshot_count} candidate market snapshots.")
     print(f"Database file: {BASE_DIR / 'osrs_flip_scanner.db'}")
 
     print_recent_database_rows()

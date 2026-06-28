@@ -1,3 +1,25 @@
+OSRSFlipper 1.2.4 - Market Context Intelligence Patch
+
+Release type: patch release candidate
+
+Added:
+- Added OSRS Wiki /24h market context to collector/scanner runs.
+- Added scanner fields for 24h average low/high, 24h volume, window-vs-24h movement, volume-vs-24h baseline, market momentum, and market context warnings.
+- Added compact local market_price_snapshots history for candidate items saved during scanner/collector runs.
+- Added optional official Jagex item detail/graph cross-check helpers for small top-candidate sets.
+- Added market context warning visibility to Trade Board warning logic.
+- Added market context fields to AI candidate context and live slot recovery context.
+- Added release checks for market_features.py, market_price_snapshots, and key 24h market columns.
+
+Notes:
+- OSRS Wiki remains the primary source for flipping-quality market data.
+- Jagex helpers are optional and are not used in the normal collector loop.
+- Timeseries requests remain limited to top candidates.
+- This patch does not add automatic GE trading.
+- This patch has not been published to GitHub until explicitly approved.
+
+========================================================================
+
 OSRSFlipper 1.2.1 - Release Package Patch
 
 Release type: patch release

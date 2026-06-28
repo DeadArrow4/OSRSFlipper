@@ -148,6 +148,11 @@ def has_margin_warning(row):
     return warning != "OK"
 
 
+def has_market_context_warning(row):
+    warning = normalize_warning(row.get("Market Context Warning", "OK"))
+    return warning != "OK"
+
+
 def get_risk_level(row):
     confidence = row.get("Confidence")
     hist_samples = safe_number(row.get("Hist Samples", 0))
@@ -159,8 +164,20 @@ def get_risk_level(row):
 
     price_warning = has_price_warning(row)
     margin_warning = has_margin_warning(row)
+    market_warning = has_market_context_warning(row)
 
     if price_warning:
+        return "High"
+
+    market_warning_text = normalize_warning(row.get("Market Context Warning", "OK")).lower()
+
+    if (
+        market_warning
+        and market_warning_text not in (
+            "24h data unavailable",
+            "unusual volume surge vs 24h baseline",
+        )
+    ):
         return "High"
 
     if liquidity_rating in ("Poor", "Thin"):
@@ -299,6 +316,13 @@ def calculate_recommendation_score(row, risk_profile="medium"):
     if has_margin_warning(row):
         score *= 0.80
 
+    if has_market_context_warning(row):
+        warning = normalize_warning(row.get("Market Context Warning", "OK")).lower()
+        if "thin volume" in warning or "far above" in warning:
+            score *= 0.85
+        elif "wide 24h spread" in warning:
+            score *= 0.92
+
     # Far-above-average margins can be real, but they are also often unstable.
     margin_delta_percent = row.get("Margin Delta %")
 
@@ -358,6 +382,7 @@ def get_flip_category(row):
 
     price_warning = has_price_warning(row)
     margin_warning = has_margin_warning(row)
+    market_warning = has_market_context_warning(row)
 
     if expected_fill_hours is None:
         expected_fill_hours = 999
@@ -392,6 +417,14 @@ def get_flip_category(row):
         return (
             "Watch / Test First",
             "Latest target price differs sharply from the average. Test with a small offer first."
+        )
+
+    market_warning_text = normalize_warning(row.get("Market Context Warning", "OK")).lower()
+
+    if market_warning and market_warning_text not in ("24h data unavailable",):
+        return (
+            "Watch / Test First",
+            "Daily market context is unusual. Test with a small offer first."
         )
 
     if margin_warning and hist_samples < 5:
@@ -491,6 +524,7 @@ def build_reason(row):
 
     price_warning = normalize_warning(row.get("Price Warning", "OK"))
     margin_warning = normalize_warning(row.get("Margin Warning", "OK"))
+    market_context_warning = normalize_warning(row.get("Market Context Warning", "OK"))
 
     buy_vs_avg_low = row.get("Buy vs Avg Low %")
     sell_vs_avg_high = row.get("Sell vs Avg High %")
@@ -506,6 +540,9 @@ def build_reason(row):
 
     if price_warning != "OK":
         reasons.append("latest price differs from average")
+
+    if market_context_warning != "OK":
+        reasons.append(f"market context: {market_context_warning}")
 
     if buy_vs_avg_low is not None:
         reasons.append(f"buy vs avg low {buy_vs_avg_low}%")
@@ -534,6 +571,23 @@ def build_reason(row):
 
     if hourly_volume:
         reasons.append(f"1h volume {int(hourly_volume):,}")
+
+    volume_24h = safe_number(row.get("Volume 24h"), 0)
+    window_vs_24h = row.get("Window vs 24h %")
+    volume_vs_24h = row.get("Volume vs 24h %")
+    market_momentum = row.get("Market Momentum")
+
+    if volume_24h:
+        reasons.append(f"24h volume {int(volume_24h):,}")
+
+    if window_vs_24h is not None:
+        reasons.append(f"window vs 24h {window_vs_24h}%")
+
+    if volume_vs_24h is not None:
+        reasons.append(f"volume vs 24h baseline {volume_vs_24h}%")
+
+    if market_momentum and market_momentum != "Unknown":
+        reasons.append(str(market_momentum).lower())
 
     if volume >= 1000:
         reasons.append("strong window volume")

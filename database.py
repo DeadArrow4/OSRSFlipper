@@ -62,6 +62,17 @@ def init_db():
             target_sell INTEGER NOT NULL,
             avg_low INTEGER,
             avg_high INTEGER,
+            avg_low_24h INTEGER,
+            avg_high_24h INTEGER,
+            volume_24h INTEGER,
+            high_volume_24h INTEGER,
+            low_volume_24h INTEGER,
+            spread_24h INTEGER,
+            spread_24h_percent REAL,
+            window_vs_24h_percent REAL,
+            volume_vs_24h_percent REAL,
+            market_momentum TEXT,
+            market_context_warning TEXT,
             latest_low_time INTEGER,
             latest_high_time INTEGER,
             buy_vs_avg_low_percent REAL,
@@ -173,7 +184,20 @@ def init_db():
         ("trend_confidence", "TEXT"),
         ("trend_warning", "TEXT"),
         ("quick_score", "REAL"),
-        ("overnight_score", "REAL")
+        ("overnight_score", "REAL"),
+
+        # 24h market context fields
+        ("avg_low_24h", "INTEGER"),
+        ("avg_high_24h", "INTEGER"),
+        ("volume_24h", "INTEGER"),
+        ("high_volume_24h", "INTEGER"),
+        ("low_volume_24h", "INTEGER"),
+        ("spread_24h", "INTEGER"),
+        ("spread_24h_percent", "REAL"),
+        ("window_vs_24h_percent", "REAL"),
+        ("volume_vs_24h_percent", "REAL"),
+        ("market_momentum", "TEXT"),
+        ("market_context_warning", "TEXT")
     ]
 
     for column_name, column_definition in migrations:
@@ -234,6 +258,60 @@ def init_db():
         ON scan_results(trend_warning)
     """)
 
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_scan_results_market_context_warning
+        ON scan_results(market_context_warning)
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS market_price_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL,
+            captured_at TEXT NOT NULL,
+            item_id INTEGER NOT NULL,
+            item_name TEXT NOT NULL,
+            buy_limit INTEGER,
+
+            latest_low INTEGER,
+            latest_high INTEGER,
+            latest_low_time INTEGER,
+            latest_high_time INTEGER,
+
+            avg_low_5m INTEGER,
+            avg_high_5m INTEGER,
+            volume_5m INTEGER,
+            high_volume_5m INTEGER,
+            low_volume_5m INTEGER,
+
+            avg_low_1h INTEGER,
+            avg_high_1h INTEGER,
+            volume_1h INTEGER,
+            high_volume_1h INTEGER,
+            low_volume_1h INTEGER,
+
+            avg_low_24h INTEGER,
+            avg_high_24h INTEGER,
+            volume_24h INTEGER,
+            high_volume_24h INTEGER,
+            low_volume_24h INTEGER,
+
+            snapshot_note TEXT,
+
+            UNIQUE(run_id, item_id),
+            FOREIGN KEY (run_id) REFERENCES scan_runs(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_market_price_snapshots_item_time
+        ON market_price_snapshots(item_id, captured_at DESC)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_market_price_snapshots_run
+        ON market_price_snapshots(run_id)
+    """)
+
     conn.commit()
     conn.close()
 
@@ -263,6 +341,180 @@ def create_scan_run(cash_stack, minimum_profit):
     conn.close()
 
     return run_id, scanned_at
+
+
+def _market_point(data, item_id):
+    if not isinstance(data, dict):
+        return {}
+
+    point = data.get(str(item_id))
+
+    return point if isinstance(point, dict) else {}
+
+
+def _market_volume(point):
+    high_volume = int((point or {}).get("highPriceVolume") or 0)
+    low_volume = int((point or {}).get("lowPriceVolume") or 0)
+
+    return high_volume + low_volume, high_volume, low_volume
+
+
+def _market_price(value):
+    if value is None:
+        return None
+
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    return value if value > 0 else None
+
+
+def _candidate_item_ids(row_groups):
+    item_ids = []
+
+    for rows in row_groups:
+        for row in rows or []:
+            item_id = row.get("Item ID")
+
+            if item_id is None:
+                continue
+
+            try:
+                item_id = int(item_id)
+            except (TypeError, ValueError):
+                continue
+
+            if item_id not in item_ids:
+                item_ids.append(item_id)
+
+    return item_ids
+
+
+def save_market_price_snapshots(
+    run_id,
+    captured_at,
+    row_groups,
+    latest_data,
+    recent_data,
+    older_data,
+    daily_data,
+    item_lookup,
+):
+    """
+    Store one compact market snapshot per candidate item for this scan run.
+
+    This intentionally stores only current candidate items, not every Wiki item,
+    so the local history grows with useful opportunities instead of raw feed size.
+    """
+    item_ids = _candidate_item_ids(row_groups)
+
+    if not item_ids:
+        return 0
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    records = []
+
+    for item_id in item_ids:
+        item = item_lookup.get(item_id, {}) if isinstance(item_lookup, dict) else {}
+        item_name = str(item.get("name") or f"Item {item_id}")
+        buy_limit = item.get("limit")
+
+        latest = _market_point(latest_data, item_id)
+        recent = _market_point(recent_data, item_id)
+        older = _market_point(older_data, item_id)
+        daily = _market_point(daily_data, item_id)
+
+        if not latest and not recent and not older and not daily:
+            continue
+
+        volume_5m, high_volume_5m, low_volume_5m = _market_volume(recent)
+        volume_1h, high_volume_1h, low_volume_1h = _market_volume(older)
+        volume_24h, high_volume_24h, low_volume_24h = _market_volume(daily)
+
+        records.append((
+            run_id,
+            captured_at,
+            item_id,
+            item_name,
+            buy_limit,
+
+            _market_price(latest.get("low")),
+            _market_price(latest.get("high")),
+            latest.get("lowTime"),
+            latest.get("highTime"),
+
+            _market_price(recent.get("avgLowPrice")),
+            _market_price(recent.get("avgHighPrice")),
+            volume_5m,
+            high_volume_5m,
+            low_volume_5m,
+
+            _market_price(older.get("avgLowPrice")),
+            _market_price(older.get("avgHighPrice")),
+            volume_1h,
+            high_volume_1h,
+            low_volume_1h,
+
+            _market_price(daily.get("avgLowPrice")),
+            _market_price(daily.get("avgHighPrice")),
+            volume_24h,
+            high_volume_24h,
+            low_volume_24h,
+
+            "candidate snapshot from OSRS Wiki latest/5m/1h/24h feeds",
+        ))
+
+    if records:
+        cursor.executemany("""
+            INSERT OR REPLACE INTO market_price_snapshots (
+                run_id,
+                captured_at,
+                item_id,
+                item_name,
+                buy_limit,
+
+                latest_low,
+                latest_high,
+                latest_low_time,
+                latest_high_time,
+
+                avg_low_5m,
+                avg_high_5m,
+                volume_5m,
+                high_volume_5m,
+                low_volume_5m,
+
+                avg_low_1h,
+                avg_high_1h,
+                volume_1h,
+                high_volume_1h,
+                low_volume_1h,
+
+                avg_low_24h,
+                avg_high_24h,
+                volume_24h,
+                high_volume_24h,
+                low_volume_24h,
+
+                snapshot_note
+            )
+            VALUES (
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?
+            )
+        """, records)
+
+    conn.commit()
+    conn.close()
+
+    return len(records)
 
 
 def get_historical_stats(item_id, window_name):
@@ -462,6 +714,17 @@ def save_scan_rows(run_id, scanned_at, rows, result_type):
         "price_source",
         "avg_low",
         "avg_high",
+        "avg_low_24h",
+        "avg_high_24h",
+        "volume_24h",
+        "high_volume_24h",
+        "low_volume_24h",
+        "spread_24h",
+        "spread_24h_percent",
+        "window_vs_24h_percent",
+        "volume_vs_24h_percent",
+        "market_momentum",
+        "market_context_warning",
         "latest_low_time",
         "latest_high_time",
         "buy_vs_avg_low_percent",
@@ -543,6 +806,17 @@ def save_scan_rows(run_id, scanned_at, rows, result_type):
             row.get("Price Source"),
             row.get("Avg Low"),
             row.get("Avg High"),
+            row.get("Avg Low 24h"),
+            row.get("Avg High 24h"),
+            row.get("Volume 24h"),
+            row.get("High Volume 24h"),
+            row.get("Low Volume 24h"),
+            row.get("Spread 24h"),
+            row.get("Spread 24h %"),
+            row.get("Window vs 24h %"),
+            row.get("Volume vs 24h %"),
+            row.get("Market Momentum"),
+            row.get("Market Context Warning"),
             row.get("Latest Low Time"),
             row.get("Latest High Time"),
             row.get("Buy vs Avg Low %"),

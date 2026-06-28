@@ -11,6 +11,7 @@ HEADERS = {
 }
 
 BASE_URL = "https://prices.runescape.wiki/api/v1/osrs"
+JAGEX_BASE_URL = "https://secure.runescape.com/m=itemdb_oldschool/api"
 
 URL_LATEST = f"{BASE_URL}/latest"
 URL_5M = f"{BASE_URL}/5m"
@@ -18,6 +19,8 @@ URL_1H = f"{BASE_URL}/1h"
 URL_24H = f"{BASE_URL}/24h"
 MAPPING_URL = f"{BASE_URL}/mapping"
 TIMESERIES_URL = f"{BASE_URL}/timeseries"
+JAGEX_DETAIL_URL = f"{JAGEX_BASE_URL}/catalogue/detail.json"
+JAGEX_GRAPH_URL = f"{JAGEX_BASE_URL}/graph"
 
 REQUEST_DELAY_SECONDS = 0.15
 
@@ -62,6 +65,19 @@ def load_market_data():
     return latest_data, recent_data, older_data, item_lookup
 
 
+def load_market_data_with_24h():
+    """
+    Loads scanner data plus the rolling 24h market reference.
+
+    Returns:
+    latest_data, recent_data, older_data, daily_data, item_lookup
+    """
+    latest_data, recent_data, older_data, item_lookup = load_market_data()
+    daily_data = load_24h_data()
+
+    return latest_data, recent_data, older_data, daily_data, item_lookup
+
+
 def load_24h_data():
     """
     Loads rolling 24h average price data for all items.
@@ -75,6 +91,67 @@ def load_24h_data():
     print("24h market data loaded.")
 
     return data
+
+
+# =========================
+# OPTIONAL JAGEX CROSS-CHECK HELPERS
+# =========================
+
+def load_jagex_item_detail(item_id):
+    """
+    Loads official Jagex item detail for one item.
+
+    This is intentionally not used in the normal collector loop. It is useful
+    as a slower, official sanity check for top candidates.
+    """
+    params = {"item": int(item_id)}
+
+    return get_json(JAGEX_DETAIL_URL, params=params).get("item", {})
+
+
+def load_jagex_item_graph(item_id):
+    """
+    Loads official Jagex 180-day graph data for one item.
+
+    The graph is coarser than Wiki prices and does not include high/low side
+    volume, so it should supplement rather than replace the Wiki source.
+    """
+    url = f"{JAGEX_GRAPH_URL}/{int(item_id)}.json"
+
+    return get_json(url)
+
+
+def load_jagex_crosscheck(item_id):
+    detail = load_jagex_item_detail(item_id)
+    graph = load_jagex_item_graph(item_id)
+
+    return {
+        "item_id": int(item_id),
+        "detail": detail,
+        "graph": graph,
+    }
+
+
+def load_jagex_crosschecks_for_items(item_ids, max_items=10):
+    """
+    Loads official Jagex cross-check data for a small set of items.
+
+    Keep this capped. Jagex endpoints are one item at a time and are not
+    suitable for scanning the whole market every cycle.
+    """
+    checks = {}
+    limited_item_ids = list(dict.fromkeys(item_ids))[:max_items]
+
+    for index, item_id in enumerate(limited_item_ids, start=1):
+        try:
+            print(f"Jagex cross-check {index}/{len(limited_item_ids)}: item {item_id}")
+            checks[item_id] = load_jagex_crosscheck(item_id)
+            time.sleep(REQUEST_DELAY_SECONDS)
+        except Exception as error:
+            print(f"Could not load Jagex cross-check for item {item_id}: {error}")
+            checks[item_id] = {"item_id": item_id, "error": str(error)}
+
+    return checks
 
 
 # =========================

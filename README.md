@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.2.3
+## Latest Release: 1.2.4
 
-OSRSFlipper 1.2.3 is a stability patch for the 1.2.x release line. It keeps the 1.2.0 capital-aware AI and RuneLite telemetry behavior, preserves the 1.2.2 cleanup work, and hardens SQLite lock handling so Data Health metric refreshes do not crash the control center status screen.
+OSRSFlipper 1.2.4 adds 24h market context to scanner recommendations, stores compact local market snapshots for candidate items, and adds optional official Jagex item cross-check helpers. It keeps the 1.2.x capital-aware AI and RuneLite telemetry behavior.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
@@ -18,6 +18,7 @@ The project is designed to run locally on your machine. Private runtime data suc
 * Open and unmatched trade event tracking
 * Latest flip candidate view
 * Recurring flip candidate view
+* 24h Wiki market context and local candidate market snapshots
 * Safety review checklist before trading
 * Account-scoped encrypted OpenAI API key support
 * Health checks, release checks, backups, and update installer support

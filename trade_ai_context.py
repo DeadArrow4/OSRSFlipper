@@ -520,7 +520,9 @@ def get_latest_market_exit_estimate(cursor, item_id, item_name):
             sr.avg_low,
             sr.avg_high,
             sr.price_warning,
+            sr.market_context_warning,
             sr.trend_warning,
+            sr.market_momentum,
             sr.daily_trend,
             sr.weekly_trend,
             sr.long_term_trend,
@@ -554,7 +556,9 @@ def get_latest_market_exit_estimate(cursor, item_id, item_name):
         avg_low,
         avg_high,
         price_warning,
+        market_context_warning,
         trend_warning,
+        market_momentum,
         daily_trend,
         weekly_trend,
         long_term_trend,
@@ -582,7 +586,9 @@ def get_latest_market_exit_estimate(cursor, item_id, item_name):
         "avg_low": avg_low,
         "avg_high": avg_high,
         "price_warning": price_warning or "",
+        "market_context_warning": market_context_warning or "",
         "trend_warning": trend_warning or "",
+        "market_momentum": market_momentum or "",
         "daily_trend": daily_trend or "",
         "weekly_trend": weekly_trend or "",
         "long_term_trend": long_term_trend or "",
@@ -1027,7 +1033,9 @@ def build_live_slot_recovery_text(slot_analysis, max_positions=12):
             )
             lines.append(
                 f"  Liquidity {market.get('liquidity_score', 'unknown')}, expected fill {market.get('expected_fill_hours', 'unknown')}h, "
-                f"trend warning: {market.get('trend_warning', '') or 'OK'}, price warning: {market.get('price_warning', '') or 'OK'}"
+                f"trend warning: {market.get('trend_warning', '') or 'OK'}, "
+                f"market warning: {market.get('market_context_warning', '') or 'OK'}, "
+                f"price warning: {market.get('price_warning', '') or 'OK'}"
             )
             lines.append(f"  Slot recovery action: {pos.get('action')}")
 

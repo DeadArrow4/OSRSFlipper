@@ -449,7 +449,7 @@ def _trade_board_text_value(row, column, default=""):
 def _trade_board_warning(row):
     warnings = []
 
-    for column in ["price_warning", "margin_warning", "trend_warning"]:
+    for column in ["price_warning", "margin_warning", "trend_warning", "market_context_warning"]:
         value = _trade_board_text_value(row, column, "")
 
         if value and value.upper() != "OK" and value.lower() not in ("none", "nan"):
@@ -744,6 +744,7 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
         "item_name", "window_name", "risk_level", "confidence",
         "liquidity_rating", "flip_category", "signal",
         "price_warning", "margin_warning", "trend_warning",
+        "market_context_warning", "market_momentum",
         "expected_fill_time"
     ]
 

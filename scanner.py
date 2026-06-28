@@ -12,6 +12,8 @@ MIN_PROFIT_PER_ITEM = 1
 # Warn when latest target prices are far away from window averages.
 PRICE_DIVERGENCE_WARNING_PERCENT = 5
 
+from market_features import build_24h_market_context
+
 
 def parse_gp(value):
     """
@@ -269,7 +271,8 @@ def scan_market(
     minimum_profit,
     latest_data=None,
     use_latest=True,
-    hourly_data=None
+    hourly_data=None,
+    daily_data=None
 ):
     results = []
     watchlist = []
@@ -279,6 +282,9 @@ def scan_market(
 
     if hourly_data is None:
         hourly_data = {}
+
+    if daily_data is None:
+        daily_data = {}
 
     for item_id_str, data in price_data.items():
         item_id = int(item_id_str)
@@ -356,6 +362,15 @@ def scan_market(
             avg_high=avg_high
         )
 
+        market_context = build_24h_market_context(
+            item_id=item_id,
+            window_name=window_name,
+            avg_low=avg_low,
+            avg_high=avg_high,
+            volume=volume,
+            daily_data=daily_data
+        )
+
         tax = ge_tax(target_sell)
         raw_margin = target_sell - target_buy
         profit_per_item = raw_margin - tax
@@ -386,6 +401,13 @@ def scan_market(
         if price_warning != "OK":
             score *= 0.75
 
+        market_context_warning = market_context.get("Market Context Warning", "OK")
+        if market_context_warning != "OK":
+            if "far above" in market_context_warning or "thin volume" in market_context_warning:
+                score *= 0.90
+            elif "wide 24h spread" in market_context_warning:
+                score *= 0.95
+
         row = {
             "Item ID": item_id,
             "Item": name,
@@ -397,6 +419,7 @@ def scan_market(
 
             "Avg Low": avg_low,
             "Avg High": avg_high,
+            **market_context,
 
             "Latest Low Time": latest_low_time,
             "Latest High Time": latest_high_time,

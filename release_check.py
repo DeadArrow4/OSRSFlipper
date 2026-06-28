@@ -77,6 +77,7 @@ REQUIRED_FILES = [
     "first_run_setup.py",
     "health_check.py",
     "main.py",
+    "market_features.py",
     "migration_manager.py",
     "openai_key_manager.py",
     "openai_key_tester.py",
@@ -160,6 +161,7 @@ IMPORT_MODULES = [
     "data_health_modules.snapshots",
     "data_health_modules.trends",
     "migration_manager",
+    "market_features",
     "openai_key_manager",
     "openai_key_tester",
     "openai_usage_manager",
@@ -190,6 +192,7 @@ REQUIRED_TABLES = [
     "ai_usage_events",
     "app_schema_migrations",
     "scan_results",
+    "market_price_snapshots",
     "trade_events",
     "completed_trades",
     "imported_trade_files"
@@ -223,7 +226,11 @@ REQUIRED_SCAN_COLUMNS = [
     "overnight_score",
     "daily_trend",
     "weekly_trend",
-    "trend_warning"
+    "trend_warning",
+    "avg_low_24h",
+    "volume_24h",
+    "market_momentum",
+    "market_context_warning"
 ]
 
 
