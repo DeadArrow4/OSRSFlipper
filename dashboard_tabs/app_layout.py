@@ -1,12 +1,57 @@
 """Top-level dashboard layout builder."""
 from dash import html, dcc
 
+from account_manager import get_current_session
+from app_version import get_version_line
+
 from .admin import build_admin_tab, build_safety_review_tab
 from .ai import build_ai_panel
 from .market import build_market_data_tab
 from .overview import build_filters
 from .trade_board import build_trade_board_tab
 from .trades import build_my_trades_tab
+
+
+def _build_app_command_bar():
+    try:
+        session = get_current_session() or {}
+    except Exception:
+        session = {}
+
+    app_user = session.get("username") or "No local user"
+    osrs_account = session.get("osrs_account_name") or "RuneLite not linked"
+
+    return html.Div(
+        className="app-command-bar",
+        children=[
+            html.Div(
+                className="app-command-brand",
+                children=[
+                    html.Div("OSRSFlipper", className="app-command-title"),
+                    html.Div(get_version_line(), className="app-command-subtitle"),
+                ],
+            ),
+            html.Div(
+                className="app-command-meta",
+                children=[
+                    html.Div(
+                        className="app-command-chip",
+                        children=[
+                            html.Span("User", className="app-command-chip-label"),
+                            html.Span(app_user, className="app-command-chip-value"),
+                        ],
+                    ),
+                    html.Div(
+                        className="app-command-chip",
+                        children=[
+                            html.Span("RuneLite", className="app-command-chip-label"),
+                            html.Span(osrs_account, className="app-command-chip-value"),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
 
 def build_app_layout():
@@ -22,6 +67,8 @@ def build_app_layout():
             ),
 
             build_filters(),
+
+            _build_app_command_bar(),
 
             html.Div(
                 className="osrs-hidden-legacy-top-kpis",

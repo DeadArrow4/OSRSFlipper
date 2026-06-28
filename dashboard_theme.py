@@ -8,16 +8,16 @@ import plotly.express as px
 # Dash core components and DataTable can inject inline white backgrounds.
 # These wrappers force the newer Setup/Accounts/Settings/About controls to
 # use the same dark theme as the rest of the dashboard.
-THEME_BG = "#0f172a"
-THEME_BG_DEEP = "#020617"
-THEME_PANEL = "#111827"
-THEME_PANEL_SOFT = "#162033"
-THEME_PANEL_RAISED = "#1e293b"
-THEME_BORDER = "#334155"
+THEME_BG = "#0a0f12"
+THEME_BG_DEEP = "#05080a"
+THEME_PANEL = "#101820"
+THEME_PANEL_SOFT = "#162229"
+THEME_PANEL_RAISED = "#1d2b32"
+THEME_BORDER = "#304247"
 THEME_TEXT = "#f8fafc"
-THEME_TEXT_SOFT = "#cbd5e1"
-THEME_TEXT_MUTED = "#94a3b8"
-THEME_ACCENT = "#3b82f6"
+THEME_TEXT_SOFT = "#d6dee2"
+THEME_TEXT_MUTED = "#8ea0a6"
+THEME_ACCENT = "#14b8a6"
 
 
 def _merge_style(default_style, user_style):
@@ -111,7 +111,7 @@ def _dark_datatable(*args, **kwargs):
     dark_conditionals = [
         {
             "if": {"row_index": "odd"},
-            "backgroundColor": "#071126",
+            "backgroundColor": "#0b1216",
             "color": THEME_TEXT_SOFT
         },
         {
@@ -136,7 +136,7 @@ def _dark_datatable(*args, **kwargs):
         {"selector": "table", "rule": f"background-color: {THEME_BG_DEEP} !important; color: {THEME_TEXT_SOFT} !important;"},
         {"selector": "th", "rule": f"background-color: {THEME_PANEL_RAISED} !important; color: {THEME_TEXT} !important; border-color: {THEME_BORDER} !important;"},
         {"selector": "td", "rule": f"background-color: {THEME_BG_DEEP} !important; color: {THEME_TEXT_SOFT} !important; border-color: {THEME_BORDER} !important;"},
-        {"selector": "tr:nth-child(even) td", "rule": "background-color: #071126 !important;"},
+        {"selector": "tr:nth-child(even) td", "rule": "background-color: #0b1216 !important;"},
         {"selector": "input", "rule": f"background-color: {THEME_BG_DEEP} !important; color: {THEME_TEXT} !important; border-color: {THEME_BORDER} !important;"}
     ])
     kwargs["css"] = css
@@ -154,9 +154,9 @@ def empty_figure(title):
 
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor="#111827",
-        plot_bgcolor="#111827",
-        font={"color": "#e5e7eb"},
+        paper_bgcolor=THEME_PANEL,
+        plot_bgcolor=THEME_PANEL,
+        font={"color": THEME_TEXT_SOFT},
         xaxis={"visible": False},
         yaxis={"visible": False},
         annotations=[
@@ -165,7 +165,7 @@ def empty_figure(title):
                 "xref": "paper",
                 "yref": "paper",
                 "showarrow": False,
-                "font": {"size": 18, "color": "#94a3b8"}
+                "font": {"size": 18, "color": THEME_TEXT_MUTED}
             }
         ]
     )
@@ -176,9 +176,9 @@ def empty_figure(title):
 def apply_dark_chart_layout(fig, x_title=None, y_title=None, bottom_margin=60):
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor="#111827",
-        plot_bgcolor="#111827",
-        font={"color": "#e5e7eb"},
+        paper_bgcolor=THEME_PANEL,
+        plot_bgcolor=THEME_PANEL,
+        font={"color": THEME_TEXT_SOFT},
         xaxis_title=x_title,
         yaxis_title=y_title,
         margin={"l": 50, "r": 24, "t": 60, "b": bottom_margin},
@@ -206,17 +206,17 @@ def base_table_styles(max_height="680px"):
             "overflowX": "auto",
             "overflowY": "auto",
             "maxHeight": max_height,
-            "border": "1px solid #334155",
-            "borderRadius": "12px"
+            "border": f"1px solid {THEME_BORDER}",
+            "borderRadius": "8px"
         },
         "style_cell": {
             "textAlign": "left",
-            "padding": "10px",
-            "fontFamily": "Arial",
+            "padding": "8px 10px",
+            "fontFamily": "Inter, Segoe UI, Arial, sans-serif",
             "fontSize": "13px",
-            "backgroundColor": "#020617",
-            "color": "#e5e7eb",
-            "border": "1px solid #1e293b",
+            "backgroundColor": THEME_BG_DEEP,
+            "color": THEME_TEXT_SOFT,
+            "border": f"1px solid {THEME_PANEL_RAISED}",
             "maxWidth": "240px",
             "overflow": "hidden",
             "textOverflow": "ellipsis",
@@ -224,8 +224,8 @@ def base_table_styles(max_height="680px"):
         },
         "style_header": {
             "fontWeight": "bold",
-            "backgroundColor": "#1e293b",
-            "color": "#f8fafc",
-            "border": "1px solid #334155"
+            "backgroundColor": THEME_PANEL_RAISED,
+            "color": THEME_TEXT,
+            "border": f"1px solid {THEME_BORDER}"
         }
     }

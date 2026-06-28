@@ -2503,3 +2503,581 @@ body .Select-option.is-selected {
 }
 
 /* === End OSRSFlipper 1.1.1 restore compact Trade Board controls === */
+
+/* =========================================================
+   OSRSFlipper 1.3.0 UI modernization foundation
+   Dark app shell, clearer data hierarchy, and cleaner control density.
+   ========================================================= */
+
+:root {
+    --bg: #0a0f12;
+    --bg-deep: #05080a;
+    --panel: #101820;
+    --panel-soft: #162229;
+    --panel-raised: #1d2b32;
+    --border: #304247;
+    --border-soft: rgba(142, 160, 166, 0.22);
+    --text: #f8fafc;
+    --text-soft: #d6dee2;
+    --text-muted: #8ea0a6;
+    --accent: #14b8a6;
+    --accent-dark: #0f766e;
+    --accent-warm: #f6c453;
+    --good: #3ddc97;
+    --warn: #f6c453;
+    --bad: #ff6b6b;
+    --surface-1: rgba(16, 24, 32, 0.96);
+    --surface-2: rgba(22, 34, 41, 0.94);
+    --surface-3: rgba(29, 43, 50, 0.92);
+    --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.28);
+    --radius: 8px;
+}
+
+html,
+body {
+    background: linear-gradient(180deg, #0a0f12 0%, #070a0d 100%) !important;
+    color: var(--text-soft) !important;
+    font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+    font-size: 14px !important;
+    letter-spacing: 0 !important;
+}
+
+body,
+#react-entry-point,
+._dash-loading,
+#_dash-app-content {
+    background-color: var(--bg) !important;
+    color: var(--text-soft) !important;
+}
+
+#_dash-app-content > div,
+.app-shell {
+    max-width: 1760px !important;
+    padding: 16px 18px 28px !important;
+}
+
+.app-command-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin: 0 0 10px 0 !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: var(--radius) !important;
+    background: rgba(5, 8, 10, 0.86) !important;
+    box-shadow: var(--shadow-soft) !important;
+}
+
+.app-command-brand {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+}
+
+.app-command-title {
+    color: var(--text) !important;
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+}
+
+.app-command-subtitle {
+    color: var(--text-muted) !important;
+    font-size: 0.78rem !important;
+    font-weight: 650 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.app-command-meta {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+.app-command-chip {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    min-height: 28px !important;
+    max-width: 240px !important;
+    padding: 4px 9px !important;
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: 999px !important;
+    background: rgba(22, 34, 41, 0.72) !important;
+    white-space: nowrap !important;
+}
+
+.app-command-chip-label {
+    color: var(--text-muted) !important;
+    font-size: 0.68rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.app-command-chip-value {
+    color: var(--text-soft) !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.osrs-top-tabs-bar,
+.dash-tabs {
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 7px 10px !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: var(--radius) !important;
+    background: rgba(5, 8, 10, 0.94) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22) !important;
+}
+
+.osrs-top-tabs-bar > *,
+.dash-tabs > * {
+    flex: 0 0 auto !important;
+    width: auto !important;
+}
+
+.osrs-top-tabs-bar > div,
+.osrs-top-tabs-bar > div > div,
+.osrs-top-tabs-bar [role="tablist"],
+.dash-tabs > div,
+.dash-tabs > div > div,
+.dash-tabs [role="tablist"] {
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    min-width: max-content !important;
+}
+
+.osrs-top-tabs-bar::-webkit-scrollbar,
+.osrs-top-tabs-bar *::-webkit-scrollbar,
+.dash-tabs::-webkit-scrollbar,
+.dash-tabs *::-webkit-scrollbar {
+    height: 7px !important;
+}
+
+.osrs-top-tabs-bar::-webkit-scrollbar-track,
+.osrs-top-tabs-bar *::-webkit-scrollbar-track,
+.dash-tabs::-webkit-scrollbar-track,
+.dash-tabs *::-webkit-scrollbar-track {
+    background: rgba(5, 8, 10, 0.95) !important;
+}
+
+.osrs-top-tabs-bar::-webkit-scrollbar-thumb,
+.osrs-top-tabs-bar *::-webkit-scrollbar-thumb,
+.dash-tabs::-webkit-scrollbar-thumb,
+.dash-tabs *::-webkit-scrollbar-thumb {
+    background: rgba(142, 160, 166, 0.34) !important;
+    border-radius: 999px !important;
+}
+
+.osrs-top-tabs-bar .tab,
+.osrs-top-tabs-bar .tab--selected,
+.tab,
+.tab--selected,
+.custom-tab,
+.custom-tab--selected {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    float: none !important;
+    min-height: 32px !important;
+    border-radius: 999px !important;
+    color: rgba(214, 222, 226, 0.78) !important;
+    font-weight: 760 !important;
+    letter-spacing: 0 !important;
+}
+
+.osrs-top-tabs-bar .tab:hover,
+.tab:hover,
+.custom-tab:hover {
+    background: rgba(29, 43, 50, 0.86) !important;
+    border-color: rgba(142, 160, 166, 0.24) !important;
+    color: var(--text) !important;
+}
+
+.osrs-top-tabs-bar .tab--selected,
+.tab--selected,
+.custom-tab--selected {
+    background: rgba(20, 184, 166, 0.16) !important;
+    border-color: rgba(20, 184, 166, 0.42) !important;
+    color: var(--text) !important;
+    box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.08) !important;
+}
+
+.osrs-nav-brand {
+    color: var(--text) !important;
+    border-right-color: rgba(142, 160, 166, 0.18) !important;
+}
+
+.panel,
+.sticky-panel,
+.chart-panel,
+.ai-panel,
+.settings-panel,
+.settings-section,
+.trade-table-panel,
+.flip-table-panel,
+.safety-table-panel,
+.item-history-dropdown-card,
+.ux-collapsible-panel,
+.trade-board-page .osrs-tradeboard-settings-drawer {
+    border: 1px solid var(--border-soft) !important;
+    border-radius: var(--radius) !important;
+    background: var(--surface-1) !important;
+    box-shadow: var(--shadow-soft) !important;
+}
+
+.panel,
+.settings-panel,
+.settings-section,
+.trade-table-panel,
+.flip-table-panel,
+.safety-table-panel {
+    padding: 13px 14px !important;
+    margin-bottom: 12px !important;
+}
+
+.chart-panel {
+    padding: 8px !important;
+}
+
+.section-title,
+.settings-section-title,
+h2,
+h3 {
+    color: var(--text) !important;
+    font-size: 0.98rem !important;
+    line-height: 1.25 !important;
+    font-weight: 880 !important;
+    letter-spacing: 0 !important;
+    margin-bottom: 6px !important;
+}
+
+.muted-text,
+.status-text,
+.settings-section-subtitle,
+.setting-help,
+.settings-card-help,
+.settings-card-label,
+p {
+    color: var(--text-muted) !important;
+}
+
+.settings-section-subtitle,
+.setting-help,
+.settings-card-help {
+    font-size: 0.78rem !important;
+    line-height: 1.38 !important;
+}
+
+.settings-grid,
+.safety-control-grid,
+.trade-control-grid,
+.trade-board-control-grid {
+    gap: 10px !important;
+}
+
+.settings-card,
+.setting-card,
+.kpi-card,
+.metric-card,
+.summary-card,
+.stat-card,
+.info-card {
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: var(--radius) !important;
+    background: var(--surface-2) !important;
+    box-shadow: none !important;
+}
+
+.kpi-card::after {
+    display: none !important;
+}
+
+.kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+    gap: 10px !important;
+    margin: 8px 0 12px 0 !important;
+}
+
+.kpi-card {
+    min-height: 86px !important;
+    padding: 12px !important;
+}
+
+.kpi-title {
+    color: rgba(246, 196, 83, 0.86) !important;
+    font-size: 0.72rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.kpi-value {
+    color: var(--text) !important;
+    font-size: clamp(1.35rem, 1.8vw, 1.9rem) !important;
+    font-weight: 900 !important;
+    line-height: 1.08 !important;
+}
+
+.kpi-subtitle {
+    color: var(--text-muted) !important;
+    font-size: 0.76rem !important;
+}
+
+input,
+textarea,
+select,
+.dash-input,
+.DateInput_input,
+.Select-control,
+body .Select-control,
+body .Select.is-focused > .Select-control,
+body .Select.is-open > .Select-control {
+    min-height: 32px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--bg-deep) !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.Select.is-focused > .Select-control,
+.Select.is-open > .Select-control {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18) !important;
+}
+
+.Select-menu-outer,
+.Select-menu,
+.Select-option,
+.VirtualizedSelectOption,
+body .Select-menu-outer,
+body .Select-menu,
+body .Select-option,
+body .VirtualizedSelectOption {
+    background: var(--panel) !important;
+    color: var(--text-soft) !important;
+    border-color: var(--border) !important;
+}
+
+.Select-option.is-focused,
+.VirtualizedSelectFocusedOption,
+body .Select-option.is-focused,
+body .VirtualizedSelectFocusedOption {
+    background: var(--panel-raised) !important;
+    color: var(--text) !important;
+}
+
+.Select-option.is-selected,
+body .Select-option.is-selected {
+    background: rgba(15, 118, 110, 0.88) !important;
+    color: var(--text) !important;
+}
+
+button,
+.primary-button,
+.secondary-button,
+.danger-button {
+    min-height: 32px !important;
+    border-radius: var(--radius) !important;
+    padding: 7px 11px !important;
+    font-weight: 820 !important;
+    letter-spacing: 0 !important;
+    box-shadow: none !important;
+}
+
+.primary-button,
+button {
+    background: linear-gradient(180deg, #16c7b5, #0f766e) !important;
+    border-color: rgba(20, 184, 166, 0.46) !important;
+}
+
+.primary-button:hover,
+button:hover {
+    background: linear-gradient(180deg, #2dd4bf, #0f766e) !important;
+}
+
+.secondary-button {
+    background: rgba(29, 43, 50, 0.94) !important;
+    border-color: rgba(142, 160, 166, 0.28) !important;
+}
+
+.secondary-button:hover {
+    background: rgba(48, 66, 71, 0.96) !important;
+}
+
+.danger-button {
+    background: linear-gradient(180deg, #ff6b6b, #b91c1c) !important;
+}
+
+.dash-table-container,
+.dash-spreadsheet-container,
+.dash-spreadsheet-inner,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+    border-radius: var(--radius) !important;
+    background: var(--bg-deep) !important;
+}
+
+.dash-table-container th,
+.dash-spreadsheet-container th,
+.dash-header,
+.column-header-name {
+    background: #162229 !important;
+    color: var(--text) !important;
+    border-color: rgba(142, 160, 166, 0.20) !important;
+    font-size: 0.75rem !important;
+    font-weight: 850 !important;
+}
+
+.dash-table-container td,
+.dash-spreadsheet-container td,
+.dash-cell {
+    background: var(--bg-deep) !important;
+    color: var(--text-soft) !important;
+    border-color: rgba(142, 160, 166, 0.12) !important;
+    font-size: 0.78rem !important;
+}
+
+.dash-table-container tr:nth-child(even) td,
+.dash-spreadsheet-container tr:nth-child(even) td {
+    background: #0b1216 !important;
+}
+
+.dash-table-container tr:hover td,
+.dash-spreadsheet-container tr:hover td,
+.dash-cell.cell--selected,
+.dash-cell.focused {
+    background: #18262d !important;
+    color: var(--text) !important;
+}
+
+.ai-box,
+.ai-advice-output,
+.ai-output-shell,
+pre,
+.log-output,
+#release-check-output,
+#health-check-output {
+    border-radius: var(--radius) !important;
+    border-color: rgba(142, 160, 166, 0.18) !important;
+    background: #05080a !important;
+}
+
+.ai-tip,
+.status-text,
+.settings-save-status {
+    border: 1px solid rgba(246, 196, 83, 0.18) !important;
+    background: rgba(246, 196, 83, 0.08) !important;
+    color: #f8e6b4 !important;
+}
+
+.chart-grid {
+    gap: 12px !important;
+}
+
+@media (max-width: 900px) {
+    #_dash-app-content > div,
+    .app-shell {
+        padding: 10px !important;
+    }
+
+    .app-command-bar {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .app-command-brand {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        gap: 3px !important;
+    }
+
+    .app-command-meta {
+        justify-content: flex-start !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .app-command-chip {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    .kpi-grid,
+    .settings-grid,
+    .filter-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    .dash-tabs,
+    .osrs-top-tabs-bar {
+        margin-bottom: 10px !important;
+        max-width: 100% !important;
+        scrollbar-width: none !important;
+    }
+
+    .osrs-nav-brand,
+    .osrs-top-tabs-bar .osrs-nav-brand,
+    .dash-tabs .osrs-nav-brand {
+        display: none !important;
+    }
+
+    * {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+
+    *::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
+    }
+
+    .dash-tabs::-webkit-scrollbar,
+    .dash-tabs *::-webkit-scrollbar,
+    .osrs-top-tabs-bar::-webkit-scrollbar,
+    .osrs-top-tabs-bar *::-webkit-scrollbar {
+        display: none !important;
+        height: 0 !important;
+    }
+
+    .dash-tabs .tab,
+    .dash-tabs .tab--selected,
+    .dash-tabs .custom-tab,
+    .dash-tabs .custom-tab--selected {
+        min-height: 30px !important;
+        padding: 6px 10px !important;
+        font-size: 0.76rem !important;
+    }
+
+    .dash-graph .legend,
+    .js-plotly-plot .legend {
+        display: none !important;
+    }
+}

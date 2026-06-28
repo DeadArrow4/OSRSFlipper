@@ -196,14 +196,14 @@ def setting_card(label, control, help_text=None):
         children.append(html.Div(help_text, className="settings-card-help"))
 
     return html.Div(
-        className="settings-card",
+        className="settings-card setting-card",
         children=children
     )
 
 
 def settings_section(title, subtitle=None, children=None, footer=None):
     panel_children = [
-        html.Div(title, className="section-title")
+        html.Div(title, className="section-title settings-section-title")
     ]
 
     if subtitle:
@@ -218,6 +218,6 @@ def settings_section(title, subtitle=None, children=None, footer=None):
         panel_children.append(footer)
 
     return html.Div(
-        className="panel settings-panel",
+        className="panel settings-panel settings-section",
         children=panel_children
     )

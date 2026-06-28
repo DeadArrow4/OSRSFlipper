@@ -22,16 +22,16 @@ Safe behavior:
 (function () {
     "use strict";
 
-    const BG = "#020617";
-    const PANEL = "#0b1120";
-    const HOVER = "#1e293b";
-    const SELECTED = "#2563eb";
-    const BORDER = "#334155";
-    const FOCUS = "#3b82f6";
-    const RING = "0 0 0 2px rgba(59, 130, 246, 0.22)";
+    const BG = "#05080a";
+    const PANEL = "#101820";
+    const HOVER = "#1d2b32";
+    const SELECTED = "#0f766e";
+    const BORDER = "#304247";
+    const FOCUS = "#14b8a6";
+    const RING = "0 0 0 2px rgba(20, 184, 166, 0.22)";
     const TEXT = "#f8fafc";
-    const MUTED = "#94a3b8";
-    const OPTION_TEXT = "#e5e7eb";
+    const MUTED = "#8ea0a6";
+    const OPTION_TEXT = "#d6dee2";
 
     function setImp(el, prop, value) {
         if (el && el.style) {

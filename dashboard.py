@@ -19,7 +19,7 @@ from dashboard_tabs import build_app_layout
 # =========================
 
 app = Dash(__name__)
-app.title = "OSRS Flip Dashboard"
+app.title = "OSRSFlipper"
 server = app.server
 
 app.layout = build_app_layout()
