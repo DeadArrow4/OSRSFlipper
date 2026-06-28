@@ -65,6 +65,7 @@ RELEASE_FILES = [
     "first_run_setup.py",
     "health_check.py",
     "main.py",
+    "market_features.py",
     "migration_manager.py",
     "openai_key_manager.py",
     "openai_key_tester.py",

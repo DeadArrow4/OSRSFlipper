@@ -18,7 +18,7 @@ Notes:
 - Jagex helpers are optional and are not used in the normal collector loop.
 - Timeseries requests remain limited to top candidates.
 - This patch does not add automatic GE trading.
-- This patch has not been published to GitHub until explicitly approved.
+- Private runtime data, local databases, account sessions, telemetry JSON, and API keys remain excluded from release packages.
 
 ========================================================================
 
