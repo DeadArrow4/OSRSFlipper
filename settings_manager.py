@@ -9,6 +9,9 @@ from account_context import get_account_scope, BASE_DIR
 
 
 DB_FILE = BASE_DIR / "osrs_flip_scanner.db"
+SQLITE_TIMEOUT_SECONDS = 60
+SQLITE_BUSY_TIMEOUT_MS = 60000
+_SETTINGS_DB_INITIALIZED = False
 
 
 DEFAULT_SETTINGS = {
@@ -52,7 +55,23 @@ def now_utc():
 
 
 def get_connection():
-    return sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    return conn
+
+
+def is_database_locked_error(error):
+    text = str(error).lower()
+    return "database is locked" in text or "database table is locked" in text
+
+
+def default_for_setting(key, default=None):
+    normalized = normalize_key(key)
+
+    if normalized in DEFAULT_SETTINGS:
+        return DEFAULT_SETTINGS[normalized]["value"]
+
+    return default
 
 
 def normalize_key(key):
@@ -128,32 +147,41 @@ def parse_input_value(raw_value, value_type):
     return raw_value
 
 
-def init_settings_db():
+def init_settings_db(force=False):
+    global _SETTINGS_DB_INITIALIZED
+
+    if _SETTINGS_DB_INITIALIZED and not force:
+        return
+
     conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS app_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            app_username TEXT NOT NULL,
-            osrs_account_name TEXT NOT NULL,
-            setting_key TEXT NOT NULL,
-            setting_value TEXT NOT NULL,
-            value_type TEXT NOT NULL,
-            description TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            UNIQUE(app_username, osrs_account_name, setting_key)
-        )
-    """)
+    try:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_app_settings_account
-        ON app_settings(app_username, osrs_account_name)
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_username TEXT NOT NULL,
+                osrs_account_name TEXT NOT NULL,
+                setting_key TEXT NOT NULL,
+                setting_value TEXT NOT NULL,
+                value_type TEXT NOT NULL,
+                description TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(app_username, osrs_account_name, setting_key)
+            )
+        """)
 
-    conn.commit()
-    conn.close()
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_app_settings_account
+            ON app_settings(app_username, osrs_account_name)
+        """)
+
+        conn.commit()
+        _SETTINGS_DB_INITIALIZED = True
+    finally:
+        conn.close()
 
 
 def set_setting(key, value, value_type=None, description=None, app_username=None, osrs_account_name=None):
@@ -177,70 +205,83 @@ def set_setting(key, value, value_type=None, description=None, app_username=None
     timestamp = now_utc()
 
     conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO app_settings (
-            app_username,
-            osrs_account_name,
-            setting_key,
-            setting_value,
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO app_settings (
+                app_username,
+                osrs_account_name,
+                setting_key,
+                setting_value,
+                value_type,
+                description,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(app_username, osrs_account_name, setting_key)
+            DO UPDATE SET
+                setting_value = excluded.setting_value,
+                value_type = excluded.value_type,
+                description = excluded.description,
+                updated_at = excluded.updated_at
+        """, (
+            scope["app_username"],
+            scope["osrs_account_name"],
+            key,
+            serialized,
             value_type,
             description,
-            created_at,
-            updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(app_username, osrs_account_name, setting_key)
-        DO UPDATE SET
-            setting_value = excluded.setting_value,
-            value_type = excluded.value_type,
-            description = excluded.description,
-            updated_at = excluded.updated_at
-    """, (
-        scope["app_username"],
-        scope["osrs_account_name"],
-        key,
-        serialized,
-        value_type,
-        description,
-        timestamp,
-        timestamp
-    ))
+            timestamp,
+            timestamp
+        ))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_setting(key, default=None, app_username=None, osrs_account_name=None):
-    init_settings_db()
-
     key = normalize_key(key)
+
+    try:
+        init_settings_db()
+    except sqlite3.OperationalError as error:
+        if is_database_locked_error(error):
+            return default_for_setting(key, default)
+        raise
+
     scope = get_account_scope(app_username=app_username, osrs_account_name=osrs_account_name)
 
     conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT setting_value, value_type
-        FROM app_settings
-        WHERE app_username = ?
-          AND osrs_account_name = ?
-          AND setting_key = ?
-    """, (
-        scope["app_username"],
-        scope["osrs_account_name"],
-        key
-    ))
+    try:
+        cursor = conn.cursor()
 
-    row = cursor.fetchone()
-    conn.close()
+        cursor.execute("""
+            SELECT setting_value, value_type
+            FROM app_settings
+            WHERE app_username = ?
+              AND osrs_account_name = ?
+              AND setting_key = ?
+        """, (
+            scope["app_username"],
+            scope["osrs_account_name"],
+            key
+        ))
+
+        row = cursor.fetchone()
+    except sqlite3.OperationalError as error:
+        if is_database_locked_error(error):
+            return default_for_setting(key, default)
+        raise
+    finally:
+        conn.close()
 
     if row is None:
-        if key in DEFAULT_SETTINGS:
-            return DEFAULT_SETTINGS[key]["value"]
-
-        return default
+        return default_for_setting(key, default)
 
     value, value_type = row
 
@@ -251,10 +292,6 @@ def get_setting(key, default=None, app_username=None, osrs_account_name=None):
 
 
 def get_all_settings(app_username=None, osrs_account_name=None, include_defaults=True):
-    init_settings_db()
-
-    scope = get_account_scope(app_username=app_username, osrs_account_name=osrs_account_name)
-
     settings = {}
 
     if include_defaults:
@@ -267,37 +304,56 @@ def get_all_settings(app_username=None, osrs_account_name=None, include_defaults
                 "source": "default"
             }
 
+    try:
+        init_settings_db()
+    except sqlite3.OperationalError as error:
+        if is_database_locked_error(error):
+            return settings
+        raise
+
+    scope = get_account_scope(app_username=app_username, osrs_account_name=osrs_account_name)
+
     conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT setting_key, setting_value, value_type, description, updated_at
-        FROM app_settings
-        WHERE app_username = ?
-          AND osrs_account_name = ?
-        ORDER BY setting_key
-    """, (
-        scope["app_username"],
-        scope["osrs_account_name"]
-    ))
+    try:
+        cursor = conn.cursor()
 
-    for key, value, value_type, description, updated_at in cursor.fetchall():
-        settings[key] = {
-            "key": key,
-            "value": deserialize_value(value, value_type),
-            "type": value_type,
-            "description": description or "",
-            "updated_at": updated_at,
-            "source": "saved"
-        }
+        cursor.execute("""
+            SELECT setting_key, setting_value, value_type, description, updated_at
+            FROM app_settings
+            WHERE app_username = ?
+              AND osrs_account_name = ?
+            ORDER BY setting_key
+        """, (
+            scope["app_username"],
+            scope["osrs_account_name"]
+        ))
 
-    conn.close()
+        for key, value, value_type, description, updated_at in cursor.fetchall():
+            settings[key] = {
+                "key": key,
+                "value": deserialize_value(value, value_type),
+                "type": value_type,
+                "description": description or "",
+                "updated_at": updated_at,
+                "source": "saved"
+            }
+    except sqlite3.OperationalError as error:
+        if not is_database_locked_error(error):
+            raise
+    finally:
+        conn.close()
 
     return settings
 
 
 def ensure_default_settings(app_username=None, osrs_account_name=None):
-    init_settings_db()
+    try:
+        init_settings_db()
+    except sqlite3.OperationalError as error:
+        if is_database_locked_error(error):
+            return
+        raise
 
     for key, meta in DEFAULT_SETTINGS.items():
         existing = get_setting(
@@ -311,32 +367,44 @@ def ensure_default_settings(app_username=None, osrs_account_name=None):
         scope = get_account_scope(app_username=app_username, osrs_account_name=osrs_account_name)
 
         conn = get_connection()
-        cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT 1
-            FROM app_settings
-            WHERE app_username = ?
-              AND osrs_account_name = ?
-              AND setting_key = ?
-        """, (
-            scope["app_username"],
-            scope["osrs_account_name"],
-            key
-        ))
+        try:
+            cursor = conn.cursor()
 
-        exists = cursor.fetchone() is not None
-        conn.close()
+            cursor.execute("""
+                SELECT 1
+                FROM app_settings
+                WHERE app_username = ?
+                  AND osrs_account_name = ?
+                  AND setting_key = ?
+            """, (
+                scope["app_username"],
+                scope["osrs_account_name"],
+                key
+            ))
+
+            exists = cursor.fetchone() is not None
+        except sqlite3.OperationalError as error:
+            if is_database_locked_error(error):
+                return
+            raise
+        finally:
+            conn.close()
 
         if not exists:
-            set_setting(
-                key=key,
-                value=meta["value"],
-                value_type=meta["type"],
-                description=meta.get("description"),
-                app_username=app_username,
-                osrs_account_name=osrs_account_name
-            )
+            try:
+                set_setting(
+                    key=key,
+                    value=meta["value"],
+                    value_type=meta["type"],
+                    description=meta.get("description"),
+                    app_username=app_username,
+                    osrs_account_name=osrs_account_name
+                )
+            except sqlite3.OperationalError as error:
+                if is_database_locked_error(error):
+                    return
+                raise
 
 
 def prompt_bool(prompt, default):

@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.2.2
+## Latest Release: 1.2.3
 
-OSRSFlipper 1.2.2 is a spring-cleaning patch for the 1.2.x release line. It keeps the 1.2.0 capital-aware AI and RuneLite telemetry behavior, preserves the 1.2.1 ZIP install guidance, and reorganizes dashboard/data-health code into focused modules so future fixes and releases are easier to validate.
+OSRSFlipper 1.2.3 is a stability patch for the 1.2.x release line. It keeps the 1.2.0 capital-aware AI and RuneLite telemetry behavior, preserves the 1.2.2 cleanup work, and hardens SQLite lock handling so Data Health metric refreshes do not crash the control center status screen.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.

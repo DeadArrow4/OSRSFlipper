@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+SQLITE_TIMEOUT_SECONDS = 60
+SQLITE_BUSY_TIMEOUT_MS = 60000
 DB_CANDIDATES = [
     "osrs_flip_scanner.db",
     "osrs_flips.db",
@@ -40,8 +42,9 @@ def _connect() -> tuple[sqlite3.Connection, Path]:
 
     for candidate in candidates:
         if candidate.exists() and candidate.is_file():
-            conn = sqlite3.connect(candidate)
+            conn = sqlite3.connect(candidate, timeout=SQLITE_TIMEOUT_SECONDS)
             conn.row_factory = sqlite3.Row
+            conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
             return conn, candidate
 
     db_files = sorted(
@@ -51,8 +54,9 @@ def _connect() -> tuple[sqlite3.Connection, Path]:
     )
 
     if db_files:
-        conn = sqlite3.connect(db_files[0])
+        conn = sqlite3.connect(db_files[0], timeout=SQLITE_TIMEOUT_SECONDS)
         conn.row_factory = sqlite3.Row
+        conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
         return conn, db_files[0]
 
     raise FileNotFoundError("Could not find an OSRSFlipper SQLite database.")
