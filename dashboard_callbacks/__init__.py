@@ -100,6 +100,7 @@ from data_health import (
     rebuild_daily_item_metrics,
     refresh_daily_metrics_if_stale,
 )
+from dashboard_control_commands import write_dashboard_command
 from trade_trends import (
     apply_trade_board_trend_boost,
     enrich_trade_board_rows_with_trends,
@@ -153,6 +154,32 @@ def _enrich_trade_board_dataframe_with_trends(board_df):
 
 def register_dashboard_callbacks(app):
     register_capital_ai_callbacks(app)
+
+
+    @app.callback(
+        Output("dashboard-control-status", "children"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
+        Input("dashboard-stop-services-button", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def handle_dashboard_command_buttons(refresh_clicks, stop_clicks):
+        from datetime import datetime
+
+        triggered_id = ctx.triggered_id
+
+        try:
+            if triggered_id == "dashboard-refresh-status-button":
+                write_dashboard_command("refresh_status")
+                return f"Status refresh requested {datetime.now().strftime('%H:%M:%S')}."
+
+            if triggered_id == "dashboard-stop-services-button":
+                write_dashboard_command("stop_all")
+                return "Stop requested. Services will close from the control center."
+
+            return ""
+
+        except Exception as error:
+            return f"Dashboard command failed: {type(error).__name__}: {error}"
 
 
 
@@ -652,8 +679,9 @@ def register_dashboard_callbacks(app):
         Output("slot-actions-table", "columns"),
         Input("refresh-slot-actions-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
     )
-    def update_open_slot_actions(n_clicks, intervals):
+    def update_open_slot_actions(n_clicks, intervals, dashboard_refresh_clicks):
         try:
             from datetime import datetime
 
@@ -733,6 +761,7 @@ def register_dashboard_callbacks(app):
         Input("trade-board-trend-direction-filter", "value"),
         Input("trade-board-trend-confidence-filter", "value"),
         Input("trade-board-trend-boost-mode", "value"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
     )
     def update_trade_board_phase1(
         n_clicks,
@@ -745,6 +774,7 @@ def register_dashboard_callbacks(app):
         trend_direction_filter,
         trend_confidence_filter,
         trend_boost_mode,
+        dashboard_refresh_clicks,
     ):
         try:
             from datetime import datetime
@@ -848,59 +878,25 @@ def register_dashboard_callbacks(app):
             filtered_count = int(summary.get("filtered_count", visible_count))
             source_count = int(summary.get("filter_source_count", filtered_count))
 
-            cards = [
-                make_card("Latest Run", str(summary.get("latest_run_id", "n/a")), f"{summary.get('candidate_count', 0):,} ranked candidates"),
-                make_card("Buy Now", str(summary.get("buy_now_count", 0)), "strict quick candidates"),
-                make_card("Test Small", str(summary.get("test_small_count", 0)), "promising but cautious"),
-                make_card("Overnight", str(summary.get("overnight_count", 0)), "overnight candidates"),
-                make_card("Avoid / Wait", str(summary.get("avoid_count", 0)), "filtered or warning rows"),
-                make_card("Visible Rows", f"{visible_count}/{filtered_count}", f"from {source_count} ranked rows"),
-                make_card("Best Profit", f"{format_gp(summary.get('best_profit', 0))} gp", f"min {format_gp(summary.get('minimum_profit', 0))} gp"),
+            cards = []
+
+            latest_run = summary.get("latest_run_id", "n/a")
+            status_parts = [
+                f"Updated {refreshed_at}",
+                f"scan {latest_run}",
+                f"showing {visible_count}/{filtered_count}",
+                f"risk {risk_profile or 'medium'}",
+                f"min {format_gp(summary.get('minimum_profit', 0))} gp",
             ]
 
+            if trend_filter_notes:
+                status_parts.append("trend " + ", ".join(trend_filter_notes))
 
-            try:
-                cards.extend(
-                    [
-                        make_card(
-                            "Trend History",
-                            f"{summary.get('trend_history_days', 0)} days",
-                            f"{summary.get('trend_items_with_history', 0)} items with history"
-                        ),
-                        make_card(
-                            "Trend Filters",
-                            str(summary.get("trend_filtered_rows", len(board_df) if hasattr(board_df, "__len__") else 0)),
-                            summary.get("trend_filter_status", "no trend filters")
-                        ),
-                    ]
-                )
-            except Exception:
-                pass
+            trend_boost_mode_label = str(summary.get("trend_boost_mode", "off"))
+            if trend_boost_mode_label != "off":
+                status_parts.append(f"boost {trend_boost_mode_label}")
 
-
-            try:
-                cards.append(
-                    make_card(
-                        "Trend Boost",
-                        str(summary.get("trend_boost_mode", "off")),
-                        summary.get("trend_boost_status", "off")
-                    )
-                )
-            except Exception:
-                pass
-
-            status = (
-                f"{summary.get('status', 'Trade Board updated.')} "
-                f"Last update {refreshed_at}. Trigger: {triggered_id}. "
-                f"Risk={risk_profile or 'medium'}, Rows={visible_limit}, Min profit={format_gp(summary.get('minimum_profit', 0))} gp. "
-                f"Trends={summary.get('trend_status', 'trend enrichment not checked')}; "
-                f"history days={summary.get('trend_history_days', 0)}. "
-                f"Action filter={summary.get('action_filter', action_filter or 'all')}, "
-                f"Confidence filter={summary.get('confidence_filter', confidence_filter or 'all')}, "
-                f"Fill filter={summary.get('fill_filter', fill_filter or 'all')}. "
-                f"Showing {visible_count} of {filtered_count} matching rows from {source_count} ranked rows. "
-                f"Refresh clicks={n_clicks or 0}."
-            )
+            status = " | ".join(status_parts)
 
             if board_df.empty:
                 return (
@@ -918,10 +914,7 @@ def register_dashboard_callbacks(app):
                 columns,
             )
         except Exception as exc:
-            cards = [
-                make_card("Trade Board", "Error", "send the status line"),
-                make_card("Phase", "deep filters", "single-table callback"),
-            ]
+            cards = []
             return (
                 f"Trade Board failed: {type(exc).__name__}: {exc}",
                 cards,
@@ -945,7 +938,8 @@ def register_dashboard_callbacks(app):
         Input("category-filter", "value"),
         Input("trend-filter", "value"),
         Input("limit-filter", "value"),
-        Input("auto-refresh", "n_intervals")
+        Input("auto-refresh", "n_intervals"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
     )
     def update_dashboard(
         window_filter,
@@ -954,7 +948,8 @@ def register_dashboard_callbacks(app):
         category_filter,
         trend_filter,
         limit,
-        _
+        _,
+        dashboard_refresh_clicks,
     ):
         df = get_filtered_latest(
             window_filter=window_filter,
@@ -1239,10 +1234,11 @@ def register_dashboard_callbacks(app):
         Output("open-trades-table", "columns"),
         Input("refresh-trades-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
         Input("main-tabs", "value"),
         State("my-trades-limit", "value")
     )
-    def update_trade_dashboard(refresh_clicks, intervals, active_tab, row_limit):
+    def update_trade_dashboard(refresh_clicks, intervals, dashboard_refresh_clicks, active_tab, row_limit):
         if active_tab not in {"my-trades", "trade-board", "trading"}:
             return (
                 no_update,
@@ -1259,7 +1255,7 @@ def register_dashboard_callbacks(app):
 
         triggered_id = ctx.triggered_id
 
-        if triggered_id in {"refresh-trades-button", "auto-refresh"}:
+        if triggered_id in {"refresh-trades-button", "auto-refresh", "dashboard-refresh-status-button"}:
             import_status = refresh_runelite_trades_for_dashboard()
 
             try:
@@ -1274,6 +1270,8 @@ def register_dashboard_callbacks(app):
 
             if triggered_id == "auto-refresh":
                 import_status = f"Auto refreshed live RuneLite telemetry. {import_status}"
+            elif triggered_id == "dashboard-refresh-status-button":
+                import_status = f"Refreshed from dashboard command. {import_status}"
         else:
             import_status = "Loaded saved trade data and live GE offers from OSRSFlipper RuneLite telemetry."
 
@@ -1389,10 +1387,11 @@ def register_dashboard_callbacks(app):
     @app.callback(
         Output("trade-account-scope", "children"),
         Input("auto-refresh", "n_intervals"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
         Input("main-tabs", "value"),
     )
-    def update_trade_account_scope(_, active_tab):
-        if active_tab != "my-trades":
+    def update_trade_account_scope(_, dashboard_refresh_clicks, active_tab):
+        if active_tab not in {"my-trades", "trade-board", "trading"}:
             return no_update
 
         scope = get_current_trade_scope()

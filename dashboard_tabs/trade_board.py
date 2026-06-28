@@ -286,12 +286,12 @@ def _build_trade_recommendations_tab():
                 ],
             ),
 
-            html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
+            html.Div(id="trade-board-kpi-cards", style={"display": "none"}),
 
             build_trade_table(
                 "trade-board-table",
                 "Ranked Trade Recommendations",
-                "Best current candidates from the latest scanner run. Refresh lives here because this is the table it updates.",
+                "Best current candidates from the latest scanner run.",
                 header_actions=[
                     html.Button(
                         "Refresh Recommendations",

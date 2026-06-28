@@ -2601,6 +2601,30 @@ body,
     flex-wrap: wrap !important;
 }
 
+.app-command-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+.app-command-button {
+    min-height: 28px !important;
+    padding: 5px 9px !important;
+    font-size: 0.72rem !important;
+    white-space: nowrap !important;
+}
+
+.app-command-status {
+    max-width: 260px !important;
+    color: var(--text-muted) !important;
+    font-size: 0.72rem !important;
+    line-height: 1.2 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
 .app-command-chip {
     display: inline-flex !important;
     align-items: baseline !important;
@@ -3606,21 +3630,31 @@ body .VirtualizedSelectSelectedOption {
 }
 
 .trade-table-header-actions .status-text {
-    max-width: 520px !important;
+    max-width: 650px !important;
     margin: 0 !important;
-    padding: 7px 9px !important;
-    border-color: rgba(246, 196, 83, 0.18) !important;
-    background: rgba(246, 196, 83, 0.08) !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
     font-size: 0.72rem !important;
     line-height: 1.28 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
 }
 
 .trade-board-page #trade-board-kpi-cards {
-    margin-top: 4px !important;
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .trade-board-page .osrs-tradeboard-settings-drawer {
     margin-bottom: 8px !important;
+}
+
+.trade-board-page .trade-table-panel {
+    margin-top: 0 !important;
 }
 
 .trade-board-page #trade-board-status {
@@ -3651,5 +3685,6 @@ body .VirtualizedSelectSelectedOption {
     .trade-table-header-actions .status-text {
         max-width: none !important;
         width: 100% !important;
+        white-space: normal !important;
     }
 }

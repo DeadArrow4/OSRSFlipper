@@ -47,6 +47,28 @@ def _build_app_command_bar():
                             html.Span(osrs_account, className="app-command-chip-value"),
                         ],
                     ),
+                    html.Div(
+                        className="app-command-actions",
+                        children=[
+                            html.Button(
+                                "Refresh Status",
+                                id="dashboard-refresh-status-button",
+                                n_clicks=0,
+                                className="secondary-button app-command-button",
+                            ),
+                            html.Button(
+                                "Stop Services",
+                                id="dashboard-stop-services-button",
+                                n_clicks=0,
+                                className="danger-button app-command-button",
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        id="dashboard-control-status",
+                        className="app-command-status",
+                        children="",
+                    ),
                 ],
             ),
         ],

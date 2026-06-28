@@ -21,6 +21,7 @@ from pathlib import Path
 from account_context import get_account_scope, resolve_app_base_dir
 from app_version import get_version_line
 from capital_budget import get_effective_cash_stack
+from dashboard_control_commands import consume_dashboard_command
 from migration_manager import run_app_migrations
 from settings_manager import (
     ensure_default_settings,
@@ -548,6 +549,44 @@ def read_key_nonblocking():
     return None
 
 
+def handle_dashboard_command(
+    command_payload,
+    dashboard_process,
+    collector_process,
+    trade_status,
+    started_at,
+    dashboard_open_mode,
+    status_mode,
+):
+    if not command_payload:
+        return False
+
+    command = command_payload.get("command")
+
+    if command == "stop_all":
+        print("Dashboard requested Stop Services.")
+        STOP_EVENT.set()
+        return True
+
+    if command == "refresh_status":
+        draw_screen(
+            dashboard_process=dashboard_process,
+            collector_process=collector_process,
+            trade_status=trade_status,
+            started_at=started_at,
+            clear=False
+        )
+        return False
+
+    if command == "open_dashboard":
+        message = open_dashboard(dashboard_open_mode)
+        if status_mode == "quiet":
+            print(message)
+        return False
+
+    return False
+
+
 def draw_screen(dashboard_process, collector_process, trade_status, started_at, clear=True):
     dashboard_status = "RUNNING" if process_running(dashboard_process) else "STOPPED"
     collector_status = "RUNNING" if process_running(collector_process) else "STOPPED"
@@ -921,6 +960,17 @@ def main():
 
             # Refresh loop with keyboard checks.
             for _ in range(10):
+                if handle_dashboard_command(
+                    consume_dashboard_command(),
+                    dashboard_process=dashboard_process,
+                    collector_process=collector_process,
+                    trade_status=trade_status,
+                    started_at=started_at,
+                    dashboard_open_mode=dashboard_open_mode,
+                    status_mode=status_mode,
+                ):
+                    break
+
                 key = read_key_nonblocking()
 
                 if key == "q":

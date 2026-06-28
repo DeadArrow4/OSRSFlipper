@@ -45,6 +45,7 @@ RELEASE_FILES = [
     "dashboard_tabs/overview.py",
     "dashboard_tabs/trade_board.py",
     "dashboard_tabs/trades.py",
+    "dashboard_control_commands.py",
     "dashboard_components.py",
     "dashboard_data.py",
     "dashboard_formatters.py",
