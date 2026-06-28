@@ -1,11 +1,15 @@
 {
   "schema_version": 1,
+  "source": "runelite_osrsflipper_telemetry_plugin",
+  "payload_kind": "full",
+  "export_reason": "example",
   "account_name": "runelite_demo",
   "captured_at": "2026-06-27T00:00:00Z",
   "inventory_gp": 8000000,
   "bank_gp": 2000000,
   "include_bank_gp": true,
   "safety_reserve_gp": 500000,
+  "raw_gp_available": 10000000,
   "active_ge_offers": [
     {
       "slot": 0,
@@ -13,11 +17,17 @@
       "item_name": "Fire rune",
       "side": "buy",
       "price": 5,
+      "ge_price": 5,
       "quantity_total": 400000,
       "quantity_filled": 100000,
       "quantity_remaining": 300000,
+      "spent": 500000,
+      "filled_buy_value": 500000,
+      "filled_ge_value": 500000,
+      "remaining_ge_value": 1500000,
+      "remaining_offer_value": 1500000,
       "offer_age_minutes": 140,
-      "state": "buying"
+      "state": "BUYING"
     },
     {
       "slot": 1,
@@ -25,11 +35,101 @@
       "item_name": "Death rune",
       "side": "sell",
       "price": 180,
+      "ge_price": 180,
       "quantity_total": 20000,
       "quantity_filled": 5000,
       "quantity_remaining": 15000,
+      "spent": 900000,
+      "filled_sell_gp": 900000,
+      "filled_ge_value": 900000,
+      "remaining_ge_value": 2700000,
+      "remaining_offer_value": 2700000,
       "offer_age_minutes": 210,
-      "state": "selling"
+      "state": "SELLING"
+    }
+  ],
+  "lastOffers": {
+    "0": {
+      "uuid": "osrsflipper-0-554-BUYING-5-400000-100000-1782391982000",
+      "id": 554,
+      "name": "Fire rune",
+      "s": 0,
+      "b": true,
+      "p": 5,
+      "gePrice": 5,
+      "cQIT": 100000,
+      "tQIT": 400000,
+      "tSFO": 500000,
+      "filledSellGp": 0,
+      "filledGeValue": 500000,
+      "remainingGeValue": 1500000,
+      "tAA": 300000,
+      "t": 1782391982000,
+      "st": "BUYING",
+      "tradeStartedAt": 1782383582000,
+      "beforeLogin": false
+    },
+    "1": {
+      "uuid": "osrsflipper-1-560-SELLING-180-20000-5000-1782391982000",
+      "id": 560,
+      "name": "Death rune",
+      "s": 1,
+      "b": false,
+      "p": 180,
+      "gePrice": 180,
+      "cQIT": 5000,
+      "tQIT": 20000,
+      "tSFO": 900000,
+      "filledSellGp": 900000,
+      "filledGeValue": 900000,
+      "remainingGeValue": 2700000,
+      "tAA": 15000,
+      "t": 1782391982000,
+      "st": "SELLING",
+      "tradeStartedAt": 1782379382000,
+      "beforeLogin": false
+    }
+  },
+  "trades": [
+    {
+      "id": 554,
+      "name": "Fire rune",
+      "h": {
+        "sO": [
+          {
+            "uuid": "osrsflipper-2-554-BOUGHT-5-100000-100000-1782390182000",
+            "id": 554,
+            "name": "Fire rune",
+            "s": 2,
+            "b": true,
+            "p": 5,
+            "cQIT": 100000,
+            "tQIT": 100000,
+            "tSFO": 500000,
+            "tAA": 0,
+            "t": 1782390182000,
+            "st": "BOUGHT",
+            "tradeStartedAt": 1782386582000,
+            "beforeLogin": false
+          },
+          {
+            "uuid": "osrsflipper-3-554-SOLD-6-100000-100000-1782393782000",
+            "id": 554,
+            "name": "Fire rune",
+            "s": 3,
+            "b": false,
+            "p": 6,
+            "cQIT": 100000,
+            "tQIT": 100000,
+            "tSFO": 600000,
+            "tAA": 0,
+            "t": 1782393782000,
+            "st": "SOLD",
+            "tradeStartedAt": 1782391982000,
+            "beforeLogin": false
+          }
+        ]
+      }
     }
   ]
 }

@@ -6,6 +6,19 @@ def build_capital_aware_advisor_rules(capital_context: str = "") -> str:
     if not capital_context:
         return ""
 
+    normalized_context = capital_context.lower()
+    if "telemetry not ready" in normalized_context or "telemetry unavailable" in normalized_context:
+        return f"""
+## Capital-Aware Telemetry Status
+
+{capital_context}
+
+Rules:
+- Do not treat missing, stale, or minimal RuneLite telemetry as live GP or GE slot state.
+- Do not invent live GP, open slot count, or active GE offers.
+- If live capital state is needed, tell the user to start the telemetry dev client and wait for a fresh full payload.
+""".strip()
+
     return f"""
 ## Capital-Aware Recommendation Rules
 

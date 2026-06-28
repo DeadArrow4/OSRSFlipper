@@ -86,6 +86,7 @@ def _enrich_trade_board_dataframe_with_trends(board_df):
         return board_df, f"trend enrichment skipped: {type(exc).__name__}: {str(exc)[:120]}"
 
 def register_dashboard_callbacks(app):
+    register_capital_ai_callbacks(app)
 
 
 
@@ -609,11 +610,13 @@ def register_dashboard_callbacks(app):
         Output("slot-actions-table", "data"),
         Output("slot-actions-table", "columns"),
         Input("refresh-slot-actions-button", "n_clicks"),
+        Input("auto-refresh", "n_intervals"),
     )
-    def update_open_slot_actions(n_clicks):
+    def update_open_slot_actions(n_clicks, intervals):
         try:
             from datetime import datetime
 
+            triggered_id = ctx.triggered_id or "initial-load"
             actions_df, summary = get_open_slot_actions(limit=12)
             refreshed_at = datetime.now().strftime("%H:%M:%S")
 
@@ -647,7 +650,8 @@ def register_dashboard_callbacks(app):
 
             status = (
                 f"{summary.get('status', 'Open Slot Actions updated.')} "
-                f"Last update {refreshed_at}. Refresh clicks={n_clicks or 0}."
+                f"Last update {refreshed_at}. Trigger={triggered_id}. "
+                f"Refresh clicks={n_clicks or 0}; interval ticks={intervals or 0}."
             )
 
             if actions_df.empty:
@@ -1186,6 +1190,8 @@ def register_dashboard_callbacks(app):
         Output("trade-kpi-cards", "children"),
         Output("trade-profit-chart", "figure"),
         Output("trade-item-profit-chart", "figure"),
+        Output("live-ge-offers-table", "data"),
+        Output("live-ge-offers-table", "columns"),
         Output("completed-trades-table", "data"),
         Output("completed-trades-table", "columns"),
         Output("open-trades-table", "data"),
@@ -1205,12 +1211,14 @@ def register_dashboard_callbacks(app):
                 no_update,
                 no_update,
                 no_update,
+                no_update,
+                no_update,
                 no_update
             )
 
         triggered_id = ctx.triggered_id
 
-        if triggered_id == "refresh-trades-button":
+        if triggered_id in {"refresh-trades-button", "auto-refresh"}:
             import_status = refresh_runelite_trades_for_dashboard()
 
             try:
@@ -1223,10 +1231,10 @@ def register_dashboard_callbacks(app):
             except Exception:
                 pass
 
-        elif triggered_id == "auto-refresh":
-            import_status = "Auto refreshed saved trade data. RuneLite import only runs when you click Import RuneLite & Refresh Trades."
+            if triggered_id == "auto-refresh":
+                import_status = f"Auto refreshed live RuneLite telemetry. {import_status}"
         else:
-            import_status = "Loaded saved trade data. Click Import RuneLite & Refresh Trades to import the latest RuneLite file."
+            import_status = "Loaded saved trade data and live GE offers from OSRSFlipper RuneLite telemetry."
 
         limit = parse_positive_int(row_limit, default=100, minimum=10, maximum=500)
 
@@ -1278,7 +1286,11 @@ def register_dashboard_callbacks(app):
             )
 
         completed_df = clean_trade_display_df(get_completed_trade_rows(limit=limit))
+        live_offers_df = clean_trade_display_df(get_live_ge_offer_rows(limit=limit))
         open_df = clean_trade_display_df(get_open_trade_rows(limit=limit))
+
+        live_offers_data = live_offers_df.to_dict("records")
+        live_offers_columns = trade_table_columns(live_offers_df)
 
         completed_data = completed_df.to_dict("records")
         completed_columns = trade_table_columns(completed_df)
@@ -1291,6 +1303,8 @@ def register_dashboard_callbacks(app):
             cards,
             profit_fig,
             item_fig,
+            live_offers_data,
+            live_offers_columns,
             completed_data,
             completed_columns,
             open_data,
@@ -1447,6 +1461,7 @@ def register_dashboard_callbacks(app):
         Output("core-settings-status", "children"),
         Input("save-core-settings-button", "n_clicks"),
         State("setting-cash-stack", "value"),
+        State("setting-capital-budget-mode", "value"),
         State("setting-minimum-profit", "value"),
         State("setting-risk-profile", "value"),
         State("setting-watch-seconds", "value"),
@@ -1456,12 +1471,13 @@ def register_dashboard_callbacks(app):
         State("setting-open-browser", "value"),
         prevent_initial_call=True
     )
-    def save_core_settings(n_clicks, cash_stack, minimum_profit, risk_profile, watch_seconds, start_dashboard, start_collector, start_trade_watcher, open_browser):
+    def save_core_settings(n_clicks, cash_stack, capital_budget_mode, minimum_profit, risk_profile, watch_seconds, start_dashboard, start_collector, start_trade_watcher, open_browser):
         if not n_clicks:
             return ""
 
         try:
             set_setting("cash_stack", int(cash_stack or 0), "int")
+            set_setting("capital_budget_mode", capital_budget_mode or "live_capped", "str")
             set_setting("minimum_profit", int(minimum_profit or 0), "int")
             set_setting("risk_profile", risk_profile or "medium", "str")
             set_setting("watch_seconds", int(watch_seconds or 10), "int")

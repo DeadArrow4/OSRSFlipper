@@ -10,11 +10,7 @@ from account_context import BASE_DIR as APP_BASE_DIR, get_account_scope
 BASE_DIR = str(APP_BASE_DIR)
 DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
 
-RUNELITE_FLIPPING_DIR = os.path.join(
-    os.path.expanduser("~"),
-    ".runelite",
-    "flipping"
-)
+RUNELITE_STATE_PATH = Path(APP_BASE_DIR) / "runtime" / "runelite_state.json"
 
 GE_SLOT_COUNT = 8
 
@@ -438,7 +434,7 @@ def get_unmatched_inventory_rows(cursor, limit=20):
 
     IMPORTANT:
     These rows are NOT current GE slots and should never be described as
-    currently buying/selling unless the live RuneLite lastOffers section also
+    currently buying/selling unless the live OSRSFlipper RuneLite telemetry lastOffers section also
     shows the item in BUYING or SELLING state.
     """
     scope = get_account_scope()
@@ -646,39 +642,24 @@ def get_weighted_cost_basis(cursor, item_id, item_name):
         "total_cost_basis": total_cost
     }
 
-def find_runelite_flipping_files():
-    folder = Path(RUNELITE_FLIPPING_DIR)
-
-    if not folder.exists():
-        return []
-
-    files = [
-        path for path in folder.iterdir()
-        if path.is_file() and path.suffix.lower() == ".json"
-    ]
-
-    files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-
-    return files
+def locate_runelite_telemetry_file(account=None):
+    return RUNELITE_STATE_PATH
 
 
-def load_runelite_flipping_json(account=None):
-    target_file = None
+def load_runelite_telemetry_json(account=None):
+    target_file = locate_runelite_telemetry_file(account=account)
 
-    if account:
-        possible = Path(RUNELITE_FLIPPING_DIR) / f"{account}.json"
+    if not target_file.exists():
+        return None, None, f"No OSRSFlipper RuneLite telemetry JSON file found at {target_file}"
 
-        if possible.exists():
-            target_file = possible
+    try:
+        from runelite_telemetry_control import build_runelite_telemetry_status
 
-    if target_file is None:
-        files = find_runelite_flipping_files()
-
-        if files:
-            target_file = files[0]
-
-    if target_file is None or not target_file.exists():
-        return None, None, f"No RuneLite Flipping Utilities JSON file found in {RUNELITE_FLIPPING_DIR}"
+        status = build_runelite_telemetry_status(target_file)
+        if not status.get("ready"):
+            return target_file, None, f"OSRSFlipper RuneLite telemetry is not ready: {status.get('problem') or 'unknown'}"
+    except Exception:
+        pass
 
     try:
         data = json.loads(target_file.read_text(encoding="utf-8-sig"))
@@ -708,15 +689,15 @@ def build_item_name_map(data):
 
 def get_live_ge_slot_usage(account=None):
     """
-    Reads the live Flipping Utilities JSON lastOffers section to estimate
-    current GE slot usage.
+    Reads the live OSRSFlipper RuneLite telemetry lastOffers section to
+    estimate current GE slot usage.
 
     Only lastOffers with state BUYING or SELLING are treated as live/current
     GE slot blockers.
 
     Historical unmatched buys in trade_events are not treated as live slots.
     """
-    target_file, data, error = load_runelite_flipping_json(account=account)
+    target_file, data, error = load_runelite_telemetry_json(account=account)
 
     if data is None:
         return {
@@ -741,7 +722,7 @@ def get_live_ge_slot_usage(account=None):
 
             state = str(offer.get("st", "")).upper()
             item_id = safe_int(offer.get("id"), None)
-            item_name = item_names.get(item_id, f"Item ID {item_id}")
+            item_name = offer.get("name") or item_names.get(item_id, f"Item ID {item_id}")
             is_buy = bool(offer.get("b"))
             price = safe_int(offer.get("p"), 0)
             completed_qty = safe_int(offer.get("cQIT"), 0)
@@ -961,7 +942,7 @@ def build_live_slot_recovery_text(slot_analysis, max_positions=12):
 
     lines = []
 
-    lines.append("LIVE GE SLOT ANALYSIS FROM RUNELITE lastOffers")
+    lines.append("LIVE GE SLOT ANALYSIS FROM OSRSFLIPPER RUNELITE TELEMETRY lastOffers")
     lines.append(f"- GE slots available in OSRS: {GE_SLOT_COUNT}")
     lines.append(f"- Live RuneLite slot data available: {slot_usage.get('available', False)}")
 
@@ -982,7 +963,7 @@ def build_live_slot_recovery_text(slot_analysis, max_positions=12):
     lines.append("")
 
     if not positions:
-        lines.append("No active BUYING or SELLING offers were found in RuneLite lastOffers.")
+        lines.append("No active BUYING or SELLING offers were found in OSRSFlipper RuneLite telemetry lastOffers.")
         return "\n".join(lines)
 
     lines.append("Active live GE offers to review:")

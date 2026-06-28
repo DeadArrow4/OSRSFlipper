@@ -379,7 +379,7 @@ def build_my_trades_tab():
                     html.Summary("Legacy scanner filters"),
                     settings_section(
                 "Trade Refresh",
-                "Use this to pull the newest RuneLite Flipping Utilities JSON into the local database before viewing results.",
+                "Use this to pull the newest OSRSFlipper RuneLite telemetry JSON into the local database before viewing results.",
                 children=[
                     html.Div(
                         className="settings-grid trade-control-grid",
@@ -395,7 +395,7 @@ def build_my_trades_tab():
                             ),
                             setting_card(
                                 "Live import source",
-                                html.Div("RuneLite Flipping Utilities JSON", className="trade-static-value"),
+                                html.Div("OSRSFlipper RuneLite telemetry JSON", className="trade-static-value"),
                                 "The dashboard imports this file before refreshing the tables."
                             ),
                             setting_card(
@@ -444,6 +444,11 @@ def build_my_trades_tab():
                 ]
             ),
 
+            build_trade_table(
+                "live-ge-offers-table",
+                "Current Live GE Offers",
+                "Active BUYING and SELLING offers read directly from OSRSFlipper RuneLite telemetry."
+            ),
             build_trade_table(
                 "completed-trades-table",
                 "Completed Matched Flips",
@@ -1174,7 +1179,7 @@ def build_maintenance_tab():
                 children=[
                     html.Div("RuneLite Import", className="section-title"),
                     html.Div(
-                        "Immediately imports the linked RuneLite Flipping Utilities JSON for the current account. Duplicate trades should be skipped.",
+                        "Immediately imports the linked OSRSFlipper RuneLite telemetry JSON for the current account. Duplicate trades should be skipped.",
                         className="muted-text"
                     ),
                     html.Button(
@@ -1722,7 +1727,7 @@ def build_about_tab():
         {"Feature": "Shared .env OpenAI key fallback", "Status": "Disabled"},
         {"Feature": "AI usage logging", "Status": "Enabled"},
         {"Feature": "Daily AI request limits", "Status": "Enabled"},
-        {"Feature": "RuneLite Flipping Utilities import", "Status": "Enabled"},
+        {"Feature": "OSRSFlipper RuneLite telemetry import", "Status": "Enabled"},
         {"Feature": "Trade safety review", "Status": "Enabled"},
         {"Feature": "Health check", "Status": "Enabled"},
         {"Feature": "Database migrations", "Status": "Enabled"},
@@ -1980,6 +1985,11 @@ def build_settings_tab():
         {"label": "Medium", "value": "medium"},
         {"label": "High", "value": "high"}
     ]
+    budget_options = [
+        {"label": "Manual only", "value": "manual"},
+        {"label": "Live usable GP", "value": "live"},
+        {"label": "Live usable GP capped by Cash stack", "value": "live_capped"},
+    ]
 
     return html.Div(
         className="settings-page",
@@ -2013,7 +2023,16 @@ def build_settings_tab():
                                     setting_value("cash_stack", 10000000),
                                     "10000000"
                                 ),
-                                "Default GP budget used by the collector."
+                                "Manual GP cap for the collector. Live capital can use this as a safety cap."
+                            ),
+                            setting_card(
+                                "Capital budget mode",
+                                setting_select(
+                                    "setting-capital-budget-mode",
+                                    budget_options,
+                                    setting_value("capital_budget_mode", "live_capped")
+                                ),
+                                "Controls whether scanner quantity uses manual Cash stack, live usable GP, or both."
                             ),
                             setting_card(
                                 "Minimum profit",

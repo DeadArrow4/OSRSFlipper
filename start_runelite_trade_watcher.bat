@@ -1,5 +1,5 @@
 @echo off
-title OSRS RuneLite Trade Watcher
+title OSRSFlipper RuneLite Telemetry Watcher
 color 0A
 
 set APPDIR=C:\OSRSFlipper

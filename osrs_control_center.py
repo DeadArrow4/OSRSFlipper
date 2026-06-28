@@ -1,7 +1,13 @@
 import argparse
 import os
 from security_runtime import scrub_shared_openai_env
-from runelite_telemetry_control import dashboard_startup_telemetry_message, open_jagex_launcher, start_runelite_telemetry_dev_client, import_runelite_state_now
+from runelite_telemetry_control import (
+    build_runelite_telemetry_status,
+    dashboard_startup_telemetry_message,
+    import_runelite_state_now,
+    open_jagex_launcher,
+    start_runelite_telemetry_dev_client,
+)
 scrub_shared_openai_env()
 import sqlite3
 import subprocess
@@ -13,6 +19,7 @@ from pathlib import Path
 
 from account_context import get_account_scope, resolve_app_base_dir
 from app_version import get_version_line
+from capital_budget import get_effective_cash_stack
 from migration_manager import run_app_migrations
 from settings_manager import (
     ensure_default_settings,
@@ -286,19 +293,20 @@ def process_running(process):
     return process is not None and process.poll() is None
 
 
-def runelite_telemetry_startup_check():
+def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_client=False):
     """Print RuneLite telemetry status and optional launch guidance when the dashboard starts."""
     try:
         print()
         print(dashboard_startup_telemetry_message())
+        status = build_runelite_telemetry_status()
 
         try:
-            auto_open_jagex = bool(get_setting("open_jagex_launcher_with_dashboard", False))
+            auto_open_jagex = force_open_jagex or bool(get_setting("open_jagex_launcher_with_dashboard", False))
         except Exception:
             auto_open_jagex = False
 
         try:
-            auto_start_dev_client = bool(get_setting("auto_start_runelite_telemetry_dev_client", False))
+            auto_start_dev_client = force_start_dev_client or bool(get_setting("auto_start_runelite_telemetry_dev_client", False))
         except Exception:
             auto_start_dev_client = False
 
@@ -310,14 +318,21 @@ def runelite_telemetry_startup_check():
         else:
             print(
                 "RuneLite telemetry auto-start is off. "
-                "Open Jagex Launcher and choose RuneLite, or run: "
+                "If the plugin is not available in Jagex-launched RuneLite, run: "
                 "python runelite_telemetry_control.py start-dev"
             )
 
-        try:
-            print(import_runelite_state_now())
-        except Exception as import_error:
-            print(f"RuneLite telemetry import skipped: {import_error}")
+        if status.get("ready"):
+            try:
+                print(import_runelite_state_now())
+            except Exception as import_error:
+                print(f"RuneLite telemetry import skipped: {import_error}")
+        else:
+            print(f"RuneLite telemetry import skipped: {status.get('problem') or 'not ready'}.")
+            print(
+                "Normal Jagex-launched RuneLite will not list this local plugin unless it is installed there. "
+                "Use the telemetry dev client until the plugin is available in your normal RuneLite client."
+            )
 
     except Exception as telemetry_error:
         print(f"RuneLite telemetry startup check failed: {telemetry_error}")
@@ -485,6 +500,9 @@ def draw_screen(dashboard_process, collector_process, trade_status, started_at):
     completed_count = count_completed_trades()
     open_buys = count_open_buys()
     total_profit = get_total_realized_profit()
+    telemetry_status = build_runelite_telemetry_status()
+    telemetry_state = "READY" if telemetry_status.get("ready") else "NOT READY"
+    telemetry_problem = telemetry_status.get("problem") or "OK"
 
     clear_screen()
 
@@ -501,6 +519,16 @@ def draw_screen(dashboard_process, collector_process, trade_status, started_at):
     print(f"Dashboard:        {dashboard_status}  (hidden background process)")
     print(f"Market collector: {collector_status}")
     print(f"Trade watcher:    {'RUNNING' if trade_status.running else 'STOPPED'}")
+    print()
+    print("RuneLite Telemetry")
+    print("------------------")
+    print(f"Capital state:    {telemetry_state}")
+    print(f"Payload:          {telemetry_status.get('payload_kind', 'unknown')}")
+    print(f"Account:          {telemetry_status.get('account_name', 'default')}")
+    print(f"Captured:         {telemetry_status.get('captured_at') or 'n/a'}")
+    print(f"Age seconds:      {telemetry_status.get('age_seconds') if telemetry_status.get('age_seconds') is not None else 'n/a'}")
+    print(f"Status:           {telemetry_problem}")
+    print(f"File:             {telemetry_status.get('path')}")
     print()
     print("Market Collector Status")
     print("-----------------------")
@@ -533,12 +561,21 @@ def draw_screen(dashboard_process, collector_process, trade_status, started_at):
     print("--------------")
     print(f"Risk profile:     {get_setting('risk_profile', 'medium')}")
     print(f"Cash stack:       {format_gp(get_setting('cash_stack', 0))}")
+    try:
+        budget = get_effective_cash_stack()
+        print(f"Budget mode:      {budget.get('mode')} ({budget.get('source')})")
+        print(f"Effective budget: {format_gp(budget.get('cash_stack', 0))}")
+    except Exception as budget_error:
+        print(f"Budget mode:      unavailable ({budget_error})")
     print(f"Minimum profit:   {format_gp(get_setting('minimum_profit', 0))}")
     print(f"Watcher seconds:  {get_setting('watch_seconds', 10)}")
     print()
     print("Controls")
     print("--------")
     print("Press O to open dashboard.")
+    print("Press J to open Jagex Launcher.")
+    print("Press D to start RuneLite telemetry dev client.")
+    print("Press T to import fresh telemetry now.")
     print("Press R to refresh now.")
     print("Press Q to stop everything and exit.")
     print("Run with --configure-settings or --configure-ai-settings to change saved settings.")
@@ -599,6 +636,8 @@ def parse_args():
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--skip-setup", action="store_true")
     parser.add_argument("--no-login", action="store_true")
+    parser.add_argument("--open-jagex-launcher", action="store_true", help="Open Jagex Launcher when the dashboard starts.")
+    parser.add_argument("--start-runelite-telemetry-dev", action="store_true", help="Start the RuneLite telemetry dev client when the dashboard starts.")
     parser.add_argument("--first-run", action="store_true", help="Run first-run setup wizard before launching.")
     parser.add_argument("--skip-first-run-check", action="store_true", help="Do not auto-prompt for first-run setup.")
 
@@ -699,7 +738,9 @@ def main():
     saved_watch_seconds = get_setting("watch_seconds", 10)
 
     risk_profile = args.risk or saved_risk
-    cash_stack = args.cash if args.cash is not None else saved_cash
+    manual_cash_stack = args.cash if args.cash is not None else saved_cash
+    budget = get_effective_cash_stack(manual_cash_stack)
+    cash_stack = int(budget.get("cash_stack", manual_cash_stack))
     minimum_profit = args.min_profit if args.min_profit is not None else saved_min_profit
 
     if args.watch_seconds is None:
@@ -733,9 +774,17 @@ def main():
     try:
         if not args.no_dashboard:
             dashboard_process = start_dashboard()
-            runelite_telemetry_startup_check()
+            runelite_telemetry_startup_check(
+                force_open_jagex=args.open_jagex_launcher,
+                force_start_dev_client=args.start_runelite_telemetry_dev
+            )
 
         if not args.no_collector:
+            print(
+                "Collector budget: "
+                f"{format_gp(cash_stack)} "
+                f"({budget.get('source')}; manual cap {format_gp(budget.get('manual_cash_stack', manual_cash_stack))})."
+            )
             collector_process = start_collector(
                 cash_stack=cash_stack,
                 minimum_profit=minimum_profit,
@@ -772,6 +821,15 @@ def main():
 
                 if key == "o":
                     open_dashboard()
+
+                if key == "j":
+                    print(open_jagex_launcher())
+
+                if key == "d":
+                    print(start_runelite_telemetry_dev_client())
+
+                if key == "t":
+                    print(import_runelite_state_now())
 
                 if key == "r":
                     break

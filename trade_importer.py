@@ -13,16 +13,13 @@ from trade_tracker import (
     init_trade_db,
     record_trade_event
 )
-from account_context import apply_account_env, get_account_scope
+from account_context import BASE_DIR, apply_account_env
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".json", ".jsonl"}
 
-RUNELITE_FLIPPING_DIR = os.path.join(
-    os.path.expanduser("~"),
-    ".runelite",
-    "flipping"
-)
+OSRSFLIPPER_RUNELITE_STATE_PATH = Path(BASE_DIR) / "runtime" / "runelite_state.json"
+RUNELITE_TELEMETRY_SOURCE = "osrsflipper-runelite-telemetry"
 
 ITEM_NAME_KEYS = [
     "item_name",
@@ -312,7 +309,7 @@ def normalize_time(value):
 
         return datetime.fromtimestamp(number, timezone.utc).isoformat()
 
-    # Flipping Utilities CSV format:
+    # Compatible RuneLite trade-history CSV format:
     # 2026-06-25 09:16 AM
     known_formats = [
         "%Y-%m-%d %I:%M %p",
@@ -430,7 +427,7 @@ def is_probable_trade_row(row):
     return has_item and has_price and has_quantity and has_side_or_state
 
 
-def is_flipping_utilities_json(data):
+def is_runelite_trade_history_json(data):
     if not isinstance(data, dict):
         return False
 
@@ -446,10 +443,12 @@ def is_flipping_utilities_json(data):
     return False
 
 
-def extract_flipping_utilities_json_records(data):
+def extract_runelite_trade_history_records(data):
     """
-    Extracts completed/partially completed offers from the live
-    Flipping Utilities RuneLite JSON file.
+    Extract completed/partially completed offers from OSRSFlipper RuneLite
+    telemetry. The telemetry intentionally keeps the historical lastOffers /
+    trades shape that this importer already understood, so older exported JSON
+    files can still be imported while the live source moves to our plugin.
 
     Expected shape:
     {
@@ -511,8 +510,8 @@ def extract_flipping_utilities_json_records(data):
 
 
 def extract_json_records(data):
-    if is_flipping_utilities_json(data):
-        return extract_flipping_utilities_json_records(data)
+    if is_runelite_trade_history_json(data):
+        return extract_runelite_trade_history_records(data)
 
     records = []
 
@@ -542,9 +541,8 @@ def extract_json_records(data):
 
 def load_csv_records(file_path):
     """
-    Supports normal CSV and Flipping Utilities CSV.
-
-    Flipping Utilities exports include comment lines like:
+    Supports normal CSV and compatible RuneLite trade-history CSV exports.
+    Some RuneLite exports include comment lines like:
     # Displaying trades...
     # Total profit...
 
@@ -906,20 +904,8 @@ def watch_folder(folder=IMPORT_DIR, source="runelite", seconds=10):
             time.sleep(seconds)
 
 
-def find_runelite_flipping_files():
-    folder = Path(RUNELITE_FLIPPING_DIR)
-
-    if not folder.exists():
-        return []
-
-    files = [
-        path for path in folder.iterdir()
-        if path.is_file() and path.suffix.lower() == ".json"
-    ]
-
-    files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-
-    return files
+def get_osrsflipper_runelite_state_path():
+    return OSRSFLIPPER_RUNELITE_STATE_PATH.resolve()
 
 
 def resolve_runelite_file(file_path=None, account=None):
@@ -927,22 +913,16 @@ def resolve_runelite_file(file_path=None, account=None):
         resolved = Path(os.path.expandvars(os.path.expanduser(file_path)))
         return str(resolved.resolve())
 
-    if account:
-        account_file = Path(RUNELITE_FLIPPING_DIR) / f"{account}.json"
+    resolved = get_osrsflipper_runelite_state_path()
 
-        if account_file.exists():
-            return str(account_file.resolve())
+    if resolved.exists():
+        return str(resolved)
 
-        raise FileNotFoundError(f"Could not find account file: {account_file}")
-
-    files = find_runelite_flipping_files()
-
-    if not files:
-        raise FileNotFoundError(
-            f"No RuneLite Flipping Utilities JSON files found in {RUNELITE_FLIPPING_DIR}"
-        )
-
-    return str(files[0].resolve())
+    account_note = f" for account {account}" if account else ""
+    raise FileNotFoundError(
+        f"Could not find OSRSFlipper RuneLite telemetry JSON{account_note}: {resolved}. "
+        "Start the OSRSFlipper Telemetry RuneLite plugin and wait for runtime\\runelite_state.json."
+    )
 
 
 def import_runelite_file(file_path=None, account=None, force=True):
@@ -953,7 +933,7 @@ def import_runelite_file(file_path=None, account=None, force=True):
 
     return import_file(
         file_path=resolved,
-        source="runelite-live-json",
+        source=RUNELITE_TELEMETRY_SOURCE,
         force=force
     )
 
@@ -967,11 +947,11 @@ def watch_runelite(file_path=None, account=None, seconds=10):
     print("\n==============================")
     print(" OSRS RuneLite Trade Watcher")
     print("==============================")
-    print(f"Watching RuneLite file: {resolved}")
+    print(f"Watching OSRSFlipper RuneLite telemetry file: {resolved}")
     print("Press CTRL+C to stop.")
     print()
-    print("Tip: Flipping Utilities updates this file when RuneLite writes its data.")
-    print("If no new trades appear, log out or restart RuneLite once.")
+    print("Tip: the OSRSFlipper Telemetry plugin writes this file from RuneLite.")
+    print("If no new trades appear, make sure the plugin is enabled and RuneLite is logged in.")
     print()
 
     last_modified = None
@@ -986,7 +966,7 @@ def watch_runelite(file_path=None, account=None, seconds=10):
             if modified != last_modified or size != last_size:
                 result = import_file(
                     file_path=resolved,
-                    source="runelite-live-json",
+                    source=RUNELITE_TELEMETRY_SOURCE,
                     force=True
                 )
 
@@ -1015,10 +995,10 @@ def create_readme(folder=IMPORT_DIR):
 
 Drop CSV, JSON, or JSONL trade export files into this folder.
 
-Direct RuneLite Flipping Utilities JSON is supported.
+Direct OSRSFlipper RuneLite telemetry JSON is supported.
 
-Default live RuneLite folder:
-{RUNELITE_FLIPPING_DIR}
+Default live RuneLite telemetry file:
+{OSRSFLIPPER_RUNELITE_STATE_PATH}
 
 Commands:
 
@@ -1031,7 +1011,7 @@ python trade_importer.py import-runelite --account DeadArrow98
 Watch your live RuneLite file automatically:
 python trade_importer.py watch-runelite --account DeadArrow98
 
-Flipping Utilities states:
+RuneLite telemetry states:
 - BOUGHT imports as BUY
 - SOLD imports as SELL
 - CANCELLED_BUY imports as BUY only when completed quantity is greater than 0
@@ -1046,7 +1026,7 @@ Flipping Utilities states:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Import RuneLite/Flipping Utilities trade exports into OSRSFlipper."
+        description="Import RuneLite/OSRSFlipper telemetry trade exports into OSRSFlipper."
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -1070,17 +1050,17 @@ def main():
 
     import_runelite_parser = subparsers.add_parser(
         "import-runelite",
-        help="Import the live RuneLite Flipping Utilities JSON file."
+        help="Import the live OSRSFlipper RuneLite telemetry JSON file."
     )
-    import_runelite_parser.add_argument("--file", default=None, help="Direct path to account JSON.")
-    import_runelite_parser.add_argument("--account", default=None, help="RuneLite account file name without .json.")
+    import_runelite_parser.add_argument("--file", default=None, help="Direct path to telemetry JSON.")
+    import_runelite_parser.add_argument("--account", default=None, help="Account scope to apply before importing.")
 
     watch_runelite_parser = subparsers.add_parser(
         "watch-runelite",
-        help="Watch the live RuneLite Flipping Utilities JSON file."
+        help="Watch the live OSRSFlipper RuneLite telemetry JSON file."
     )
-    watch_runelite_parser.add_argument("--file", default=None, help="Direct path to account JSON.")
-    watch_runelite_parser.add_argument("--account", default=None, help="RuneLite account file name without .json.")
+    watch_runelite_parser.add_argument("--file", default=None, help="Direct path to telemetry JSON.")
+    watch_runelite_parser.add_argument("--account", default=None, help="Account scope to apply before watching.")
     watch_runelite_parser.add_argument("--seconds", type=int, default=10)
 
     args = parser.parse_args()
@@ -1090,7 +1070,7 @@ def main():
         readme_path = create_readme(IMPORT_DIR)
         print(f"Import folder ready: {IMPORT_DIR}")
         print(f"Created: {readme_path}")
-        print(f"RuneLite flipping folder: {RUNELITE_FLIPPING_DIR}")
+        print(f"RuneLite telemetry file: {OSRSFLIPPER_RUNELITE_STATE_PATH}")
 
     elif args.command == "import-file":
         result = import_file(

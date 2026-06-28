@@ -359,6 +359,28 @@ def latest_capital_snapshot(
     return dict(row) if row else None
 
 
+def latest_nonzero_capital_snapshot(
+    account_name: str = "default",
+    db_path: str | Path | None = None,
+) -> dict[str, Any] | None:
+    ensure_capital_ai_tables(db_path)
+
+    with connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM account_capital_snapshots
+            WHERE account_name = ?
+              AND raw_gp_available > 0
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (account_name,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
 def record_open_trade_lock(
     item_name: str,
     side: str,
@@ -486,7 +508,7 @@ def replace_runelite_open_trade_locks(
             quantity_remaining = int(lock.get("quantity_remaining") or (quantity_total - quantity_filled))
             quantity_remaining = max(0, quantity_remaining)
 
-            if quantity_remaining <= 0:
+            if quantity_remaining <= 0 and quantity_filled <= 0:
                 continue
 
             offer_price = max(0, int(lock.get("offer_price") or lock.get("price") or 0))
@@ -656,8 +678,21 @@ def summarize_capital_state(
     bank_gp = int(snapshot["bank_gp"]) if snapshot and "bank_gp" in snapshot else 0
     safety_reserve = int(snapshot["safety_reserve_gp"]) if snapshot else 0
 
+    if raw_gp <= 0:
+        preserved = latest_nonzero_capital_snapshot(account_name, db_path)
+        if preserved:
+            raw_gp = int(preserved["raw_gp_available"])
+            inventory_gp = int(preserved["inventory_gp"]) if "inventory_gp" in preserved else raw_gp
+            bank_gp = int(preserved["bank_gp"]) if "bank_gp" in preserved else 0
+
     locked_buy_gp = sum(
         int(lock["gp_locked"])
+        for lock in locks
+        if lock["side"] == "buy" and lock["status"] in {"open", "stuck", "unknown"}
+    )
+
+    buy_filled_value_gp = sum(
+        int(lock["offer_price"]) * int(lock["quantity_filled"])
         for lock in locks
         if lock["side"] == "buy" and lock["status"] in {"open", "stuck", "unknown"}
     )
@@ -668,7 +703,14 @@ def summarize_capital_state(
         if lock["side"] == "sell" and lock["status"] in {"open", "stuck", "unknown"}
     )
 
-    usable_gp = max(0, raw_gp - safety_reserve - locked_buy_gp)
+    sell_filled_value_gp = sum(
+        int(lock["offer_price"]) * int(lock["quantity_filled"])
+        for lock in locks
+        if lock["side"] == "sell" and lock["status"] in {"open", "stuck", "unknown"}
+    )
+
+    usable_gp = max(0, raw_gp - safety_reserve)
+    total_tracked_locked_value_gp = locked_buy_gp + buy_filled_value_gp + locked_sell_value_gp + sell_filled_value_gp
 
     return {
         "account_name": account_name,
@@ -678,8 +720,10 @@ def summarize_capital_state(
         "bank_gp": bank_gp,
         "safety_reserve_gp": safety_reserve,
         "locked_buy_gp": locked_buy_gp,
+        "buy_filled_value_gp": buy_filled_value_gp,
         "locked_sell_value_gp": locked_sell_value_gp,
-        "total_tracked_locked_value_gp": locked_buy_gp + locked_sell_value_gp,
+        "sell_filled_value_gp": sell_filled_value_gp,
+        "total_tracked_locked_value_gp": total_tracked_locked_value_gp,
         "usable_gp": usable_gp,
         "open_locks": locks,
         "open_lock_count": len(locks),
@@ -1033,8 +1077,11 @@ def print_capital_summary(account_name: str = "default", db_path: str | Path | N
     print(f"Bank GP:                  {format_gp(state['bank_gp'])}")
     print(f"Raw GP available:          {format_gp(state['raw_gp_available'])}")
     print(f"Safety reserve:            {format_gp(state['safety_reserve_gp'])}")
-    print(f"Locked in open buy offers: {format_gp(state['locked_buy_gp'])}")
+    print(f"Waiting in open buy offers: {format_gp(state['locked_buy_gp'])}")
+    print(f"Filled buy item value:     {format_gp(state.get('buy_filled_value_gp', 0))}")
     print(f"Locked sell-side value:    {format_gp(state['locked_sell_value_gp'])}")
+    print(f"Filled sell GP:            {format_gp(state.get('sell_filled_value_gp', 0))}")
+    print(f"Total GE value held:       {format_gp(state.get('total_tracked_locked_value_gp', 0))}")
     print(f"Usable GP:                 {format_gp(state['usable_gp'])}")
     print(f"Open tracked offers:       {state['open_lock_count']}")
 

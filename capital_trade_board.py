@@ -48,6 +48,23 @@ def load_trade_board_capital_state() -> dict[str, Any]:
         from capital_dashboard import load_capital_dashboard_state
 
         data = load_capital_dashboard_state(import_live=False)
+        if not data.get("ok"):
+            return {
+                "available": False,
+                "error": data.get("telemetry_problem") or "RuneLite telemetry is not ready.",
+                "usable_gp": 0,
+                "raw_gp_available": 0,
+                "locked_buy_gp": 0,
+                "buy_filled_value_gp": 0,
+                "locked_sell_value_gp": 0,
+                "sell_filled_value_gp": 0,
+                "total_ge_value_held_gp": 0,
+                "open_slots": 0,
+                "stuck_offers": 0,
+                "max_single_trade_pct": DEFAULT_MAX_SINGLE_TRADE_PCT,
+                "single_trade_cap_gp": 0,
+            }
+
         capital = data.get("capital") or {}
     except Exception as exc:
         return {
@@ -56,7 +73,10 @@ def load_trade_board_capital_state() -> dict[str, Any]:
             "usable_gp": 0,
             "raw_gp_available": 0,
             "locked_buy_gp": 0,
+            "buy_filled_value_gp": 0,
             "locked_sell_value_gp": 0,
+            "sell_filled_value_gp": 0,
+            "total_ge_value_held_gp": 0,
             "open_slots": 0,
             "stuck_offers": 0,
             "max_single_trade_pct": DEFAULT_MAX_SINGLE_TRADE_PCT,
@@ -77,10 +97,16 @@ def load_trade_board_capital_state() -> dict[str, Any]:
     return {
         "available": True,
         "account_name": capital.get("account_name", "default"),
+        "source": data.get("capital_source", "live_telemetry"),
+        "telemetry_ready": bool(data.get("telemetry_ready")),
+        "using_last_known": bool(data.get("using_last_known")),
         "usable_gp": usable_gp,
         "raw_gp_available": _safe_int(capital.get("raw_gp_available")),
         "locked_buy_gp": _safe_int(capital.get("locked_buy_gp")),
+        "buy_filled_value_gp": _safe_int(capital.get("buy_filled_value_gp")),
         "locked_sell_value_gp": _safe_int(capital.get("locked_sell_value_gp")),
+        "sell_filled_value_gp": _safe_int(capital.get("sell_filled_value_gp")),
+        "total_ge_value_held_gp": _safe_int(capital.get("total_ge_value_held_gp")),
         "open_slots": _safe_int(capital.get("open_slots")),
         "stuck_offers": _safe_int(capital.get("stuck_offers")),
         "max_single_trade_pct": max_pct,

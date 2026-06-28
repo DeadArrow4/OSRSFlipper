@@ -13,7 +13,7 @@ BUILD_CHANNEL = "stable"
 PROJECT_URL = ""
 APP_DESCRIPTION = (
     "Local OSRS Grand Exchange flipping dashboard with trade tracking, "
-    "RuneLite Flipping Utilities import, account-scoped OpenAI advisor, "
+    "OSRSFlipper RuneLite telemetry import, account-scoped OpenAI advisor, "
     "safety review, health checks, release checks, clean release packaging, "
     "and safe update installation."
 )

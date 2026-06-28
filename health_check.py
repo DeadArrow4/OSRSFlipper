@@ -307,22 +307,14 @@ def check_account(lines):
 
 def check_runelite(lines):
     lines.append("")
-    lines.append("RUNELITE / FLIPPING UTILITIES")
-    lines.append("-----------------------------")
+    lines.append("RUNELITE / OSRSFLIPPER TELEMETRY")
+    lines.append("--------------------------------")
 
-    scope = get_account_scope()
-    account = scope.get("osrs_account_name")
-    flipping_dir = Path.home() / ".runelite" / "flipping"
-    runelite_file = flipping_dir / f"{account}.json"
-
-    if flipping_dir.exists():
-        lines.append(ok_line(f"RuneLite flipping folder found: {flipping_dir}"))
-    else:
-        lines.append(warn_line(f"RuneLite flipping folder not found: {flipping_dir}"))
+    runelite_file = BASE_DIR / "runtime" / "runelite_state.json"
 
     if runelite_file.exists():
-        lines.append(ok_line(f"RuneLite account JSON found: {runelite_file}"))
-        lines.append(info_line(f"RuneLite JSON modified: {file_mtime(runelite_file)}"))
+        lines.append(ok_line(f"OSRSFlipper RuneLite telemetry JSON found: {runelite_file}"))
+        lines.append(info_line(f"Telemetry JSON modified: {file_mtime(runelite_file)}"))
 
         try:
             data = json.loads(runelite_file.read_text(encoding="utf-8-sig"))
@@ -330,7 +322,7 @@ def check_runelite(lines):
             trades = data.get("trades", [])
             last_offers = data.get("lastOffers", {})
 
-            lines.append(info_line(f"Flipping Utilities trade item entries: {len(trades) if isinstance(trades, list) else 'unknown'}"))
+            lines.append(info_line(f"Telemetry trade item entries: {len(trades) if isinstance(trades, list) else 'unknown'}"))
             lines.append(info_line(f"Last offers entries: {len(last_offers) if isinstance(last_offers, dict) else 'unknown'}"))
 
             active_slots = 0
@@ -343,9 +335,9 @@ def check_runelite(lines):
             lines.append(info_line(f"Active live GE slots from lastOffers: {active_slots}"))
 
         except Exception as error:
-            lines.append(warn_line(f"Could not parse RuneLite JSON: {error}"))
+            lines.append(warn_line(f"Could not parse RuneLite telemetry JSON: {error}"))
     else:
-        lines.append(warn_line(f"RuneLite account JSON not found: {runelite_file}"))
+        lines.append(warn_line(f"OSRSFlipper RuneLite telemetry JSON not found: {runelite_file}"))
 
 
 def check_database(lines):

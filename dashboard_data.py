@@ -117,8 +117,8 @@ def clear_dashboard_cache():
 
 
 # 1.0.4 My Trades cache.
-# RuneLite imports can be slow, so the dashboard should not run the importer on
-# initial load or every auto-refresh. These cached reads keep the tab responsive.
+# Completed trade matching still uses cached DB reads, while live GE offers are
+# read directly from the OSRSFlipper RuneLite telemetry JSON.
 TRADE_DASHBOARD_CACHE_TTL_SECONDS = 30
 
 _trade_dashboard_cache = {}
@@ -1010,7 +1010,7 @@ def _slot_action_reason(position, slot_pressure):
 
 
 def get_open_slot_actions(limit=12):
-    """Return read-only Open Slot Action recommendations from live RuneLite lastOffers.
+    """Return read-only Open Slot Action recommendations from OSRSFlipper telemetry lastOffers.
 
     This uses trade_ai_context's live slot analysis so the dashboard does not
     mistake old unmatched trade history for current GE slots.
@@ -1081,7 +1081,7 @@ def get_open_slot_actions(limit=12):
 
         qty = _slot_action_first(
             position,
-            ["remaining_quantity", "quantity", "qty", "remaining"],
+            ["remaining_qty", "remaining_quantity", "quantity", "qty", "remaining"],
             0
         )
 
@@ -1152,7 +1152,7 @@ def get_open_slot_actions(limit=12):
             medium_count += 1
 
     status = (
-        f"Open Slot Actions built from live RuneLite lastOffers. "
+        f"Open Slot Actions built from OSRSFlipper RuneLite telemetry lastOffers. "
         f"Active slots: {slot_usage.get('active_slots', 0)}/{ge_slot_count}. "
         f"Free slots: {slot_usage.get('free_slots', ge_slot_count)}. "
         f"Slot pressure: {slot_pressure}."
@@ -1554,6 +1554,90 @@ def get_open_trade_rows(limit=100):
     return _trade_cache_set(cache_key, df)
 
 
+def get_live_ge_offer_rows(limit=100):
+    limit = parse_positive_int(limit, default=100, minimum=1, maximum=500)
+
+    try:
+        from runelite_telemetry_control import build_runelite_telemetry_status, read_runelite_state
+
+        state_path = Path(BASE_DIR) / "runtime" / "runelite_state.json"
+        status = build_runelite_telemetry_status(state_path)
+        state = read_runelite_state(state_path)
+    except Exception:
+        return pd.DataFrame()
+
+    active_offers = state.get("active_ge_offers") or []
+
+    if not isinstance(active_offers, list):
+        return pd.DataFrame()
+
+    rows = []
+
+    for offer in active_offers[:limit]:
+        if not isinstance(offer, dict):
+            continue
+
+        try:
+            price = int(float(offer.get("price") or 0))
+            ge_price = int(float(offer.get("ge_price") or offer.get("gePrice") or 0))
+            display_ge_price = ge_price if ge_price > 0 else price
+            total_qty = int(float(offer.get("quantity_total") or 0))
+            filled_qty = int(float(offer.get("quantity_filled") or 0))
+            remaining_qty = int(float(offer.get("quantity_remaining") or max(total_qty - filled_qty, 0)))
+        except Exception:
+            price = 0
+            ge_price = 0
+            display_ge_price = 0
+            total_qty = 0
+            filled_qty = 0
+            remaining_qty = 0
+
+        side = str(offer.get("side") or "").lower()
+        raw_filled_value = (
+            offer.get("filled_buy_value")
+            or offer.get("filledBuyValue")
+            or offer.get("filled_ge_value")
+            or offer.get("filledGeValue")
+        )
+        if side == "sell":
+            raw_filled_value = offer.get("filled_sell_gp") or offer.get("filledSellGp") or offer.get("spent") or raw_filled_value
+
+        if raw_filled_value is not None:
+            filled_value = int(float(raw_filled_value or 0))
+        elif ge_price > 0:
+            filled_value = display_ge_price * filled_qty
+        else:
+            filled_value = int(float(offer.get("spent") or price * filled_qty or 0))
+
+        remaining_offer_value = int(float(offer.get("remaining_offer_value") or price * remaining_qty or 0))
+        remaining_ge_value = int(float(offer.get("remaining_ge_value") or offer.get("remainingGeValue") or display_ge_price * remaining_qty or 0))
+        price_source = "RuneLite GE" if ge_price > 0 else "offer fallback"
+
+        rows.append(
+            {
+                "Slot": offer.get("slot", ""),
+                "Item": offer.get("item_name") or f"Item {offer.get('item_id', '')}",
+                "Side": str(offer.get("side") or "").upper(),
+                "Price_Each": price,
+                "GE_Price": display_ge_price,
+                "Price_Source": price_source,
+                "Original_Qty": total_qty,
+                "Filled_Qty": filled_qty,
+                "Remaining_Qty": remaining_qty,
+                "Locked_Buy_GP": remaining_offer_value if side == "buy" else 0,
+                "Filled_Value": filled_value if filled_qty > 0 else 0,
+                "Sell_Value": remaining_offer_value if side == "sell" else 0,
+                "Remaining_GE_Value": remaining_ge_value,
+                "Age_Min": offer.get("offer_age_minutes", ""),
+                "Status": offer.get("state", ""),
+                "Source": "live telemetry",
+                "Telemetry": "ready" if status.get("ready") else status.get("problem", "not ready"),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
 def get_completed_trade_history(limit=5000):
     limit = parse_positive_int(limit, default=5000, minimum=100, maximum=50000)
 
@@ -1602,7 +1686,7 @@ def get_completed_trade_history(limit=5000):
 
 def refresh_runelite_trades_for_dashboard():
     """
-    Imports the latest RuneLite Flipping Utilities JSON before refreshing
+    Imports the latest OSRSFlipper RuneLite telemetry JSON before refreshing
     My Trades. This keeps the My Trades tab current even when the background
     trade watcher is stopped.
     """
@@ -1620,7 +1704,7 @@ def refresh_runelite_trades_for_dashboard():
 
             result = import_file(
                 file_path=runelite_path,
-                source="runelite-live-json",
+                source="osrsflipper-runelite-telemetry",
                 force=True
             )
 
@@ -2163,7 +2247,7 @@ def get_setup_summary_items():
             "Details": scope["osrs_account_name"]
         },
         {
-            "Step": "RuneLite Flipping Utilities file",
+            "Step": "OSRSFlipper RuneLite telemetry file",
             "Status": "Found" if runelite_found else "Not found",
             "Details": str(runelite_file)
         },

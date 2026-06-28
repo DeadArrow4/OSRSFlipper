@@ -27,7 +27,7 @@ from security_runtime import scrub_shared_openai_env
 from settings_manager import ensure_default_settings, get_setting, set_setting
 
 
-RUNELITE_FLIPPING_DIR = Path.home() / ".runelite" / "flipping"
+RUNELITE_STATE_PATH = BASE_DIR / "runtime" / "runelite_state.json"
 
 
 def heading(title):
@@ -128,17 +128,16 @@ def choose_from(prompt, options, default):
 
 
 def locate_runelite_file(osrs_account_name):
-    return RUNELITE_FLIPPING_DIR / f"{osrs_account_name}.json"
+    return RUNELITE_STATE_PATH
 
 
 def show_runelite_status(osrs_account_name):
     runelite_file = locate_runelite_file(osrs_account_name)
 
     print()
-    print("RuneLite / Flipping Utilities")
-    print("-----------------------------")
-    print(f"Expected folder: {RUNELITE_FLIPPING_DIR}")
-    print(f"Expected account file: {runelite_file}")
+    print("RuneLite / OSRSFlipper Telemetry")
+    print("--------------------------------")
+    print(f"Expected telemetry file: {runelite_file}")
 
     if runelite_file.exists():
         print("Status: found")
@@ -147,10 +146,10 @@ def show_runelite_status(osrs_account_name):
     print("Status: not found yet")
     print()
     print("If this is a new setup:")
-    print("1. Install RuneLite Flipping Utilities plugin.")
+    print("1. Start RuneLite with the OSRSFlipper Telemetry plugin.")
     print("2. Log into the OSRS account.")
-    print("3. Make or view a GE offer.")
-    print("4. Log out/close RuneLite if the JSON file has not appeared yet.")
+    print("3. Wait for runtime\\runelite_state.json to be written.")
+    print("4. Use the dev client until the plugin is available in normal RuneLite.")
 
     return False
 

@@ -26,9 +26,16 @@ python runelite_state_importer.py import
   "bank_gp": 2000000,
   "include_bank_gp": true,
   "raw_gp_available": 10000000,
-  "active_ge_offers": []
+  "active_ge_offers": [],
+  "lastOffers": {},
+  "trades": []
 }
 ```
+
+The `lastOffers` and `trades` sections intentionally use the same historical
+shape OSRSFlipper previously consumed from external RuneLite trade-history JSON.
+That lets OSRSFlipper import completed BOUGHT/SOLD/CANCELLED offers and analyze
+current GE slots from this plugin instead of depending on a separate plugin.
 
 ## Safety
 
@@ -50,11 +57,29 @@ It only writes a local JSON file that OSRSFlipper reads.
 Open this folder in IntelliJ as a Gradle project, or run:
 
 ```powershell
-cd C:\OSRSFlipper\runelite_companion\osrsflipper-telemetry-plugin
-gradle run
+cd C:\OSRSFlipper\runelite_companion\osrsflipper-telemetry-plugin-wrapper
+.\gradlew.bat run
 ```
 
-If you do not have Gradle installed, use IntelliJ's Gradle runner or copy these files into a fresh clone of the official RuneLite example plugin.
+The wrapper folder is the canonical local development project because it
+includes the Gradle wrapper used by the control center.
+
+## Normal RuneLite install path
+
+A normal Jagex-launched RuneLite client does not scan this local project folder.
+Use the Plugin Hub packaging commands from the OSRSFlipper project root:
+
+```powershell
+python runelite_telemetry_control.py plugin-status
+python runelite_telemetry_control.py package-plugin
+python runelite_telemetry_control.py build-plugin
+```
+
+The source-controlled submission checklist is:
+
+```text
+C:\OSRSFlipper\runelite_companion\PLUGIN_HUB_SUBMISSION.md
+```
 
 ## Notes
 

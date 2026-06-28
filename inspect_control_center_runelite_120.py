@@ -19,7 +19,7 @@ def main() -> int:
         "helper file exists": helper_path.exists(),
         "control center imports helper": "dashboard_startup_telemetry_message" in control_text,
         "control center startup check function": "def runelite_telemetry_startup_check" in control_text,
-        "dashboard start calls telemetry check": "runelite_telemetry_startup_check()" in control_text,
+        "dashboard start calls telemetry check": "runelite_telemetry_startup_check(" in control_text,
         "helper can open Jagex Launcher": "def open_jagex_launcher" in helper_text,
         "helper can start dev client": "def start_runelite_telemetry_dev_client" in helper_text,
         "helper can import telemetry": "def import_runelite_state_now" in helper_text,

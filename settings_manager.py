@@ -17,12 +17,15 @@ DEFAULT_SETTINGS = {
     "minimum_profit": {"value": 50_000, "type": "int", "description": "Default minimum profit used by collector.py."},
     "risk_profile": {"value": "medium", "type": "str", "description": "Default risk profile: low, medium, or high."},
     "watch_seconds": {"value": 10, "type": "int", "description": "RuneLite trade watcher polling interval in seconds."},
+    "capital_budget_mode": {"value": "live_capped", "type": "str", "description": "Collector budget mode: manual, live, or live_capped."},
 
     # Startup behavior
     "start_dashboard": {"value": True, "type": "bool", "description": "Start dashboard automatically."},
     "start_collector": {"value": True, "type": "bool", "description": "Start market collector automatically."},
     "start_trade_watcher": {"value": True, "type": "bool", "description": "Start RuneLite trade watcher automatically."},
     "open_browser": {"value": True, "type": "bool", "description": "Open dashboard in browser when control center starts."},
+    "open_jagex_launcher_with_dashboard": {"value": False, "type": "bool", "description": "Open Jagex Launcher when the dashboard starts."},
+    "auto_start_runelite_telemetry_dev_client": {"value": False, "type": "bool", "description": "Start the RuneLite telemetry dev client when the dashboard starts."},
 
     # AI advisor behavior
     "ai_source_row_limit": {"value": 350, "type": "int", "description": "How many scanner rows advisor.py can consider."},
@@ -390,11 +393,18 @@ def configure_core_settings(app_username=None, osrs_account_name=None):
     current_min_profit = get_setting("minimum_profit", app_username=app_username, osrs_account_name=osrs_account_name)
     current_risk = get_setting("risk_profile", app_username=app_username, osrs_account_name=osrs_account_name)
     current_watch_seconds = get_setting("watch_seconds", app_username=app_username, osrs_account_name=osrs_account_name)
+    current_budget_mode = get_setting("capital_budget_mode", app_username=app_username, osrs_account_name=osrs_account_name)
 
     cash_stack = prompt_value("Cash stack", current_cash, "int")
     minimum_profit = prompt_value("Minimum profit", current_min_profit, "int")
     risk_profile = prompt_value("Risk profile", current_risk, "str", allowed=["low", "medium", "high"])
     watch_seconds = prompt_value("Trade watcher seconds", current_watch_seconds, "int")
+    capital_budget_mode = prompt_value(
+        "Capital budget mode",
+        current_budget_mode,
+        "str",
+        allowed=["manual", "live", "live_capped"]
+    )
 
     start_dashboard = prompt_bool(
         "Start dashboard automatically",
@@ -416,15 +426,28 @@ def configure_core_settings(app_username=None, osrs_account_name=None):
         get_setting("open_browser", app_username=app_username, osrs_account_name=osrs_account_name)
     )
 
+    open_jagex_launcher_with_dashboard = prompt_bool(
+        "Open Jagex Launcher with dashboard",
+        get_setting("open_jagex_launcher_with_dashboard", app_username=app_username, osrs_account_name=osrs_account_name)
+    )
+
+    auto_start_runelite_telemetry_dev_client = prompt_bool(
+        "Start RuneLite telemetry dev client with dashboard",
+        get_setting("auto_start_runelite_telemetry_dev_client", app_username=app_username, osrs_account_name=osrs_account_name)
+    )
+
     values = {
         "cash_stack": cash_stack,
         "minimum_profit": minimum_profit,
         "risk_profile": risk_profile,
         "watch_seconds": watch_seconds,
+        "capital_budget_mode": capital_budget_mode,
         "start_dashboard": start_dashboard,
         "start_collector": start_collector,
         "start_trade_watcher": start_trade_watcher,
-        "open_browser": open_browser
+        "open_browser": open_browser,
+        "open_jagex_launcher_with_dashboard": open_jagex_launcher_with_dashboard,
+        "auto_start_runelite_telemetry_dev_client": auto_start_runelite_telemetry_dev_client
     }
 
     for key, value in values.items():

@@ -9,6 +9,7 @@ from capital_ai_memory import (
     ensure_capital_ai_tables,
     format_gp,
     get_setting,
+    latest_nonzero_capital_snapshot,
     print_capital_summary,
     record_capital_snapshot,
     record_runelite_telemetry_import,
@@ -47,9 +48,9 @@ def normalize_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     else:
         state = str(raw.get("state") or raw.get("status") or "").lower()
 
-        if "buy" in state:
+        if "buy" in state or "bought" in state:
             side = "buy"
-        elif "sell" in state:
+        elif "sell" in state or "sold" in state:
             side = "sell"
         else:
             side = "unknown"
@@ -66,7 +67,13 @@ def normalize_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     if quantity_total <= 0 and quantity_remaining > 0:
         quantity_total = quantity_remaining + quantity_filled
 
-    if quantity_remaining <= 0:
+    state_text = str(raw.get("state") or raw.get("status") or "").lower()
+    collection_pending = quantity_filled > 0 and any(
+        token in state_text
+        for token in ["bought", "sold", "cancelled", "canceled"]
+    )
+
+    if quantity_remaining <= 0 and not collection_pending:
         return None
 
     return {
@@ -131,6 +138,18 @@ def import_runelite_state(
     else:
         raw_gp_available = inventory_gp + (bank_gp if include_bank_gp else 0)
 
+    gp_was_preserved = False
+    preserved_snapshot = None
+
+    if raw_gp_available <= 0:
+        preserved_snapshot = latest_nonzero_capital_snapshot(account, db_path)
+
+        if preserved_snapshot:
+            raw_gp_available = int(preserved_snapshot.get("raw_gp_available") or 0)
+            inventory_gp = int(preserved_snapshot.get("inventory_gp") or 0)
+            bank_gp = int(preserved_snapshot.get("bank_gp") or 0)
+            gp_was_preserved = raw_gp_available > 0
+
     if safety_reserve_gp is None:
         safety_reserve_gp = _int_value(payload, ["safety_reserve_gp", "safetyReserveGp"], -1)
 
@@ -149,6 +168,14 @@ def import_runelite_state(
         if normalized:
             offers.append(normalized)
 
+    snapshot_note = f"Imported RuneLite telemetry captured_at={captured_at}"
+
+    if gp_was_preserved:
+        snapshot_note += (
+            "; preserved last nonzero GP because telemetry reported 0 GP. "
+            f"preserved_snapshot_id={preserved_snapshot.get('id')}"
+        )
+
     snapshot_id = record_capital_snapshot(
         raw_gp_available=raw_gp_available,
         inventory_gp=inventory_gp,
@@ -157,7 +184,7 @@ def import_runelite_state(
         account_name=account,
         source="runelite",
         source_path=source_path,
-        notes=f"Imported RuneLite telemetry captured_at={captured_at}",
+        notes=snapshot_note,
         db_path=db_path,
     )
 
@@ -188,6 +215,8 @@ def import_runelite_state(
         "inventory_gp": inventory_gp,
         "bank_gp": bank_gp,
         "raw_gp_available": raw_gp_available,
+        "gp_was_preserved": gp_was_preserved,
+        "preserved_snapshot_id": preserved_snapshot.get("id") if preserved_snapshot else None,
         "imported_offer_count": imported_locks,
         "capital_state": state,
     }

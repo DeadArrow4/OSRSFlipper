@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 from api import load_market_data, load_trend_data_for_items
+from capital_budget import get_effective_cash_stack
 from scanner import parse_gp, scan_market, format_gp
 from recommender import apply_recommendations
 from trend_analyzer import enrich_rows_with_trends, TREND_DATA_MAX_ITEMS
@@ -423,7 +424,14 @@ def main():
     print(" OSRS GE Flip Scanner")
     print("==============================")
 
-    cash_stack = parse_gp(input("Cash stack: "))
+    manual_cash_stack = parse_gp(input("Cash stack: "))
+    budget = get_effective_cash_stack(manual_cash_stack)
+    cash_stack = int(budget.get("cash_stack", manual_cash_stack))
+    print(
+        "Effective scanner budget: "
+        f"{format_gp(cash_stack)} "
+        f"({budget.get('source')}; manual cap {format_gp(budget.get('manual_cash_stack', manual_cash_stack))})"
+    )
     minimum_profit = parse_gp(input("Min profit: "))
 
     risk_profile = input("Risk profile (low/medium/high): ").lower().strip()

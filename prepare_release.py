@@ -204,7 +204,7 @@ Included:
 - Health check
 - Release check
 - Trade safety review
-- RuneLite Flipping Utilities importer
+- OSRSFlipper RuneLite telemetry importer
 
 Not included:
 - Private database

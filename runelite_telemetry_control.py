@@ -11,6 +11,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RUNTIME_DIR = PROJECT_ROOT / "runtime"
+LOG_DIR = PROJECT_ROOT / "logs"
 STATE_PATH = RUNTIME_DIR / "runelite_state.json"
 WRAPPER_DIR = PROJECT_ROOT / "runelite_companion" / "osrsflipper-telemetry-plugin-wrapper"
 STALE_AFTER_SECONDS = 120
@@ -65,6 +66,49 @@ def build_runelite_telemetry_status(path: str | Path = STATE_PATH) -> dict[str, 
 
     active_offers = data.get("active_ge_offers") or []
     active_count = len(active_offers) if isinstance(active_offers, list) else 0
+    last_offers = data.get("lastOffers") or {}
+    last_offer_count = len(last_offers) if isinstance(last_offers, dict) else 0
+    trades = data.get("trades") or []
+    completed_offer_count = 0
+
+    if isinstance(trades, list):
+        for trade in trades:
+            if not isinstance(trade, dict):
+                continue
+
+            history = trade.get("h") or {}
+            offers = history.get("sO") if isinstance(history, dict) else []
+
+            if isinstance(offers, list):
+                completed_offer_count += len(offers)
+
+    ready = bool(exists and not stale and (data.get("payload_kind") or "unknown") != "minimal")
+    if not exists:
+        problem = "telemetry file is missing"
+    elif stale:
+        problem = "telemetry file is stale"
+    elif (data.get("payload_kind") or "unknown") == "minimal":
+        problem = "telemetry payload is minimal; log into OSRS in the telemetry client for full capital data"
+    else:
+        problem = ""
+
+    account_name = data.get("account_name") or os.environ.get("RUNELITE_ACCOUNT") or "default"
+    preserved_raw_gp = 0
+    preserved_snapshot_id = None
+
+    if exists and raw_gp <= 0 and account_name != "default":
+        try:
+            from capital_ai_memory import latest_nonzero_capital_snapshot
+
+            preserved = latest_nonzero_capital_snapshot(str(account_name))
+            if preserved:
+                preserved_raw_gp = _safe_int(preserved.get("raw_gp_available"))
+                preserved_snapshot_id = preserved.get("id")
+        except Exception:
+            preserved_raw_gp = 0
+            preserved_snapshot_id = None
+
+    effective_raw_gp = preserved_raw_gp if preserved_raw_gp > 0 and raw_gp <= 0 else raw_gp
 
     return {
         "exists": exists,
@@ -72,14 +116,21 @@ def build_runelite_telemetry_status(path: str | Path = STATE_PATH) -> dict[str, 
         "modified_at": modified_at,
         "age_seconds": age_seconds,
         "stale": stale,
+        "ready": ready,
+        "problem": problem,
         "payload_kind": data.get("payload_kind") or "unknown",
-        "account_name": data.get("account_name") or os.environ.get("RUNELITE_ACCOUNT") or "default",
+        "account_name": account_name,
         "captured_at": data.get("captured_at") or "",
         "raw_gp_available": raw_gp,
+        "effective_raw_gp_available": effective_raw_gp,
+        "preserved_raw_gp_available": preserved_raw_gp,
+        "preserved_snapshot_id": preserved_snapshot_id,
         "inventory_gp": inventory_gp,
         "bank_gp": bank_gp,
         "active_offer_count": active_count,
         "open_slots": max(0, 8 - active_count),
+        "last_offer_count": last_offer_count,
+        "completed_offer_count": completed_offer_count,
     }
 
 
@@ -90,23 +141,41 @@ def format_runelite_telemetry_status(path: str | Path = STATE_PATH) -> str:
         return (
             "RuneLite telemetry: missing\n"
             f"  Expected file: {status['path']}\n"
-            "  Start RuneLite with the OSRSFlipper telemetry plugin, then open the dashboard.\n"
-            "  The dashboard will auto-pull once runtime\\runelite_state.json is being written."
+            "  Normal Jagex-launched RuneLite only writes this if the OSRSFlipper plugin is installed there.\n"
+            "  Until then, run: python runelite_telemetry_control.py start-dev"
         )
 
     freshness = "stale" if status["stale"] else "fresh"
     age = status["age_seconds"]
     age_text = f"{age}s old" if age is not None else "unknown age"
+    readiness = "ready" if status["ready"] else f"not ready - {status['problem']}"
 
-    return (
+    gp_line = f"  Raw GP: {_format_gp(status['raw_gp_available'])}"
+    if status.get("preserved_raw_gp_available"):
+        gp_line += (
+            f" (file), effective {_format_gp(status['effective_raw_gp_available'])} "
+            f"from preserved snapshot {status.get('preserved_snapshot_id')}"
+        )
+
+    text = (
         f"RuneLite telemetry: {freshness} ({age_text})\n"
+        f"  Readiness: {readiness}\n"
         f"  Account: {status['account_name']}\n"
         f"  Payload: {status['payload_kind']}\n"
         f"  Captured: {status['captured_at']}\n"
-        f"  Raw GP: {_format_gp(status['raw_gp_available'])}\n"
+        f"{gp_line}\n"
         f"  GE offers: {status['active_offer_count']} active, {status['open_slots']} open slots\n"
+        f"  Trade telemetry: {status['last_offer_count']} last offers, {status['completed_offer_count']} completed offer events\n"
         f"  File: {status['path']}"
     )
+
+    if not status["ready"]:
+        text += (
+            "\n  Guidance: launch the telemetry dev client, log into OSRS there, "
+            "and wait for a fresh full payload."
+        )
+
+    return text
 
 
 def find_jagex_launcher() -> Path | None:
@@ -162,22 +231,46 @@ def start_runelite_telemetry_dev_client() -> str:
     env = os.environ.copy()
     env["OSRSFLIPPER_HOME"] = str(PROJECT_ROOT)
     env.setdefault("OSRSFLIPPER_RUNELITE_STATE", str(STATE_PATH))
+    LOG_DIR.mkdir(exist_ok=True)
+    stdout_path = LOG_DIR / "runelite_telemetry_dev_client.log"
+    stderr_path = LOG_DIR / "runelite_telemetry_dev_client_error.log"
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+
+    stdout = None
+    stderr = None
 
     try:
+        stdout = stdout_path.open("a", encoding="utf-8")
+        stderr = stderr_path.open("a", encoding="utf-8")
         subprocess.Popen(
             cmd,
             cwd=str(WRAPPER_DIR),
             env=env,
             stdin=subprocess.DEVNULL,
+            stdout=stdout,
+            stderr=stderr,
+            creationflags=creationflags,
         )
-        return "Started RuneLite telemetry dev client. Log into OSRS there to write live capital telemetry."
+        return (
+            "Started RuneLite telemetry dev client. Log into OSRS there to write live capital telemetry. "
+            f"Dev output is logged to {stdout_path}."
+        )
     except Exception as exc:
         return f"Could not start RuneLite telemetry dev client: {exc}"
+    finally:
+        for handle in (stdout, stderr):
+            if handle is not None:
+                handle.close()
 
 
 def import_runelite_state_now() -> str:
-    if not STATE_PATH.exists():
+    status = build_runelite_telemetry_status()
+
+    if not status["exists"]:
         return f"RuneLite telemetry file is missing: {STATE_PATH}"
+
+    if not status["ready"]:
+        return f"Skipped RuneLite telemetry import: {status['problem']}."
 
     try:
         from runelite_state_importer import import_runelite_state
@@ -188,11 +281,41 @@ def import_runelite_state_now() -> str:
         return f"Could not import RuneLite telemetry: {exc}"
 
 
+def plugin_package_status() -> str:
+    try:
+        from runelite_plugin_packager import format_plugin_package_status
+
+        return format_plugin_package_status()
+    except Exception as exc:
+        return f"Could not inspect RuneLite plugin package: {exc}"
+
+
+def package_runelite_plugin() -> str:
+    try:
+        from runelite_plugin_packager import format_plugin_package_status, package_plugin_repository
+
+        result = package_plugin_repository()
+        return result["message"] + "\n\n" + format_plugin_package_status(result["status"])
+    except Exception as exc:
+        return f"Could not package RuneLite plugin: {exc}"
+
+
+def build_runelite_plugin() -> str:
+    try:
+        from runelite_plugin_packager import build_plugin
+
+        result = build_plugin()
+        prefix = "RuneLite plugin build passed." if result["ok"] else f"RuneLite plugin build failed with exit code {result['returncode']}."
+        return prefix + "\n" + str(result.get("output", "")).strip()
+    except Exception as exc:
+        return f"Could not build RuneLite plugin: {exc}"
+
+
 def dashboard_startup_telemetry_message() -> str:
     return (
         format_runelite_telemetry_status()
         + "\n"
-        + "  Control Center commands: python runelite_telemetry_control.py status | open-launcher | start-dev | import"
+        + "  Control Center commands: python runelite_telemetry_control.py status | open-launcher | start-dev | import | plugin-status | package-plugin"
     )
 
 
@@ -216,13 +339,25 @@ def main(argv: list[str] | None = None) -> int:
         print(import_runelite_state_now())
         return 0
 
+    if command in {"plugin-status", "package-status"}:
+        print(plugin_package_status())
+        return 0
+
+    if command in {"package-plugin", "plugin-package"}:
+        print(package_runelite_plugin())
+        return 0
+
+    if command in {"build-plugin", "plugin-build"}:
+        print(build_runelite_plugin())
+        return 0
+
     if command in {"stack", "dashboard-stack"}:
         print(open_jagex_launcher())
         print(start_runelite_telemetry_dev_client())
         print(format_runelite_telemetry_status())
         return 0
 
-    print("Usage: python runelite_telemetry_control.py [status|open-launcher|start-dev|import|stack]")
+    print("Usage: python runelite_telemetry_control.py [status|open-launcher|start-dev|import|plugin-status|package-plugin|build-plugin|stack]")
     return 2
 
 

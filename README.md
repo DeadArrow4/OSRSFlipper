@@ -13,7 +13,7 @@ The project is designed to run locally on your machine. Private runtime data suc
 
 * Local Dash dashboard
 * SQLite trade tracking
-* RuneLite Flipping Utilities JSON import
+* OSRSFlipper RuneLite telemetry JSON import
 * FIFO matched completed flips
 * Open and unmatched trade event tracking
 * Latest flip candidate view
@@ -45,7 +45,7 @@ Never commit API keys, personal account files, local databases, backup ZIP files
 * Windows 10 or newer
 * Python 3.13 recommended
 * Git
-* RuneLite Flipping Utilities export data, optional
+* OSRSFlipper RuneLite telemetry plugin, optional
 * OpenAI API key, optional
 
 ## Local Setup
