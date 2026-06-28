@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
+from inspection_path import PROJECT_ROOT
 
-
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = PROJECT_ROOT
 
 
 def main() -> int:

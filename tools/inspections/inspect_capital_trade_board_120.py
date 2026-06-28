@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 
+from inspection_path import PROJECT_ROOT
 from capital_trade_board import apply_capital_limits_to_trade_board, load_trade_board_capital_state
 
 
@@ -11,7 +10,7 @@ def main() -> int:
     print("OSRSFlipper 1.2.0 Trade Board Capital Fit Inspection")
     print("=" * 76)
 
-    dashboard_data_path = Path("dashboard_data.py")
+    dashboard_data_path = PROJECT_ROOT / "dashboard_data.py"
     text = dashboard_data_path.read_text(encoding="utf-8", errors="ignore")
 
     checks = {

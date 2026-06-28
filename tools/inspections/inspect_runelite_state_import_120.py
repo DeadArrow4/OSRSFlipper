@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from inspection_path import PROJECT_ROOT
 from runelite_state_importer import import_runelite_state, print_import_result
 from capital_ai_memory import format_gp, score_flip_for_capital
 
 
 def main() -> int:
-    example_path = Path(__file__).resolve().parent / "runtime" / "runelite_state.example.json"
+    example_path = PROJECT_ROOT / "runtime" / "runelite_state.example.json"
 
     print("OSRSFlipper 1.2.0 RuneLite Telemetry Import Inspection")
     print("=" * 78)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from inspection_path import PROJECT_ROOT
 from ai_capital_advisor_context import append_capital_context_to_trade_memory
 
 
@@ -9,8 +8,8 @@ def main() -> int:
     print("OSRSFlipper 1.2.0 AI Capital Context Inspection")
     print("=" * 72)
 
-    advisor_path = Path("advisor.py")
-    helper_path = Path("ai_capital_advisor_context.py")
+    advisor_path = PROJECT_ROOT / "advisor.py"
+    helper_path = PROJECT_ROOT / "ai_capital_advisor_context.py"
 
     advisor_text = advisor_path.read_text(encoding="utf-8", errors="ignore")
     helper_text = helper_path.read_text(encoding="utf-8", errors="ignore")

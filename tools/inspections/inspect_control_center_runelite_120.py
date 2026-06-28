@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from inspection_path import PROJECT_ROOT
 from runelite_telemetry_control import format_runelite_telemetry_status
 
 
@@ -9,8 +8,8 @@ def main() -> int:
     print("OSRSFlipper 1.2.0 Control Center RuneLite Telemetry Inspection")
     print("=" * 82)
 
-    control_path = Path("osrs_control_center.py")
-    helper_path = Path("runelite_telemetry_control.py")
+    control_path = PROJECT_ROOT / "osrs_control_center.py"
+    helper_path = PROJECT_ROOT / "runelite_telemetry_control.py"
 
     control_text = control_path.read_text(encoding="utf-8", errors="ignore")
     helper_text = helper_path.read_text(encoding="utf-8", errors="ignore")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from inspection_path import PROJECT_ROOT
 from capital_dashboard import build_ai_capital_context_text, load_capital_dashboard_state
 
 
@@ -49,11 +48,11 @@ def main() -> int:
 
     print()
     for path in [
-        Path("dashboard_tabs") / "__init__.py",
-        Path("dashboard_callbacks") / "__init__.py",
-        Path("capital_dashboard.py"),
+        PROJECT_ROOT / "dashboard_tabs" / "__init__.py",
+        PROJECT_ROOT / "dashboard_callbacks" / "__init__.py",
+        PROJECT_ROOT / "capital_dashboard.py",
     ]:
-        print(f"{path}: {'found' if path.exists() else 'missing'}")
+        print(f"{path.relative_to(PROJECT_ROOT)}: {'found' if path.exists() else 'missing'}")
 
     return 0
 

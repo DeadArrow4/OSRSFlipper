@@ -5,7 +5,6 @@ Keep callbacks here so dashboard.py can stay small and easy to scan.
 """
 import os
 
-import pandas as pd
 import plotly.express as px
 from dash import dcc, html, Input, Output, State, ALL, ctx, no_update
 
@@ -20,7 +19,12 @@ from account_manager import (
 from advisor import generate_ai_advice
 from backup_manager import create_private_backup
 from migration_manager import run_app_migrations
-from openai_key_manager import save_api_key, delete_api_key, validate_key_shape
+from openai_key_manager import (
+    delete_api_key,
+    get_api_key_status,
+    save_api_key,
+    validate_key_shape,
+)
 from openai_key_tester import test_current_account_openai_key
 from openai_usage_manager import get_ai_usage_summary, init_ai_usage_db
 from prepare_release import prepare_clean_release_package
@@ -29,29 +33,91 @@ from safety_manager import build_safety_review, write_safety_review
 from settings_manager import set_setting
 from update_install import install_update
 
-from dashboard_data import *
-from dashboard_formatters import *
+from dashboard_data import (
+    BASE_DIR,
+    LOG_DIR,
+    OVERNIGHT_RAW_MARGIN_MIN,
+    OVERNIGHT_ROI_MIN,
+    add_chart_size,
+    backup_database_file,
+    clear_current_account_ai_notes,
+    clear_dashboard_cache,
+    clear_log_files,
+    clear_trade_dashboard_cache,
+    export_ai_notes_csv,
+    export_completed_trades_csv,
+    export_latest_scan_csv,
+    export_trade_events_csv,
+    get_account_manager_rows,
+    get_best_recurring_flips,
+    get_completed_trade_history,
+    get_completed_trade_rows,
+    get_current_trade_scope,
+    get_filtered_latest,
+    get_item_history_for_item,
+    get_live_ge_offer_rows,
+    get_open_slot_actions,
+    get_open_trade_rows,
+    get_setup_summary_items,
+    get_status_summary,
+    get_trade_board_recommendations,
+    get_trade_summary,
+    import_runelite_now,
+    optimize_database_file,
+    read_last_lines,
+    read_saved_ai_advice,
+    refresh_runelite_trades_for_dashboard,
+    reset_ai_advice_file,
+    run_health_check_report,
+)
+from dashboard_formatters import (
+    build_latest_display_df,
+    clean_trade_display_df,
+    format_gp,
+    format_percent,
+    parse_positive_int,
+    trade_table_columns,
+)
 from dashboard_tabs import build_status_cards
 from dashboard_theme import (
-empty_figure,
     apply_dark_chart_layout,
+    empty_figure,
     make_card,
 )
-from data_health import build_data_health_snapshot, build_data_trend_snapshot, build_metrics_automation_snapshot, ensure_data_health_schema, rebuild_daily_item_metrics, refresh_daily_metrics_if_stale
-from data_health import build_item_trend_explorer_snapshot
-from data_health import build_retention_preview_snapshot
-from data_health import build_database_backup_snapshot, create_database_safety_backup
-from data_health import cleanup_scan_results_with_backup_guard
-from data_health import build_database_compaction_preview_snapshot, build_maintenance_events_snapshot
-from data_health import create_compacted_database_copy
-from trade_trends import enrich_trade_board_rows_with_trends, summarize_trade_board_trend_health
-from trade_trends import apply_trade_board_trend_boost
+from data_health import (
+    build_data_health_snapshot,
+    build_data_trend_snapshot,
+    build_database_backup_snapshot,
+    build_database_compaction_preview_snapshot,
+    build_item_trend_explorer_snapshot,
+    build_maintenance_events_snapshot,
+    build_metrics_automation_snapshot,
+    build_retention_preview_snapshot,
+    cleanup_scan_results_with_backup_guard,
+    create_compacted_database_copy,
+    create_database_safety_backup,
+    ensure_data_health_schema,
+    rebuild_daily_item_metrics,
+    refresh_daily_metrics_if_stale,
+)
+from trade_trends import (
+    apply_trade_board_trend_boost,
+    enrich_trade_board_rows_with_trends,
+    summarize_trade_board_trend_health,
+)
 
 try:
     from capital_dashboard import register_capital_ai_callbacks
 except Exception:
     def register_capital_ai_callbacks(app):
         return None
+
+
+def _columns_for_records(rows):
+    if not rows:
+        return []
+
+    return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
 
 
 def _enrich_trade_board_dataframe_with_trends(board_df):
@@ -108,11 +174,6 @@ def register_dashboard_callbacks(app):
         State("database-compaction-confirmation", "value"),
     )
     def update_database_compaction_and_history(preview_clicks, compact_clicks, history_clicks, confirmation_text):
-        def columns_for(rows):
-            if not rows:
-                return []
-            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
         try:
             from dash import ctx as dash_ctx
 
@@ -154,10 +215,10 @@ def register_dashboard_callbacks(app):
             return (
                 compaction_status,
                 compaction_rows,
-                columns_for(compaction_rows),
+                _columns_for_records(compaction_rows),
                 history_status,
                 history_rows,
-                columns_for(history_rows),
+                _columns_for_records(history_rows),
             )
         except Exception as exc:
             compaction_rows = [
@@ -183,10 +244,10 @@ def register_dashboard_callbacks(app):
             return (
                 f"Database compaction failed: {type(exc).__name__}: {exc}",
                 compaction_rows,
-                columns_for(compaction_rows),
+                _columns_for_records(compaction_rows),
                 "Maintenance history failed to load.",
                 history_rows,
-                columns_for(history_rows),
+                _columns_for_records(history_rows),
             )
 
     @app.callback(
@@ -197,11 +258,6 @@ def register_dashboard_callbacks(app):
         Input("refresh-database-backup-list-button", "n_clicks"),
     )
     def update_database_backup(create_clicks, refresh_clicks):
-        def columns_for(rows):
-            if not rows:
-                return []
-            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
         try:
             from dash import ctx as dash_ctx
 
@@ -231,7 +287,7 @@ def register_dashboard_callbacks(app):
             return (
                 status,
                 rows,
-                columns_for(rows),
+                _columns_for_records(rows),
             )
         except Exception as exc:
             rows = [
@@ -247,7 +303,7 @@ def register_dashboard_callbacks(app):
             return (
                 f"Database backup failed: {type(exc).__name__}: {exc}",
                 rows,
-                columns_for(rows),
+                _columns_for_records(rows),
             )
 
 
@@ -261,11 +317,6 @@ def register_dashboard_callbacks(app):
         State("retention-cleanup-confirmation", "value"),
     )
     def update_retention_preview(preview_clicks, cleanup_clicks, retention_days, confirmation_text):
-        def columns_for(rows):
-            if not rows:
-                return []
-            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
         try:
             from dash import ctx as dash_ctx
 
@@ -281,7 +332,7 @@ def register_dashboard_callbacks(app):
                 return (
                     result.get("status", "Cleanup check completed."),
                     rows,
-                    columns_for(rows),
+                    _columns_for_records(rows),
                 )
 
             snapshot = build_retention_preview_snapshot(retention_days=retention_days)
@@ -290,7 +341,7 @@ def register_dashboard_callbacks(app):
             return (
                 snapshot.get("status", "Retention preview loaded."),
                 rows,
-                columns_for(rows),
+                _columns_for_records(rows),
             )
         except Exception as exc:
             rows = [
@@ -303,7 +354,7 @@ def register_dashboard_callbacks(app):
             return (
                 f"Retention cleanup/preview failed: {type(exc).__name__}: {exc}",
                 rows,
-                columns_for(rows),
+                _columns_for_records(rows),
             )
 
     @app.callback(
@@ -320,11 +371,6 @@ def register_dashboard_callbacks(app):
         State("item-trend-days-input", "value"),
     )
     def update_item_trend_explorer(n_clicks, item_query, days):
-        def columns_for(rows):
-            if not rows:
-                return []
-            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
         def empty_figure(title):
             return {
                 "data": [],
@@ -355,9 +401,9 @@ def register_dashboard_callbacks(app):
                     empty_figure("Margin Trend"),
                     empty_figure("Score Trend"),
                     matches,
-                    columns_for(matches),
+                    _columns_for_records(matches),
                     rows,
-                    columns_for(rows),
+                    _columns_for_records(rows),
                 )
 
             dates = [row.get("Metric Date") for row in rows]
@@ -442,9 +488,9 @@ def register_dashboard_callbacks(app):
                 margin_figure,
                 score_figure,
                 matches,
-                columns_for(matches),
+                _columns_for_records(matches),
                 rows,
-                columns_for(rows),
+                _columns_for_records(rows),
             )
         except Exception as exc:
             error_rows = [
@@ -459,7 +505,7 @@ def register_dashboard_callbacks(app):
                 empty_figure("Margin Trend"),
                 empty_figure("Score Trend"),
                 error_rows,
-                columns_for(error_rows),
+                _columns_for_records(error_rows),
                 [],
                 [],
                 [],
@@ -476,11 +522,6 @@ def register_dashboard_callbacks(app):
         Input("rebuild-daily-metrics-button", "n_clicks"),
     )
     def update_data_trend_readiness(refresh_clicks, schema_clicks, rebuild_clicks):
-        def columns_for(rows):
-            if not rows:
-                return []
-            return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
         try:
             snapshot = build_data_trend_snapshot(limit=25)
 
@@ -489,9 +530,9 @@ def register_dashboard_callbacks(app):
 
             return (
                 readiness,
-                columns_for(readiness),
+                _columns_for_records(readiness),
                 top_trends,
-                columns_for(top_trends),
+                _columns_for_records(top_trends),
             )
         except Exception as exc:
             readiness = [
@@ -505,7 +546,7 @@ def register_dashboard_callbacks(app):
             ]
             return (
                 readiness,
-                columns_for(readiness),
+                _columns_for_records(readiness),
                 [],
                 [],
             )
@@ -548,11 +589,6 @@ def register_dashboard_callbacks(app):
 
             snapshot = build_data_health_snapshot()
 
-            def columns_for(rows):
-                if not rows:
-                    return []
-                return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
-
             cards = [
                 make_card(card.get("Title", ""), card.get("Value", ""), card.get("Detail", ""))
                 for card in snapshot.get("cards", [])
@@ -576,15 +612,15 @@ def register_dashboard_callbacks(app):
                 status,
                 cards,
                 tables,
-                columns_for(tables),
+                _columns_for_records(tables),
                 time_rows,
-                columns_for(time_rows),
+                _columns_for_records(time_rows),
                 index_rows,
-                columns_for(index_rows),
+                _columns_for_records(index_rows),
                 metric_rows,
-                columns_for(metric_rows),
+                _columns_for_records(metric_rows),
                 automation_rows,
-                columns_for(automation_rows),
+                _columns_for_records(automation_rows),
             )
         except Exception as exc:
             cards = [

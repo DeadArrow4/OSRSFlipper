@@ -63,15 +63,16 @@ RELEASE_FILES = [
     "trend_analyzer.py",
     "update_install.py",
 
-    # 1.2.0 inspection helpers
-    "inspect_ai_capital_context_120.py",
-    "inspect_capital_ai_memory_120.py",
-    "inspect_capital_dashboard_120.py",
-    "inspect_capital_trade_board_120.py",
-    "inspect_control_center_runelite_120.py",
-    "inspect_release_120.py",
-    "inspect_runelite_state_import_120.py",
-    "inspect_trade_board_110.py",
+    # Inspection helpers
+    "tools/inspections/inspect_ai_capital_context_120.py",
+    "tools/inspections/inspect_capital_ai_memory_120.py",
+    "tools/inspections/inspect_capital_dashboard_120.py",
+    "tools/inspections/inspect_capital_trade_board_120.py",
+    "tools/inspections/inspect_control_center_runelite_120.py",
+    "tools/inspections/inspection_path.py",
+    "tools/inspections/inspect_release_121.py",
+    "tools/inspections/inspect_runelite_state_import_120.py",
+    "tools/inspections/inspect_trade_board_110.py",
 
     # Safe example telemetry contract
     "runtime/runelite_state.example.json",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from inspection_path import PROJECT_ROOT
 from capital_ai_memory import (
     ensure_capital_ai_tables,
     format_gp,
@@ -17,6 +18,7 @@ def main() -> int:
     db_path = ensure_capital_ai_tables()
     print("OSRSFlipper 1.2.0 Capital/AI Memory Inspection")
     print("=" * 72)
+    print(f"Project root: {PROJECT_ROOT}")
     print(f"Database: {db_path}\n")
 
     account = "inspection_demo"

@@ -29,7 +29,6 @@ from dashboard_data import (
     setting_value,
 )
 from dashboard_theme import base_table_styles
-from dashboard_data import get_item_options
 
 try:
     from capital_dashboard import build_capital_ai_panel
