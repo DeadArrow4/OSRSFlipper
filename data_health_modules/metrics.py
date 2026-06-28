@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -67,12 +68,33 @@ def rebuild_daily_item_metrics(days: int | None = 120) -> dict[str, Any]:
             where_clause += f" AND substr(CAST({_safe_identifier(scanned_col)} AS TEXT), 1, 10) >= ?"
             params.append(cutoff_date)
 
-        query = f"SELECT * FROM {_safe_identifier('scan_results')} {where_clause}"
+        selected_cols: list[str] = []
+
+        for column in [
+            scanned_col,
+            item_name_col,
+            item_id_col,
+            window_col,
+            margin_col,
+            total_profit_col,
+            profit_per_item_col,
+            roi_col,
+            volume_col,
+            quick_score_col,
+            overnight_score_col,
+            recommendation_score_col,
+        ]:
+            if column and column not in selected_cols:
+                selected_cols.append(column)
+
+        selected_sql = ", ".join(_safe_identifier(column) for column in selected_cols)
+        query = f"SELECT {selected_sql} FROM {_safe_identifier('scan_results')} {where_clause}"
 
         groups: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
         rows_seen = 0
         rows_used = 0
+        started_at = time.monotonic()
 
         for row in conn.execute(query, tuple(params)):
             rows_seen += 1
@@ -220,17 +242,20 @@ def rebuild_daily_item_metrics(days: int | None = 120) -> dict[str, Any]:
             )
 
         conn.commit()
+        elapsed_seconds = round(time.monotonic() - started_at, 2)
 
         return {
             "ok": True,
             "database_path": str(db_path),
             "status": (
                 f"Daily item metrics rebuilt. Read {rows_seen:,} scan rows, "
-                f"used {rows_used:,}, wrote {len(groups):,} daily metric rows."
+                f"used {rows_used:,}, wrote {len(groups):,} daily metric rows "
+                f"in {elapsed_seconds} second(s)."
             ),
             "rows_seen": rows_seen,
             "rows_used": rows_used,
             "metric_rows_written": len(groups),
+            "elapsed_seconds": elapsed_seconds,
             "days": days,
             "cutoff_date": cutoff_date,
             "schema_result": schema_result,

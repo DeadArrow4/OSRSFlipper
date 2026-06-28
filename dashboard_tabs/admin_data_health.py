@@ -48,13 +48,13 @@ def build_data_health_tab():
                                     min=1,
                                     max=3650,
                                     step=1,
-                                    value=120,
+                                    value=30,
                                     className="settings-input",
                                     persistence=True,
                                     persisted_props=["value"],
                                     persistence_type="local",
                                 ),
-                                "How many recent days to rebuild into daily_item_metrics."
+                                "Use 14-30 days for routine refreshes. Larger rebuilds can take several minutes on big databases."
                             ),
                             html.Div(
                                 className="setting-card",
@@ -87,6 +87,10 @@ def build_data_health_tab():
                     html.Div(
                         className="settings-action-row",
                         children=[
+                            html.Div(
+                                "Warning: rebuilding daily metrics scans historical rows and can keep this panel on Updating for several minutes. Use Refresh Stale Metrics for normal maintenance, or run large rebuilds when the dashboard is idle.",
+                                className="setting-help status-text",
+                            ),
 
                             html.Button(
                                 "Refresh Stale Metrics",

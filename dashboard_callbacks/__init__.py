@@ -569,6 +569,11 @@ def register_dashboard_callbacks(app):
         Input("rebuild-daily-metrics-button", "n_clicks"),
         Input("refresh-stale-daily-metrics-button", "n_clicks"),
         State("daily-metrics-days", "value"),
+        running=[
+            (Output("apply-data-health-schema-button", "disabled"), True, False),
+            (Output("rebuild-daily-metrics-button", "disabled"), True, False),
+            (Output("refresh-stale-daily-metrics-button", "disabled"), True, False),
+        ],
     )
     def update_data_health(refresh_clicks, schema_clicks, rebuild_clicks, stale_refresh_clicks, rebuild_days):
         try:
@@ -581,7 +586,7 @@ def register_dashboard_callbacks(app):
                 result = ensure_data_health_schema()
                 action_status = result.get("status", "Schema/index check complete.")
             elif triggered_id == "rebuild-daily-metrics-button":
-                result = rebuild_daily_item_metrics(days=rebuild_days or 120)
+                result = rebuild_daily_item_metrics(days=rebuild_days or 30)
                 action_status = result.get("status", "Daily metrics rebuild complete.")
             elif triggered_id == "refresh-stale-daily-metrics-button":
                 result = refresh_daily_metrics_if_stale(max_age_hours=12, rebuild_days=14, force=False)

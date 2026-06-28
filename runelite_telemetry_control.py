@@ -8,8 +8,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from account_context import resolve_app_base_dir
+except Exception:
+    resolve_app_base_dir = None
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = resolve_app_base_dir() if resolve_app_base_dir else Path(__file__).resolve().parent
 RUNTIME_DIR = PROJECT_ROOT / "runtime"
 LOG_DIR = PROJECT_ROOT / "logs"
 STATE_PATH = RUNTIME_DIR / "runelite_state.json"
