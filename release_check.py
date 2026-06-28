@@ -465,20 +465,24 @@ def check_account_and_key(checker):
 
 def check_runelite(checker):
     try:
+        from first_run_setup import locate_runelite_file
+
         scope = get_account_scope()
         account = scope.get("osrs_account_name")
-        runelite_file = Path.home() / ".runelite" / "flipping" / f"{account}.json"
+        runelite_file = locate_runelite_file(account)
 
         if runelite_file.exists():
-            checker.pass_("RuneLite:file", str(runelite_file))
+            checker.pass_("RuneLite:telemetry file", str(runelite_file))
 
             try:
                 payload = json.loads(runelite_file.read_text(encoding="utf-8-sig"))
-                checker.pass_("RuneLite:json parse", f"keys: {', '.join(payload.keys())[:180]}")
+                source = payload.get("source", "unknown") if isinstance(payload, dict) else "unknown"
+                payload_kind = payload.get("payload_kind", "unknown") if isinstance(payload, dict) else "unknown"
+                checker.pass_("RuneLite:telemetry parse", f"source={source}, payload={payload_kind}")
             except Exception as error:
-                checker.warn("RuneLite:json parse", error)
+                checker.warn("RuneLite:telemetry parse", error)
         else:
-            checker.warn("RuneLite:file", f"not found yet: {runelite_file}")
+            checker.warn("RuneLite:telemetry file", f"not found yet: {runelite_file}")
 
     except Exception as error:
         checker.warn("RuneLite:check", error)

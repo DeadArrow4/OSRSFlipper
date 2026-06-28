@@ -1899,18 +1899,13 @@ def get_status_summary():
     except Exception:
         ai_advice_size = 0
 
-    runelite_file = os.path.join(
-        os.path.expanduser("~"),
-        ".runelite",
-        "flipping",
-        f"{scope['osrs_account_name']}.json"
-    )
+    runelite_file = locate_runelite_file(scope["osrs_account_name"])
 
     return {
         "Local User": scope["app_username"],
         "OSRS/RuneLite Account": scope["osrs_account_name"],
         "Database": DB_FILE,
-        "RuneLite File": runelite_file,
+        "RuneLite Telemetry File": str(runelite_file),
         "RuneLite File Modified": safe_file_modified_time(runelite_file),
         "Latest Market Scan": latest_scan,
         "Latest Trade Import": latest_trade_import,
