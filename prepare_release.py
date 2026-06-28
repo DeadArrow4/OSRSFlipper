@@ -21,6 +21,11 @@ RELEASE_FILES = [
     "api.py",
     "app_version.py",
     "backup_manager.py",
+    "ai_capital_advisor_context.py",
+    "capital_ai_memory.py",
+    "capital_budget.py",
+    "capital_dashboard.py",
+    "capital_trade_board.py",
     "collector.py",
     "dashboard.py",
     "dashboard_callbacks/__init__.py",
@@ -29,6 +34,7 @@ RELEASE_FILES = [
     "dashboard_data.py",
     "dashboard_formatters.py",
     "dashboard_theme.py",
+    "data_health.py",
     "database.py",
     "first_run_setup.py",
     "health_check.py",
@@ -37,10 +43,15 @@ RELEASE_FILES = [
     "openai_key_manager.py",
     "openai_key_tester.py",
     "openai_usage_manager.py",
+    "osrs_launcher.py",
     "osrs_control_center.py",
     "prepare_release.py",
     "recommender.py",
+    "report.py",
     "release_check.py",
+    "runelite_plugin_packager.py",
+    "runelite_state_importer.py",
+    "runelite_telemetry_control.py",
     "safety_manager.py",
     "scanner.py",
     "security_runtime.py",
@@ -48,8 +59,27 @@ RELEASE_FILES = [
     "trade_ai_context.py",
     "trade_importer.py",
     "trade_tracker.py",
+    "trade_trends.py",
     "trend_analyzer.py",
     "update_install.py",
+
+    # 1.2.0 inspection helpers
+    "inspect_ai_capital_context_120.py",
+    "inspect_capital_ai_memory_120.py",
+    "inspect_capital_dashboard_120.py",
+    "inspect_capital_trade_board_120.py",
+    "inspect_control_center_runelite_120.py",
+    "inspect_release_120.py",
+    "inspect_runelite_state_import_120.py",
+    "inspect_trade_board_110.py",
+
+    # Safe example telemetry contract
+    "runtime/runelite_state.example.json",
+
+    # Project docs
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
 
     # Utilities
     "remove_shared_openai_key.py",
@@ -61,8 +91,18 @@ RELEASE_FILES = [
 
 
 OPTIONAL_DIRS = [
-    "assets"
+    "assets",
+    "runelite_companion",
 ]
+
+
+EXCLUDED_RELEASE_DIR_PARTS = {
+    ".git",
+    ".gradle",
+    "__pycache__",
+    "build",
+    "out",
+}
 
 
 EXCLUDED_PRIVATE_ITEMS = [
@@ -152,7 +192,10 @@ def copy_dir(src, dst, manifest):
         return False
 
     for item in src.rglob("*"):
-        if item.is_file() and "__pycache__" not in item.parts:
+        if any(part in EXCLUDED_RELEASE_DIR_PARTS for part in item.relative_to(src).parts):
+            continue
+
+        if item.is_file():
             rel = item.relative_to(src)
             copy_file(item, dst / rel, manifest)
 
