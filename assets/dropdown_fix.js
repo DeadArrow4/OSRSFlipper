@@ -25,10 +25,10 @@ Safe behavior:
     const BG = "#05080a";
     const PANEL = "#101820";
     const HOVER = "#1d2b32";
-    const SELECTED = "#0f766e";
+    const SELECTED = "rgba(20, 184, 166, 0.24)";
     const BORDER = "#304247";
-    const FOCUS = "#14b8a6";
-    const RING = "0 0 0 2px rgba(20, 184, 166, 0.22)";
+    const FOCUS = "#4b666b";
+    const RING = "inset 0 0 0 1px rgba(20, 184, 166, 0.10)";
     const TEXT = "#f8fafc";
     const MUTED = "#8ea0a6";
     const OPTION_TEXT = "#d6dee2";

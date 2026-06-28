@@ -3081,3 +3081,469 @@ pre,
         display: none !important;
     }
 }
+
+/* =========================================================
+   OSRSFlipper 1.3.0 UI refinement pass
+   Softer controls, capital-first telemetry, and cleaner Trade Board settings.
+   ========================================================= */
+
+.dash-dropdown,
+.themed-dropdown,
+.dark-dropdown,
+.settings-dropdown,
+.item-history-dropdown {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+body .Select-control,
+body .Select.is-focused > .Select-control,
+body .Select.is-open > .Select-control,
+body .Select.has-value.Select--single > .Select-control,
+body .Select.has-value.is-pseudo-focused.Select--single > .Select-control,
+.dash-dropdown .Select-control,
+.themed-dropdown .Select-control,
+.dark-dropdown .Select-control,
+.settings-dropdown .Select-control {
+    min-height: 34px !important;
+    border: 1px solid rgba(142, 160, 166, 0.28) !important;
+    border-radius: 7px !important;
+    background: #05080a !important;
+    background-color: #05080a !important;
+    box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.02) !important;
+}
+
+body .Select-control:hover,
+body .Select.is-focused > .Select-control,
+body .Select.is-open > .Select-control,
+.dash-dropdown:focus-within .Select-control {
+    border-color: rgba(20, 184, 166, 0.48) !important;
+    box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.10) !important;
+}
+
+body .Select-value,
+body .Select-value-label,
+body .Select-placeholder,
+body .Select-input,
+body .Select-input input,
+.Select-control input {
+    color: var(--text-soft) !important;
+    -webkit-text-fill-color: var(--text-soft) !important;
+}
+
+body .Select-arrow-zone,
+body .Select-clear-zone {
+    color: rgba(142, 160, 166, 0.86) !important;
+    background: transparent !important;
+}
+
+body .Select-menu-outer,
+body .Select-menu,
+body .VirtualizedSelectGrid,
+body .ReactVirtualized__Grid,
+body .ReactVirtualized__Grid__innerScrollContainer {
+    border: 1px solid rgba(142, 160, 166, 0.24) !important;
+    border-radius: 7px !important;
+    background: #101820 !important;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.42) !important;
+}
+
+body .Select-option,
+body .VirtualizedSelectOption {
+    background: #101820 !important;
+    color: var(--text-soft) !important;
+}
+
+body .Select-option.is-focused,
+body .VirtualizedSelectFocusedOption {
+    background: #1d2b32 !important;
+    color: var(--text) !important;
+}
+
+body .Select-option.is-selected,
+body .VirtualizedSelectSelectedOption {
+    background: rgba(20, 184, 166, 0.24) !important;
+    color: var(--text) !important;
+}
+
+.capital-ai-panel {
+    margin: 10px 0 14px 0 !important;
+    padding: 14px !important;
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: 8px !important;
+    background: rgba(5, 8, 10, 0.72) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.20) !important;
+}
+
+.capital-ai-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    margin-bottom: 10px !important;
+}
+
+.capital-ai-heading {
+    min-width: 0 !important;
+}
+
+.capital-ai-title {
+    color: var(--text) !important;
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
+}
+
+.capital-ai-subtitle {
+    color: var(--text-muted) !important;
+    margin-top: 3px !important;
+    font-size: 0.78rem !important;
+}
+
+.capital-ai-actions {
+    display: flex !important;
+    gap: 8px !important;
+    flex: 0 0 auto !important;
+}
+
+.capital-ai-action {
+    min-width: 78px !important;
+}
+
+.capital-ai-status-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 6px 0 10px 0 !important;
+    padding: 8px 10px !important;
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.58) !important;
+}
+
+.capital-ai-source-pill {
+    flex: 0 0 auto !important;
+    min-width: 86px !important;
+    padding: 4px 8px !important;
+    border-radius: 999px !important;
+    text-align: center !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.capital-ai-source-pill--ok {
+    color: #bff8ed !important;
+    background: rgba(20, 184, 166, 0.16) !important;
+    border: 1px solid rgba(20, 184, 166, 0.32) !important;
+}
+
+.capital-ai-source-pill--warn {
+    color: #ffe7a3 !important;
+    background: rgba(246, 196, 83, 0.12) !important;
+    border: 1px solid rgba(246, 196, 83, 0.28) !important;
+}
+
+.capital-ai-source-pill--bad {
+    color: #ffd2d2 !important;
+    background: rgba(255, 107, 107, 0.12) !important;
+    border: 1px solid rgba(255, 107, 107, 0.28) !important;
+}
+
+.capital-ai-status-copy {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+
+.capital-ai-status-title {
+    color: var(--text-soft) !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+}
+
+.capital-ai-status-subtitle {
+    color: var(--text-muted) !important;
+    margin-top: 2px !important;
+    font-size: 0.74rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.capital-ai-meta-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    justify-content: flex-end !important;
+}
+
+.capital-ai-meta-chip,
+.capital-ai-import-message {
+    color: rgba(214, 222, 226, 0.76) !important;
+    padding: 3px 7px !important;
+    border: 1px solid rgba(142, 160, 166, 0.12) !important;
+    border-radius: 999px !important;
+    background: rgba(5, 8, 10, 0.56) !important;
+    font-size: 0.68rem !important;
+    white-space: nowrap !important;
+}
+
+.capital-ai-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: 8px !important;
+    margin: 8px 0 !important;
+}
+
+.capital-ai-kpi-card {
+    min-height: 76px !important;
+    padding: 10px 11px !important;
+    border: 1px solid rgba(142, 160, 166, 0.16) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.78) !important;
+}
+
+.capital-ai-kpi-card--primary {
+    border-color: rgba(20, 184, 166, 0.26) !important;
+    background: rgba(20, 184, 166, 0.07) !important;
+}
+
+.capital-ai-kpi-card--warn {
+    border-color: rgba(246, 196, 83, 0.28) !important;
+    background: rgba(246, 196, 83, 0.08) !important;
+}
+
+.capital-ai-kpi-label {
+    color: rgba(214, 222, 226, 0.78) !important;
+    font-size: 0.68rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.capital-ai-kpi-value {
+    color: var(--text) !important;
+    margin-top: 4px !important;
+    font-size: 1.42rem !important;
+    font-weight: 920 !important;
+    line-height: 1.05 !important;
+}
+
+.capital-ai-kpi-note {
+    color: var(--text-muted) !important;
+    margin-top: 5px !important;
+    font-size: 0.7rem !important;
+    line-height: 1.25 !important;
+}
+
+.capital-ai-budget-strip {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin: 10px 0 !important;
+    padding: 8px 10px !important;
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.54) !important;
+}
+
+.capital-ai-budget-label,
+.capital-ai-table-title {
+    color: var(--accent-warm) !important;
+    font-size: 0.72rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.capital-ai-budget-value {
+    color: var(--text) !important;
+    font-size: 1.04rem !important;
+    font-weight: 900 !important;
+}
+
+.capital-ai-budget-mode,
+.capital-ai-budget-note {
+    color: var(--text-muted) !important;
+    font-size: 0.74rem !important;
+}
+
+.capital-ai-table-wrap {
+    margin-top: 10px !important;
+}
+
+.capital-ai-table-title {
+    margin-bottom: 6px !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer {
+    margin: 8px 0 10px 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-color: rgba(142, 160, 166, 0.16) !important;
+    background: rgba(5, 8, 10, 0.64) !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-drawer > summary {
+    min-height: 32px !important;
+    padding: 7px 10px !important;
+    border-bottom: 1px solid rgba(142, 160, 166, 0.10) !important;
+}
+
+.trade-board-page .osrs-tradeboard-settings-grid {
+    display: block !important;
+    min-height: 0 !important;
+    padding: 8px !important;
+}
+
+.osrs-tradeboard-toolbar {
+    position: static !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    margin: 0 0 8px 0 !important;
+    padding: 8px !important;
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.60) !important;
+    box-shadow: none !important;
+}
+
+.osrs-tradeboard-toolbar-left,
+.osrs-tradeboard-toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+.osrs-tradeboard-title-chip {
+    padding: 0 10px 0 2px !important;
+    border-right: 1px solid rgba(142, 160, 166, 0.16) !important;
+    color: var(--text) !important;
+    font-size: 0.82rem !important;
+    font-weight: 900 !important;
+}
+
+.osrs-toolbar-button,
+.osrs-subtab-button {
+    min-height: 28px !important;
+    padding: 5px 9px !important;
+    border: 1px solid rgba(142, 160, 166, 0.20) !important;
+    border-radius: 999px !important;
+    background: rgba(5, 8, 10, 0.54) !important;
+    color: var(--text-soft) !important;
+    font-size: 0.74rem !important;
+}
+
+.osrs-toolbar-button.osrs-active,
+.osrs-subtab-button.osrs-subtab-active {
+    border-color: rgba(20, 184, 166, 0.34) !important;
+    background: rgba(20, 184, 166, 0.14) !important;
+    color: var(--text) !important;
+}
+
+.osrs-tradeboard-drawer {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(10, 15, 18, 0.90) !important;
+    box-shadow: none !important;
+}
+
+.osrs-tradeboard-drawer-header {
+    margin-bottom: 8px !important;
+}
+
+.osrs-tradeboard-drawer-title {
+    color: var(--text) !important;
+    font-size: 0.82rem !important;
+    font-weight: 900 !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer .settings-section,
+.trade-board-page .osrs-tradeboard-config-panel.osrs-panel-open {
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer .settings-grid,
+.trade-board-page .osrs-tradeboard-drawer .settings-grid-3,
+.trade-board-page .osrs-tradeboard-drawer .trade-board-control-grid,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-grid-3,
+.trade-board-page .osrs-tradeboard-settings-grid .trade-board-control-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: 8px !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer .setting-card,
+.trade-board-page .osrs-tradeboard-settings-grid .setting-card {
+    min-height: 0 !important;
+    padding: 8px !important;
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.64) !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer label,
+.trade-board-page .osrs-tradeboard-settings-grid label,
+.trade-board-page .osrs-tradeboard-drawer .settings-card-label,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-card-label {
+    color: rgba(214, 222, 226, 0.78) !important;
+    margin-bottom: 5px !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer .setting-help,
+.trade-board-page .osrs-tradeboard-settings-grid .setting-help,
+.trade-board-page .osrs-tradeboard-drawer .settings-card-help,
+.trade-board-page .osrs-tradeboard-settings-grid .settings-card-help {
+    display: block !important;
+    color: var(--text-muted) !important;
+    margin-top: 5px !important;
+    font-size: 0.68rem !important;
+    line-height: 1.24 !important;
+}
+
+.trade-board-page .osrs-tradeboard-drawer .setting-value,
+.trade-board-page .osrs-tradeboard-settings-grid .setting-value {
+    color: var(--text) !important;
+    font-size: 0.82rem !important;
+    font-weight: 750 !important;
+}
+
+.trade-board-page #trade-board-status {
+    max-width: none !important;
+    margin-top: 8px !important;
+}
+
+@media (max-width: 900px) {
+    .capital-ai-header,
+    .capital-ai-status-row,
+    .osrs-tradeboard-toolbar {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .capital-ai-meta-row,
+    .capital-ai-actions {
+        justify-content: flex-start !important;
+    }
+
+    .capital-ai-status-subtitle {
+        white-space: normal !important;
+    }
+}

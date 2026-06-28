@@ -397,51 +397,59 @@ def build_ai_capital_context_text() -> str:
     )
 
 
-def _kpi_card(label: str, value: str, note: str = ""):
+def _telemetry_state_label(data: dict[str, Any]) -> tuple[str, str, str]:
+    if data.get("telemetry_ready"):
+        if data.get("using_preserved_gp"):
+            return "Live + saved GP", "capital-ai-source-pill capital-ai-source-pill--warn", "Fresh offers with last nonzero GP preserved."
+        return "Live", "capital-ai-source-pill capital-ai-source-pill--ok", "Fresh RuneLite telemetry."
+    if data.get("using_last_known"):
+        return "Last known", "capital-ai-source-pill capital-ai-source-pill--warn", "Telemetry is stale; showing last imported values."
+    return "Needs refresh", "capital-ai-source-pill capital-ai-source-pill--bad", "Start RuneLite telemetry or import a fresh payload."
+
+
+def _kpi_card(label: str, value: str, note: str = "", tone: str = ""):
+    classes = ["capital-ai-kpi-card"]
+    if tone:
+        classes.append(f"capital-ai-kpi-card--{tone}")
+
     return html.Div(
         [
-            html.Div(label, style={"opacity": "0.72", "fontSize": "0.8rem"}),
-            html.Div(value, style={"fontSize": "1.35rem", "fontWeight": "700"}),
-            html.Div(note, style={"opacity": "0.62", "fontSize": "0.74rem"}) if note else html.Div(),
+            html.Div(label, className="capital-ai-kpi-label"),
+            html.Div(value, className="capital-ai-kpi-value"),
+            html.Div(note, className="capital-ai-kpi-note") if note else html.Div(),
         ],
-        className="capital-ai-kpi-card",
-        style={
-            "padding": "10px 12px",
-            "border": "1px solid rgba(255,255,255,0.12)",
-            "borderRadius": "10px",
-            "background": "rgba(255,255,255,0.04)",
-            "minWidth": "145px",
-        },
+        className=" ".join(classes),
     )
 
 
 def _status_block(data: dict[str, Any]):
     capital = data["capital"]
     import_result = data.get("import_result") or {}
-    telemetry = "found" if data.get("telemetry_exists") else "missing"
-    if data.get("telemetry_ready"):
-        readiness = "ready"
-        if data.get("using_preserved_gp"):
-            readiness += "; preserving last nonzero GP"
-    elif data.get("using_last_known"):
-        readiness = f"using last known values; live telemetry not ready: {data.get('telemetry_problem') or 'unknown'}"
-    else:
-        readiness = f"not ready: {data.get('telemetry_problem') or 'unknown'}"
+    label, class_name, summary = _telemetry_state_label(data)
     import_msg = import_result.get("message", "")
+    source_detail = data.get("telemetry_problem") or summary
 
     return html.Div(
         [
-            html.Div("RuneLite Capital Telemetry", style={"fontWeight": "700"}),
+            html.Div(label, className=class_name),
             html.Div(
-                f"Telemetry file: {telemetry} | Readiness: {readiness} | Payload: {data.get('payload_kind')} | Loaded: {data.get('loaded_at')}",
-                style={"opacity": "0.8", "fontSize": "0.9rem"},
+                [
+                    html.Div(summary, className="capital-ai-status-title"),
+                    html.Div(source_detail, className="capital-ai-status-subtitle"),
+                ],
+                className="capital-ai-status-copy",
             ),
             html.Div(
-                f"Account: {capital.get('account_name', 'default')} | Captured: {capital.get('captured_at', '')}",
-                style={"opacity": "0.8", "fontSize": "0.9rem"},
+                [
+                    html.Span(f"Account {capital.get('account_name', 'default')}", className="capital-ai-meta-chip"),
+                    html.Span(f"Captured {capital.get('captured_at', '') or 'unknown'}", className="capital-ai-meta-chip"),
+                    html.Span(f"Payload {data.get('payload_kind')}", className="capital-ai-meta-chip"),
+                ],
+                className="capital-ai-meta-row",
             ),
-            html.Div(import_msg, style={"opacity": "0.8", "fontSize": "0.9rem"}) if import_msg else html.Div(),
-        ]
+            html.Div(import_msg, className="capital-ai-import-message") if import_msg else html.Div(),
+        ],
+        className="capital-ai-status-row",
     )
 
 
@@ -452,17 +460,12 @@ def _kpi_cards(data: dict[str, Any]):
         note = "waiting for fresh full telemetry"
         return html.Div(
             [
-                _kpi_card("Raw GP", "n/a", note),
-                _kpi_card("Usable GP", "n/a", note),
-                _kpi_card("Locked Buy GP", "n/a", note),
-                _kpi_card("Filled Buy Value", "n/a", note),
-                _kpi_card("Sell-side Value", "n/a", note),
-                _kpi_card("Filled Sell GP", "n/a", note),
-                _kpi_card("Total GE Held", "n/a", note),
-                _kpi_card("Open Slots", "n/a", note),
-                _kpi_card("Stuck Offers", "n/a", note),
+                _kpi_card("Available GP", "n/a", note, "primary"),
+                _kpi_card("Free Slots", "n/a", note),
+                _kpi_card("GP in Buys", "n/a", note),
+                _kpi_card("GE Held", "n/a", note),
             ],
-            style={"display": "flex", "flexWrap": "wrap", "gap": "10px", "marginTop": "10px"},
+            className="capital-ai-kpi-grid",
         )
 
     if data.get("using_preserved_gp"):
@@ -472,17 +475,14 @@ def _kpi_cards(data: dict[str, Any]):
 
     return html.Div(
         [
-            _kpi_card("Raw GP", _format_gp(capital.get("raw_gp_available")), f"cash seen by telemetry; {source_note}"),
-            _kpi_card("Usable GP", _format_gp(capital.get("usable_gp")), "cash available for new buys after reserve"),
-            _kpi_card("Locked Buy GP", _format_gp(capital.get("locked_buy_gp")), "remaining GP waiting in active buy offers"),
-            _kpi_card("Filled Buy Value", _format_gp(capital.get("buy_filled_value_gp")), "bought items still held in GE offers"),
-            _kpi_card("Sell-side Value", _format_gp(capital.get("locked_sell_value_gp")), "items listed for sale; not spendable GP yet"),
-            _kpi_card("Filled Sell GP", _format_gp(capital.get("sell_filled_value_gp")), "sold GP waiting in GE collection"),
-            _kpi_card("Total GE Held", _format_gp(capital.get("total_ge_value_held_gp")), "remaining buys + filled buys + sell offers + filled sells"),
-            _kpi_card("Open Slots", str(capital.get("open_slots", 0)), f"{capital.get('open_offer_count', 0)} active offers"),
-            _kpi_card("Stuck Offers", str(capital.get("stuck_offers", 0)), "age threshold check"),
+            _kpi_card("Available GP", _format_gp(capital.get("usable_gp")), "ready for new buy offers", "primary"),
+            _kpi_card("Free Slots", f"{capital.get('open_slots', 0)}/8", f"{capital.get('open_offer_count', 0)} active GE offers", "primary"),
+            _kpi_card("GP in Buys", _format_gp(capital.get("locked_buy_gp")), "unfilled buy offers"),
+            _kpi_card("GE Held", _format_gp(capital.get("total_ge_value_held_gp")), "offers and collectables"),
+            _kpi_card("Cash Seen", _format_gp(capital.get("raw_gp_available")), source_note),
+            _kpi_card("Needs Attention", str(capital.get("stuck_offers", 0)), "stale offer threshold", "warn" if capital.get("stuck_offers", 0) else ""),
         ],
-        style={"display": "flex", "flexWrap": "wrap", "gap": "10px", "marginTop": "10px"},
+        className="capital-ai-kpi-grid",
     )
 
 
@@ -496,23 +496,32 @@ def _budget_cards():
 
         return html.Div(
             [
-                _kpi_card("Budget Mode", mode_label, str(budget.get("source", ""))),
-                _kpi_card("Manual Cap", _format_gp(budget.get("manual_cash_stack")), "Cash stack setting"),
-                _kpi_card("Live Usable GP", _format_gp(budget.get("live_usable_gp")), "usable capital state"),
-                _kpi_card("Effective Scanner Budget", _format_gp(budget.get("cash_stack")), note[:70]),
+                html.Div("Scanner Budget", className="capital-ai-budget-label"),
+                html.Div(_format_gp(budget.get("cash_stack")), className="capital-ai-budget-value"),
+                html.Div(mode_label, className="capital-ai-budget-mode"),
+                html.Div(note[:110], className="capital-ai-budget-note") if note else html.Div(),
             ],
-            style={"display": "flex", "flexWrap": "wrap", "gap": "10px", "marginTop": "10px"},
+            className="capital-ai-budget-strip",
         )
     except Exception as exc:
         return html.Div(
             f"Budget source unavailable: {exc}",
-            style={"opacity": "0.75", "fontSize": "0.9rem", "marginTop": "10px"},
+            className="capital-ai-budget-strip capital-ai-budget-strip--error",
         )
 
 
 def _table_columns(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     default = ["Slot", "Item", "Side", "Price", "Remaining", "Locked GP", "Filled Value", "Sell Value", "Age Min", "State"]
-    columns = list(rows[0].keys()) if rows else default
+    if not rows:
+        columns = default
+        return [{"name": col, "id": col} for col in columns]
+
+    core_columns = {"Slot", "Item", "Side", "Price", "Remaining", "Age Min", "State"}
+    columns = []
+    for col in default:
+        if col in core_columns or any(str(row.get(col, "")).strip() for row in rows):
+            columns.append(col)
+
     return [{"name": col, "id": col} for col in columns]
 
 
@@ -526,30 +535,30 @@ def build_capital_ai_panel():
                 [
                     html.Div(
                         [
-                            html.H3("Capital-Aware RuneLite State", style={"margin": "0"}),
+                            html.Div("RuneLite Capital", className="capital-ai-title"),
                             html.Div(
-                                "Live GP, locked GE offers, usable capital, and open slots for AI recommendations.",
-                                style={"opacity": "0.75", "fontSize": "0.92rem"},
+                                "Fast read on buying power, blocked slots, and GP tied up in the Grand Exchange.",
+                                className="capital-ai-subtitle",
                             ),
                         ],
-                        style={"flex": "1"},
+                        className="capital-ai-heading",
                     ),
                     html.Div(
                         [
-                            html.Button("Import RuneLite Now", id="capital-ai-import-btn", n_clicks=0),
-                            html.Button("Refresh View", id="capital-ai-refresh-btn", n_clicks=0, style={"marginLeft": "8px"}),
+                            html.Button("Import", id="capital-ai-import-btn", n_clicks=0, className="primary-button capital-ai-action"),
+                            html.Button("Refresh", id="capital-ai-refresh-btn", n_clicks=0, className="secondary-button capital-ai-action"),
                         ],
-                        style={"whiteSpace": "nowrap"},
+                        className="capital-ai-actions",
                     ),
                 ],
-                style={"display": "flex", "alignItems": "center", "gap": "12px", "marginBottom": "10px"},
+                className="capital-ai-header",
             ),
             html.Div(id="capital-ai-status", children=_status_block(initial)),
             html.Div(id="capital-ai-kpi-cards", children=_kpi_cards(initial)),
             html.Div(id="capital-ai-budget-cards", children=_budget_cards()),
             html.Div(
                 [
-                    html.H4("Open GE Offers / Capital Locks", style={"marginBottom": "8px"}),
+                    html.Div("Active GE Offers", className="capital-ai-table-title"),
                     dash_table.DataTable(
                         id="capital-ai-locks-table",
                         data=initial["rows"],
@@ -565,17 +574,10 @@ def build_capital_ai_panel():
                         },
                     ),
                 ],
-                style={"marginTop": "14px"},
+                className="capital-ai-table-wrap",
             ),
         ],
         className="capital-ai-panel",
-        style={
-            "padding": "14px",
-            "margin": "10px 0 14px 0",
-            "border": "1px solid rgba(255,255,255,0.14)",
-            "borderRadius": "14px",
-            "background": "rgba(0,0,0,0.18)",
-        },
     )
 
 
