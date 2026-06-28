@@ -261,11 +261,12 @@ Not included:
 
 Install notes:
 1. Extract this release folder to the target machine.
-2. Install Python if needed.
-3. Install requirements with: python -m pip install -r requirements.txt
-4. Run: python first_run_setup.py
-5. Build or launch with: python osrs_control_center.py
-6. If using the EXE, run OSRSFlipper.exe from the dist folder or rebuild with build_exe.bat.
+2. For a normal install, move or rename the app folder to C:\\OSRSFlipper.
+3. Install Python if needed.
+4. Install requirements with: python -m pip install -r requirements.txt
+5. Run: python first_run_setup.py
+6. Build or launch with: python osrs_control_center.py
+7. If using the EXE, run OSRSFlipper.exe from the dist folder or rebuild with build_exe.bat.
 
 Security notes:
 - Do not enter your Jagex/OSRS password into OSRSFlipper.
@@ -287,16 +288,26 @@ def write_install_readme(release_dir, manifest):
 Version:
 {get_version_line()}
 
-Quick start:
-1. Open PowerShell in this folder.
-2. Install packages:
+New install:
+1. Move or rename this extracted app folder to:
+   C:\\OSRSFlipper
+2. Confirm this file exists:
+   C:\\OSRSFlipper\\osrs_control_center.py
+3. Open PowerShell in C:\\OSRSFlipper.
+4. Install packages:
    python -m pip install -r requirements.txt
-3. Run setup:
+5. Run setup:
    python first_run_setup.py
-4. Run release check:
+6. Run release check:
    python release_check.py
-5. Start app:
+7. Start app:
    python osrs_control_center.py
+
+Why C:\\OSRSFlipper:
+Current 1.2.x builds use C:\\OSRSFlipper as the stable runtime folder for
+the local database, settings, saved session, and telemetry state. Running
+from a timestamped extracted folder can work on a brand-new machine, but
+one stable install folder makes updates and local data safer to reason about.
 
 For EXE use:
 - If dist\\OSRSFlipper.exe is included, run that.
@@ -315,8 +326,10 @@ This clean release package intentionally does not include:
 Before updating an existing install:
 1. Run:
    python backup_manager.py --reason pre-update
-2. Copy these release files over your existing C:\\OSRSFlipper folder.
-3. Run:
+2. From this extracted release folder, run:
+   python update_install.py --target C:\\OSRSFlipper
+3. Or copy these release files over your existing C:\\OSRSFlipper folder.
+4. Run:
    python migration_manager.py
    python release_check.py
 """

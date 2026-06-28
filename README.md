@@ -44,17 +44,90 @@ Never commit API keys, personal account files, local databases, backup ZIP files
 
 * Windows 10 or newer
 * Python 3.13 recommended
-* Git
+* Git, only needed when cloning the source repository
 * OSRSFlipper RuneLite telemetry plugin, optional
 * OpenAI API key, optional
 
-## Local Setup
+## ZIP Release Setup
+
+For normal local use, install OSRSFlipper into one stable folder:
+
+```text
+C:\OSRSFlipper
+```
+
+When downloading a GitHub release ZIP:
+
+1. Extract the ZIP.
+2. Move or rename the extracted app folder to `C:\OSRSFlipper`.
+3. Confirm the final path is `C:\OSRSFlipper\osrs_control_center.py`.
+4. Open PowerShell in `C:\OSRSFlipper`.
+
+Current 1.2.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, saved session, and telemetry state. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
+
+Create and activate a virtual environment:
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\activate
+```
+
+Install dependencies:
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Run first-time setup:
+
+```powershell
+python first_run_setup.py
+```
+
+Start the control center:
+
+```powershell
+python osrs_control_center.py
+```
+
+Dashboard URL:
+
+```text
+http://127.0.0.1:8050
+```
+
+## Updating an Existing Install
+
+Before replacing files in `C:\OSRSFlipper`, run:
+
+```powershell
+cd C:\OSRSFlipper
+python backup_manager.py --reason pre-update
+```
+
+Then run the updater from the extracted release folder:
+
+```powershell
+python update_install.py --target C:\OSRSFlipper
+```
+
+Or copy the clean release files over the existing `C:\OSRSFlipper` folder, then run:
+
+```powershell
+cd C:\OSRSFlipper
+python migration_manager.py
+python release_check.py
+```
+
+## Source Setup
 
 Clone the repository:
 
 ```powershell
+cd C:\
 git clone https://github.com/DeadArrow4/OSRSFlipper.git
-cd OSRSFlipper
+cd C:\OSRSFlipper
 ```
 
 Create and activate a virtual environment:
