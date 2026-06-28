@@ -1243,7 +1243,7 @@ def register_dashboard_callbacks(app):
         State("my-trades-limit", "value")
     )
     def update_trade_dashboard(refresh_clicks, intervals, active_tab, row_limit):
-        if active_tab != "my-trades":
+        if active_tab not in {"my-trades", "trade-board", "trading"}:
             return (
                 no_update,
                 no_update,

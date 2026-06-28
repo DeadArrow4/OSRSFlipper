@@ -6,7 +6,7 @@ from dash import html, dcc, dash_table
 from dashboard_theme import base_table_styles
 
 
-def build_trade_table(table_id, title, subtitle=None):
+def build_trade_table(table_id, title, subtitle=None, header_actions=None):
     styles = base_table_styles(max_height="560px")
 
     completed_conditionals = [
@@ -24,8 +24,22 @@ def build_trade_table(table_id, title, subtitle=None):
     return html.Div(
         className="panel trade-table-panel",
         children=[
-            html.Div(title, className="section-title"),
-            html.Div(subtitle or "", className="muted-text settings-section-subtitle"),
+            html.Div(
+                className="trade-table-header",
+                children=[
+                    html.Div(
+                        className="trade-table-header-copy",
+                        children=[
+                            html.Div(title, className="section-title"),
+                            html.Div(subtitle or "", className="muted-text settings-section-subtitle"),
+                        ],
+                    ),
+                    html.Div(
+                        className="trade-table-header-actions",
+                        children=header_actions or [],
+                    ) if header_actions else None,
+                ],
+            ),
             dash_table.DataTable(
                 id=table_id,
                 page_size=12,

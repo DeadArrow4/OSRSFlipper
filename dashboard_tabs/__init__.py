@@ -25,8 +25,8 @@ from .overview import (
     build_latest_table,
     build_recurring_table,
 )
-from .trade_board import build_trade_board_tab
-from .trades import build_my_trades_tab
+from .trade_board import build_trade_board_tab, build_trading_workspace_tab
+from .trades import build_current_trades_tab, build_my_trades_tab, build_trade_history_tab
 
 __all__ = [
     "build_about_tab",
@@ -36,6 +36,7 @@ __all__ = [
     "build_app_layout",
     "build_data_health_tab",
     "build_filters",
+    "build_current_trades_tab",
     "build_item_history_tab",
     "build_item_trend_explorer_tab",
     "build_latest_table",
@@ -51,4 +52,6 @@ __all__ = [
     "build_status_cards",
     "build_status_logs_tab",
     "build_trade_board_tab",
+    "build_trade_history_tab",
+    "build_trading_workspace_tab",
 ]

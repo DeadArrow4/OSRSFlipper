@@ -8,8 +8,7 @@ from .admin import build_admin_tab, build_safety_review_tab
 from .ai import build_ai_panel
 from .market import build_market_data_tab
 from .overview import build_filters
-from .trade_board import build_trade_board_tab
-from .trades import build_my_trades_tab
+from .trade_board import build_trading_workspace_tab
 
 
 def _build_app_command_bar():
@@ -116,11 +115,11 @@ dcc.Tab(
                     ),
 
                     dcc.Tab(
-                        label="My Trades",
-                        value="my-trades",
+                        label="Trading",
+                        value="trade-board",
                         className="tab",
                         selected_className="tab--selected",
-                        children=[build_my_trades_tab()]
+                        children=[build_trading_workspace_tab()]
                     ),
 
                     dcc.Tab(
@@ -129,14 +128,6 @@ dcc.Tab(
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_ai_panel()]
-                    ),
-
-                    dcc.Tab(
-                        label="Trade Board",
-                        value="trade-board",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_trade_board_tab()]
                     ),
 
                     dcc.Tab(

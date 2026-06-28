@@ -27,6 +27,7 @@ from dashboard_data import (
     setting_value,
 )
 from dashboard_theme import base_table_styles
+from .trades import build_current_trades_tab, build_trade_history_tab
 
 try:
     from capital_dashboard import build_capital_ai_panel
@@ -34,7 +35,7 @@ except Exception:
     build_capital_ai_panel = None
 
 
-def _build_trade_board_tab_original_120():
+def _build_trade_recommendations_tab():
     return html.Div(
         className="settings-page trade-board-page",
         children=[
@@ -166,22 +167,6 @@ def _build_trade_board_tab_original_120():
                                                 ),
                                             ]
                                         ),
-                                        html.Div(
-                                            className="settings-action-row",
-                                            children=[
-                                                html.Button(
-                                                    "Refresh Trade Board",
-                                                    id="refresh-trade-board-button",
-                                                    n_clicks=0,
-                                                    className="primary-button"
-                                                ),
-                                                html.Div(
-                                                    id="trade-board-status",
-                                                    className="status-text settings-save-status",
-                                                    children="Waiting to build Trade Board."
-                                                )
-                                            ]
-                                        )
                                     ]
                                 ),
                     settings_section(
@@ -303,7 +288,32 @@ def _build_trade_board_tab_original_120():
 
             html.Div(id="trade-board-kpi-cards", className="kpi-grid"),
 
+            build_trade_table(
+                "trade-board-table",
+                "Ranked Trade Recommendations",
+                "Best current candidates from the latest scanner run. Refresh lives here because this is the table it updates.",
+                header_actions=[
+                    html.Button(
+                        "Refresh Recommendations",
+                        id="refresh-trade-board-button",
+                        n_clicks=0,
+                        className="primary-button"
+                    ),
+                    html.Div(
+                        id="trade-board-status",
+                        className="status-text settings-save-status",
+                        children="Waiting to build Trade Board."
+                    )
+                ]
+            )
+        ]
+    )
 
+
+def _build_open_slots_tab():
+    return html.Div(
+        className="settings-page trading-open-slots-page",
+        children=[
             settings_section(
                 "Open Slot Actions",
                 "Read-only live GE slot guidance from RuneLite lastOffers. This does not place, cancel, or change trades.",
@@ -336,25 +346,69 @@ def _build_trade_board_tab_original_120():
                     )
                 ]
             ),
-
-            build_trade_table(
-                "trade-board-table",
-                "Ranked Trade Recommendations",
-                "One-table view. Controls persist after browser refresh. The refresh button updates the status line so you can confirm it fired."
-            )
-        ]
+        ],
     )
 
 
-def build_trade_board_tab(*args, **kwargs):
-    """Trade Board wrapper with capital-aware RuneLite state panel."""
+def _build_capital_panel():
     try:
-        panel = build_capital_ai_panel() if build_capital_ai_panel else html.Div()
+        return build_capital_ai_panel() if build_capital_ai_panel else html.Div()
     except Exception as exc:
-        panel = html.Div(
+        return html.Div(
             f"Capital-aware panel unavailable: {exc}",
             style={"padding": "10px", "border": "1px solid rgba(255,255,255,0.12)", "borderRadius": "10px"},
         )
 
-    return html.Div([panel, _build_trade_board_tab_original_120(*args, **kwargs)])
+
+def build_trading_workspace_tab():
+    return html.Div(
+        className="trading-workspace-page",
+        children=[
+            dcc.Tabs(
+                id="trading-workspace-tabs",
+                value="recommendations",
+                persistence=True,
+                persistence_type="session",
+                className="custom-tabs trading-subtabs",
+                children=[
+                    dcc.Tab(
+                        label="Recommendations",
+                        value="recommendations",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[
+                            _build_capital_panel(),
+                            _build_trade_recommendations_tab(),
+                        ],
+                    ),
+                    dcc.Tab(
+                        label="Open Slots",
+                        value="open-slots",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[_build_open_slots_tab()],
+                    ),
+                    dcc.Tab(
+                        label="My Trades",
+                        value="my-trades",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_current_trades_tab()],
+                    ),
+                    dcc.Tab(
+                        label="History",
+                        value="history",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_trade_history_tab()],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def build_trade_board_tab(*args, **kwargs):
+    """Compatibility wrapper for the older standalone Trade Board tab name."""
+    return build_trading_workspace_tab()
 

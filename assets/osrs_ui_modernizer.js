@@ -354,6 +354,8 @@
   }
 
   function setupTradeBoardDataSubtabs() {
+    if (document.querySelector(".trading-workspace-page")) return;
+
     const page = findTradeBoardPage();
     if (!page || page.dataset.osrsDataSubtabs === "ready") return;
 

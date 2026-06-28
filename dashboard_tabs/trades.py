@@ -29,86 +29,94 @@ from dashboard_data import (
 from dashboard_theme import base_table_styles
 
 
-def build_my_trades_tab():
-    return html.Div(
-        className="settings-page trades-page",
+def _build_trade_refresh_section(title="My Trades", subtitle=None):
+    return settings_section(
+        title,
+        subtitle or "Live offers and open/unmatched trade events from local RuneLite telemetry.",
         children=[
-            settings_section(
-                "My Trades",
-                children=[
-                    html.Div(
-                        id="trade-account-scope",
-                        className="settings-scope-pill"
-                    ),
-                    html.Div(
-                        "Tracks completed FIFO-matched flips and open/unmatched RuneLite trade events.",
-                        className="muted-text"
-                    )
-                ]
-            ),
-
             html.Div(
-                className="osrs-hidden-legacy-filters",
-                style={"display": "none"},
+                id="trade-account-scope",
+                className="settings-scope-pill"
+            ),
+            html.Div(
+                className="settings-grid settings-grid-3 trade-control-grid",
                 children=[
-                    html.Details(
-                className="ux-collapsible-panel overview-legacy-filters",
-                open=False,
-                children=[
-                    html.Summary("Legacy scanner filters"),
-                    settings_section(
-                "Trade Refresh",
-                "Use this to pull the newest OSRSFlipper RuneLite telemetry JSON into the local database before viewing results.",
-                children=[
-                    html.Div(
-                        className="settings-grid trade-control-grid",
-                        children=[
-                            setting_card(
-                                "Rows to show",
-                                setting_text_box(
-                                    "my-trades-limit",
-                                    100,
-                                    "100"
-                                ),
-                                "Applies to completed and open trade tables."
-                            ),
-                            setting_card(
-                                "Live import source",
-                                html.Div("OSRSFlipper RuneLite telemetry JSON", className="trade-static-value"),
-                                "The dashboard imports this file before refreshing the tables."
-                            ),
-                            setting_card(
-                                "Refresh interval",
-                                html.Div("Every 60 seconds", className="trade-static-value"),
-                                "Manual refresh is available below."
-                            )
-                        ]
+                    setting_card(
+                        "Rows to show",
+                        setting_text_box(
+                            "my-trades-limit",
+                            100,
+                            "100"
+                        ),
+                        "Applies to completed and open trade tables."
+                    ),
+                    setting_card(
+                        "Live import source",
+                        html.Div("OSRSFlipper RuneLite telemetry JSON", className="trade-static-value"),
+                        "The dashboard imports this local file before refreshing the tables."
                     ),
                     html.Div(
-                        className="settings-action-row",
+                        className="setting-card",
                         children=[
+                            html.Div("Refresh", className="settings-card-label"),
                             html.Button(
                                 "Import RuneLite & Refresh Trades",
                                 id="refresh-trades-button",
                                 n_clicks=0,
-                                className="primary-button"
+                                className="secondary-button"
                             ),
-                            html.Div(
-                                id="trade-import-status",
-                                className="status-text settings-save-status",
-                                children="Waiting for first refresh."
-                            )
-                        ]
-                    )
-                ]
-            )
-                ],
-            )
+                            html.Div("Manual refresh is available here; auto-refresh still runs every minute.", className="settings-card-help"),
+                        ],
+                    ),
                 ],
             ),
+            html.Div(
+                id="trade-import-status",
+                className="status-text settings-save-status",
+                children="Waiting for first refresh."
+            )
+        ]
+    )
 
+
+def build_current_trades_tab():
+    return html.Div(
+        className="settings-page trades-page",
+        children=[
+            _build_trade_refresh_section(
+                "My Trades",
+                "Current live GE offers plus open and unmatched trade events."
+            ),
             html.Div(id="trade-kpi-cards", className="kpi-grid"),
 
+            build_trade_table(
+                "live-ge-offers-table",
+                "Current Live GE Offers",
+                "Active BUYING and SELLING offers read directly from OSRSFlipper RuneLite telemetry."
+            ),
+            build_trade_table(
+                "open-trades-table",
+                "Open / Unmatched Trade Events",
+                "Trades that have not been fully matched yet. These may include live or partially matched RuneLite events."
+            )
+        ]
+    )
+
+
+def build_trade_history_tab():
+    return html.Div(
+        className="settings-page trades-history-page",
+        children=[
+            settings_section(
+                "Trade History",
+                "Completed FIFO-matched flips and realized profit over time.",
+                children=[
+                    html.Div(
+                        "Use this for post-trade review: what paid, what dragged, and which items keep showing up in profitable history.",
+                        className="muted-text",
+                    )
+                ],
+            ),
             html.Div(
                 className="chart-grid",
                 children=[
@@ -122,22 +130,22 @@ def build_my_trades_tab():
                     )
                 ]
             ),
-
-            build_trade_table(
-                "live-ge-offers-table",
-                "Current Live GE Offers",
-                "Active BUYING and SELLING offers read directly from OSRSFlipper RuneLite telemetry."
-            ),
             build_trade_table(
                 "completed-trades-table",
                 "Completed Matched Flips",
                 "Matched buy/sell pairs with realized profit after tax."
-            ),
-            build_trade_table(
-                "open-trades-table",
-                "Open / Unmatched Trade Events",
-                "Trades that have not been fully matched yet. These may include live or partially matched RuneLite events."
             )
         ]
+    )
+
+
+def build_my_trades_tab():
+    """Compatibility layout for the older standalone My Trades tab."""
+    return html.Div(
+        className="trades-combined-page",
+        children=[
+            build_current_trades_tab(),
+            build_trade_history_tab(),
+        ],
     )
 
