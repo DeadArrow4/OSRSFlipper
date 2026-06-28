@@ -8,7 +8,7 @@ except Exception:
 
 
 APP_NAME = "OSRSFlipper"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 BUILD_CHANNEL = "stable"
 PROJECT_URL = ""
 APP_DESCRIPTION = (
@@ -20,7 +20,7 @@ APP_DESCRIPTION = (
 
 
 def get_build_time():
-    return "2026-06-28T00:59:10Z"
+    return "2026-06-28T01:54:04Z"
 
 
 def get_project_root():

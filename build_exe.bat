@@ -61,6 +61,35 @@ pyinstaller ^
   --hidden-import trade_ai_context ^
   --hidden-import advisor ^
   --hidden-import database ^
+  --hidden-import dashboard_callbacks ^
+  --hidden-import dashboard_tabs ^
+  --hidden-import dashboard_tabs.admin ^
+  --hidden-import dashboard_tabs.admin_about ^
+  --hidden-import dashboard_tabs.admin_account ^
+  --hidden-import dashboard_tabs.admin_data_health ^
+  --hidden-import dashboard_tabs.admin_maintenance ^
+  --hidden-import dashboard_tabs.admin_safety ^
+  --hidden-import dashboard_tabs.admin_settings ^
+  --hidden-import dashboard_tabs.admin_setup ^
+  --hidden-import dashboard_tabs.admin_status ^
+  --hidden-import dashboard_tabs.ai ^
+  --hidden-import dashboard_tabs.app_layout ^
+  --hidden-import dashboard_tabs.market ^
+  --hidden-import dashboard_tabs.overview ^
+  --hidden-import dashboard_tabs.trade_board ^
+  --hidden-import dashboard_tabs.trades ^
+  --hidden-import data_health ^
+  --hidden-import data_health_modules ^
+  --hidden-import data_health_modules.automation ^
+  --hidden-import data_health_modules.backups ^
+  --hidden-import data_health_modules.common ^
+  --hidden-import data_health_modules.compaction ^
+  --hidden-import data_health_modules.maintenance ^
+  --hidden-import data_health_modules.metrics ^
+  --hidden-import data_health_modules.retention ^
+  --hidden-import data_health_modules.schema ^
+  --hidden-import data_health_modules.snapshots ^
+  --hidden-import data_health_modules.trends ^
   --hidden-import scanner ^
   --hidden-import api ^
   --hidden-import trend_analyzer ^
