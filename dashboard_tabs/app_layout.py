@@ -51,16 +51,18 @@ def _build_app_command_bar():
                         className="app-command-actions",
                         children=[
                             html.Button(
-                                "Refresh Status",
+                                "R",
                                 id="dashboard-refresh-status-button",
                                 n_clicks=0,
-                                className="secondary-button app-command-button",
+                                className="app-command-button app-command-button--refresh",
+                                title="Refresh status",
                             ),
                             html.Button(
-                                "Stop Services",
+                                "Q",
                                 id="dashboard-stop-services-button",
                                 n_clicks=0,
-                                className="danger-button app-command-button",
+                                className="app-command-button app-command-button--stop",
+                                title="Stop services",
                             ),
                         ],
                     ),

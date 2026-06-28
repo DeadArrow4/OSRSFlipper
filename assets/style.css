@@ -2604,21 +2604,54 @@ body,
 .app-command-actions {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 4px !important;
     flex-wrap: wrap !important;
 }
 
 .app-command-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
     min-height: 28px !important;
-    padding: 5px 9px !important;
+    padding: 0 !important;
+    border: 1px solid rgba(142, 160, 166, 0.20) !important;
+    border-radius: 999px !important;
+    background: rgba(22, 34, 41, 0.62) !important;
+    color: var(--text-muted) !important;
     font-size: 0.72rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
     white-space: nowrap !important;
+    box-shadow: none !important;
+}
+
+.app-command-button:hover {
+    background: rgba(29, 43, 50, 0.94) !important;
+    border-color: rgba(142, 160, 166, 0.34) !important;
+    color: var(--text) !important;
+}
+
+.app-command-button--refresh:hover {
+    border-color: rgba(20, 184, 166, 0.42) !important;
+}
+
+.app-command-button--stop {
+    color: rgba(248, 113, 113, 0.72) !important;
+}
+
+.app-command-button--stop:hover {
+    background: rgba(127, 29, 29, 0.34) !important;
+    border-color: rgba(248, 113, 113, 0.42) !important;
+    color: #fecaca !important;
 }
 
 .app-command-status {
-    max-width: 260px !important;
+    max-width: 180px !important;
     color: var(--text-muted) !important;
-    font-size: 0.72rem !important;
+    font-size: 0.68rem !important;
     line-height: 1.2 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
