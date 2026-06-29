@@ -37,7 +37,7 @@ echo ==============================
 
 pyinstaller ^
   --onefile ^
-  --console ^
+  --windowed ^
   --clean ^
   --name %EXENAME% ^
   --paths "%APPDIR%" ^
@@ -61,6 +61,7 @@ pyinstaller ^
   --hidden-import trade_ai_context ^
   --hidden-import advisor ^
   --hidden-import database ^
+  --hidden-import dashboard_auth ^
   --hidden-import dashboard_control_commands ^
   --hidden-import dashboard_callbacks ^
   --hidden-import dashboard_tabs ^

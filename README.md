@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.4.1
+## Latest Release: 1.4.2
 
-OSRSFlipper 1.4.1 improves the decision-first Trading workspace with smarter Next Moves ranking, active-offer duplicate protection, daily buy-limit awareness, overnight slot targeting, clearer overnight reprice guidance, and faster lock-tolerant settings/intent reads. It keeps the dashboard focused on buy, sell, hold, wait, and reprice decisions without adding another panel to sift through.
+OSRSFlipper 1.4.2 adds a dashboard-first windowed EXE flow with local PIN unlock, app-window close shutdown, and a no-build dev launcher for faster testing. It also tightens Next Moves so active sell items are not suggested as new buys, passive overnight holds stay low priority, and watch/reprice actions surface first.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
@@ -13,6 +13,8 @@ The project is designed to run locally on your machine. Private runtime data suc
 
 * Local Dash dashboard
 * Decision-first Trading workspace with Next Moves, History, and Advanced subtabs
+* Windowed EXE dashboard launch with local PIN unlock
+* No-build dev launcher for source-level dashboard testing
 * SQLite trade tracking
 * OSRSFlipper RuneLite telemetry JSON import
 * FIFO matched completed flips
@@ -196,6 +198,12 @@ Prepare a release package:
 
 ```powershell
 python prepare_release.py --run-check
+```
+
+Run the dev launcher without rebuilding the EXE:
+
+```powershell
+.\dev_start_osrsflipper.bat
 ```
 
 Build the executable:

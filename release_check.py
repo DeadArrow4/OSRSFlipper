@@ -40,6 +40,7 @@ REQUIRED_FILES = [
     "capital_trade_board.py",
     "collector.py",
     "dashboard.py",
+    "dashboard_auth.py",
     "dashboard_callbacks/__init__.py",
     "dashboard_tabs/__init__.py",
     "dashboard_tabs/admin.py",
@@ -119,7 +120,8 @@ OPTIONAL_FILES = [
     "remove_shared_openai_key.py",
     "remove_shared_openai_key.bat",
     "create_desktop_shortcut.bat",
-    "build_and_create_shortcut.bat"
+    "build_and_create_shortcut.bat",
+    "dev_start_osrsflipper.bat"
 ]
 
 IMPORT_MODULES = [
@@ -135,6 +137,7 @@ IMPORT_MODULES = [
     "capital_dashboard",
     "capital_trade_board",
     "database",
+    "dashboard_auth",
     "dashboard_callbacks",
     "dashboard_tabs",
     "dashboard_tabs.admin",

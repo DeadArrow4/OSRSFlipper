@@ -13,6 +13,8 @@ from openai_key_manager import save_api_key, validate_key_shape
 
 DB_FILE = BASE_DIR / "osrs_flip_scanner.db"
 PBKDF2_ITERATIONS = 260_000
+PIN_MIN_LENGTH = 4
+PIN_MAX_LENGTH = 8
 
 
 def now_utc():
@@ -42,6 +44,16 @@ def init_user_db():
         CREATE INDEX IF NOT EXISTS idx_app_users_username
         ON app_users(username)
     """)
+
+    cursor.execute("PRAGMA table_info(app_users)")
+    existing_columns = {str(row[1]) for row in cursor.fetchall()}
+
+    if "dashboard_pin_hash" not in existing_columns:
+        cursor.execute("ALTER TABLE app_users ADD COLUMN dashboard_pin_hash TEXT")
+
+    if "dashboard_pin_salt" not in existing_columns:
+        cursor.execute("ALTER TABLE app_users ADD COLUMN dashboard_pin_salt TEXT")
+
     conn.commit()
     conn.close()
     RUNTIME_DIR.mkdir(exist_ok=True)
@@ -75,6 +87,26 @@ def verify_password(password, salt_hex, expected_hash_hex):
     return secrets.compare_digest(actual_hash_hex, expected_hash_hex)
 
 
+def validate_dashboard_pin(pin):
+    pin = str(pin or "").strip()
+    if not pin:
+        return False, f"PIN is required."
+    if not pin.isdigit():
+        return False, "PIN must use numbers only."
+    if len(pin) < PIN_MIN_LENGTH or len(pin) > PIN_MAX_LENGTH:
+        return False, f"PIN must be {PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} digits."
+    return True, "PIN is valid."
+
+
+def hash_dashboard_pin(pin, salt_hex=None):
+    return hash_password(f"dashboard-pin:{str(pin or '').strip()}", salt_hex=salt_hex)
+
+
+def verify_pin_value(pin, salt_hex, expected_hash_hex):
+    _, actual_hash_hex = hash_dashboard_pin(pin=pin, salt_hex=salt_hex)
+    return secrets.compare_digest(actual_hash_hex, expected_hash_hex)
+
+
 def get_user_by_username(username):
     init_user_db()
     username = normalize_username(username)
@@ -83,6 +115,7 @@ def get_user_by_username(username):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, username, password_hash, password_salt,
+               dashboard_pin_hash, dashboard_pin_salt,
                osrs_account_name, created_at, updated_at, last_login_at
         FROM app_users
         WHERE username = ?
@@ -98,10 +131,12 @@ def get_safe_user(username):
         return None
     user.pop("password_hash", None)
     user.pop("password_salt", None)
+    user.pop("dashboard_pin_hash", None)
+    user.pop("dashboard_pin_salt", None)
     return user
 
 
-def create_user(username, password, osrs_account_name):
+def create_user(username, password, osrs_account_name, dashboard_pin=None):
     init_user_db()
     username = normalize_username(username)
     osrs_account_name = clean_display_text(osrs_account_name)
@@ -116,16 +151,36 @@ def create_user(username, password, osrs_account_name):
         raise ValueError(f"Username already exists: {username}")
 
     salt_hex, password_hash_hex = hash_password(password)
+    pin_hash_hex = None
+    pin_salt_hex = None
+
+    if dashboard_pin is not None:
+        valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+        if not valid_pin:
+            raise ValueError(pin_message)
+        pin_salt_hex, pin_hash_hex = hash_dashboard_pin(dashboard_pin)
+
     timestamp = now_utc()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO app_users (
             username, password_hash, password_salt, osrs_account_name,
+            dashboard_pin_hash, dashboard_pin_salt,
             created_at, updated_at, last_login_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (username, password_hash_hex, salt_hex, osrs_account_name, timestamp, timestamp, None))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        username,
+        password_hash_hex,
+        salt_hex,
+        osrs_account_name,
+        pin_hash_hex,
+        pin_salt_hex,
+        timestamp,
+        timestamp,
+        None,
+    ))
     user_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -166,6 +221,66 @@ def logout():
     return True
 
 
+def user_has_dashboard_pin(username):
+    user = get_user_by_username(username)
+    if not user:
+        return False
+    return bool(user.get("dashboard_pin_hash") and user.get("dashboard_pin_salt"))
+
+
+def verify_dashboard_pin(username, dashboard_pin):
+    user = get_user_by_username(username)
+    if not user:
+        return False
+    if not user.get("dashboard_pin_hash") or not user.get("dashboard_pin_salt"):
+        return False
+    return verify_pin_value(
+        pin=dashboard_pin,
+        salt_hex=user["dashboard_pin_salt"],
+        expected_hash_hex=user["dashboard_pin_hash"]
+    )
+
+
+def set_dashboard_pin(username, password, dashboard_pin):
+    init_user_db()
+    username = normalize_username(username)
+    user = get_user_by_username(username)
+
+    if user is None:
+        raise ValueError("User not found.")
+
+    password_valid = verify_password(
+        password=password,
+        salt_hex=user["password_salt"],
+        expected_hash_hex=user["password_hash"]
+    )
+
+    if not password_valid:
+        raise ValueError("Invalid local password.")
+
+    valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+
+    if not valid_pin:
+        raise ValueError(pin_message)
+
+    pin_salt_hex, pin_hash_hex = hash_dashboard_pin(dashboard_pin)
+    timestamp = now_utc()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE app_users
+        SET dashboard_pin_hash = ?,
+            dashboard_pin_salt = ?,
+            updated_at = ?
+        WHERE username = ?
+    """, (pin_hash_hex, pin_salt_hex, timestamp, username))
+    conn.commit()
+    conn.close()
+
+    return get_safe_user(username)
+
+
 def authenticate_user(username, password):
     init_user_db()
     user = get_user_by_username(username)
@@ -189,6 +304,8 @@ def authenticate_user(username, password):
     user["last_login_at"] = timestamp
     user.pop("password_hash", None)
     user.pop("password_salt", None)
+    user.pop("dashboard_pin_hash", None)
+    user.pop("dashboard_pin_salt", None)
     save_session(user)
     return user
 
@@ -309,12 +426,29 @@ def prompt_create_user():
         break
 
     while True:
+        dashboard_pin = getpass.getpass(f"Create dashboard unlock PIN ({PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} digits): ").strip()
+        confirm_pin = getpass.getpass("Confirm dashboard unlock PIN: ").strip()
+        if dashboard_pin != confirm_pin:
+            print("PINs do not match.")
+            continue
+        valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+        if not valid_pin:
+            print(pin_message)
+            continue
+        break
+
+    while True:
         osrs_account_name = input("RuneLite/OSRS account name, for example DeadArrow98: ").strip()
         if osrs_account_name:
             break
         print("OSRS/RuneLite account name cannot be blank.")
 
-    user = create_user(username=username, password=password, osrs_account_name=osrs_account_name)
+    user = create_user(
+        username=username,
+        password=password,
+        osrs_account_name=osrs_account_name,
+        dashboard_pin=dashboard_pin
+    )
     print()
     print(f"Created local account: {user['username']}")
     print(f"Linked OSRS/RuneLite account: {user['osrs_account_name']}")
@@ -421,7 +555,14 @@ def main():
             confirm = getpass.getpass("Confirm local password: ")
             if password != confirm:
                 raise RuntimeError("Passwords do not match.")
-            user = create_user(args.username, password, args.osrs_account)
+            dashboard_pin = getpass.getpass(f"Create dashboard unlock PIN ({PIN_MIN_LENGTH}-{PIN_MAX_LENGTH} digits): ").strip()
+            confirm_pin = getpass.getpass("Confirm dashboard unlock PIN: ").strip()
+            if dashboard_pin != confirm_pin:
+                raise RuntimeError("PINs do not match.")
+            valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+            if not valid_pin:
+                raise RuntimeError(pin_message)
+            user = create_user(args.username, password, args.osrs_account, dashboard_pin=dashboard_pin)
             print(f"Created {user['username']} -> {user['osrs_account_name']}")
         else:
             prompt_create_user()

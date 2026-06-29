@@ -117,6 +117,19 @@ def _candidate_item_key(row: dict[str, Any]) -> str:
     return str(row.get("Item") or "").strip().lower()
 
 
+def _active_sell_item_keys(capital_rows: list[dict[str, Any]]) -> set[str]:
+    item_keys: set[str] = set()
+
+    for row in capital_rows or []:
+        side = str(row.get("Side") or "").strip().lower()
+        item_key = _candidate_item_key(row)
+
+        if side == "sell" and item_key:
+            item_keys.add(item_key)
+
+    return item_keys
+
+
 def _setting_int_clamped(key: str, default: int, minimum: int, maximum: int) -> int:
     try:
         value = int(get_setting(key, default) or default)
@@ -319,13 +332,18 @@ def _build_buy_plan(
     open_slots: int,
     overnight_slot_target: int,
     active_overnight_slots: int,
+    blocked_buy_item_keys: set[str] | None = None,
     max_rows: int = 8,
 ) -> list[dict[str, Any]]:
     candidates_by_item: dict[str, dict[str, Any]] = {}
+    blocked_buy_item_keys = blocked_buy_item_keys or set()
 
     for source_rank, row in enumerate(board_rows):
         action = str(row.get("Action") or "")
         if action not in {"Buy Now", "Test Small", "Overnight"}:
+            continue
+
+        if _candidate_item_key(row) in blocked_buy_item_keys:
             continue
 
         if action == "Overnight" and (
@@ -535,6 +553,41 @@ def _offer_action(
     return "Review", "now", "Unknown GE offer side."
 
 
+def _is_passive_overnight_offer(row: dict[str, Any]) -> bool:
+    action = str(row.get("Action") or "").strip().lower()
+    wait = str(row.get("Wait") or "").strip().lower()
+    return action.startswith("let overnight") and wait == "overnight"
+
+
+def _offer_priority_rank(row: dict[str, Any]) -> tuple[int, int]:
+    action = str(row.get("Action") or "").strip().lower()
+    wait = str(row.get("Wait") or "").strip().lower()
+    projected_pl = _parse_gp(row.get("Projected P/L"))
+
+    if wait == "now":
+        return (0, -projected_pl)
+
+    if "watch buy closely" in action:
+        return (1, -projected_pl)
+
+    if "hold or raise" in action:
+        return (2, -projected_pl)
+
+    if action.startswith("let buy fill"):
+        return (3, -projected_pl)
+
+    if action.startswith("hold sell"):
+        return (4, -projected_pl)
+
+    if _is_passive_overnight_offer(row):
+        return (8, -projected_pl)
+
+    if wait == "overnight":
+        return (7, -projected_pl)
+
+    return (5, -projected_pl)
+
+
 def _build_offer_plan(
     capital_rows: list[dict[str, Any]],
     market_rows_by_item: dict[str, dict[str, Any]],
@@ -564,11 +617,7 @@ def _build_offer_plan(
         )
 
     out.sort(
-        key=lambda item: (
-            0 if item["Wait"] == "now" else 1,
-            1 if item["Wait"] == "next day" else 0,
-            -_parse_gp(item.get("Projected P/L")),
-        )
+        key=_offer_priority_rank
     )
 
     for index, row in enumerate(out, start=1):
@@ -658,6 +707,7 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
     usable_gp = _safe_int(capital.get("usable_gp"))
     open_slots = _safe_int(capital.get("open_slots"))
     capital_rows = capital_data.get("rows") or []
+    blocked_buy_item_keys = _active_sell_item_keys(capital_rows)
 
     board_df, board_summary = get_trade_board_recommendations(
         limit=180,
@@ -681,6 +731,7 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
         open_slots,
         overnight_slot_target,
         active_overnight_slots,
+        blocked_buy_item_keys,
         max_rows=max_buy_rows,
     )
     offer_plan = _build_offer_plan(
@@ -694,6 +745,9 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
     projected_offer_pl = sum(_parse_gp(row.get("Projected P/L")) for row in capital_rows)
     next_buy = buy_plan[0] if buy_plan else {}
     immediate_offer = offer_plan[0] if offer_plan and offer_plan[0].get("Wait") == "now" else {}
+    priority_offer = {}
+    if offer_plan and not _is_passive_overnight_offer(offer_plan[0]):
+        priority_offer = offer_plan[0]
 
     if immediate_offer:
         headline = (
@@ -711,8 +765,10 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
                 f"Buy {next_buy.get('Qty')} {next_buy.get('Item')} at {next_buy.get('Buy')} "
                 f"and sell around {next_buy.get('Sell')}."
             )
+    elif priority_offer:
+        headline = f"Manage current offer first: {priority_offer.get('Action')} {priority_offer.get('Item')}."
     elif offer_plan:
-        headline = f"Manage current offer first: {offer_plan[0].get('Action')} {offer_plan[0].get('Item')}."
+        headline = "No urgent offer change right now; overnight holds can sit."
     else:
         headline = "No strong action right now; wait for fresh market or telemetry data."
 

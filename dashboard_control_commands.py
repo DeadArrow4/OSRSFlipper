@@ -177,6 +177,62 @@ foreach ($target in $targets) {{
         pass
 
 
+def dashboard_app_window_process_ids(dashboard_url: str = DASHBOARD_URL) -> list[int]:
+    """Return Edge/Chrome app-mode process ids for the local dashboard window."""
+
+    if os.name != "nt":
+        return []
+
+    url = str(dashboard_url or DASHBOARD_URL).rstrip("/")
+    url_slash = f"{url}/"
+
+    script = f"""
+$url = @'
+{url}
+'@
+$urlSlash = @'
+{url_slash}
+'@
+$targets = Get-CimInstance Win32_Process | Where-Object {{
+    $name = [string]$_.Name
+    $cmd = [string]$_.CommandLine
+    ($name -match '^(msedge|chrome)(\\.exe)?$') -and
+    ($cmd.Contains("--app=$url") -or $cmd.Contains("--app=$urlSlash"))
+}}
+foreach ($target in $targets) {{
+    Write-Output $target.ProcessId
+}}
+"""
+
+    try:
+        output = subprocess.check_output(
+            [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                script,
+            ],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=3,
+            creationflags=_windows_creationflags(),
+        )
+    except Exception:
+        return []
+
+    process_ids = []
+
+    for line in output.splitlines():
+        try:
+            process_ids.append(int(str(line).strip()))
+        except Exception:
+            pass
+
+    return process_ids
+
+
 def schedule_dashboard_shutdown(delay_seconds: float = 1.0) -> None:
     """Terminate the app window and Dash server shortly after the button responds."""
 

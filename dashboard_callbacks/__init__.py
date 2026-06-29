@@ -14,8 +14,13 @@ from account_manager import (
     create_user,
     get_current_session,
     save_session,
+    set_dashboard_pin,
     update_osrs_account,
+    user_has_dashboard_pin,
+    validate_dashboard_pin,
+    verify_dashboard_pin,
 )
+from dashboard_auth import unlock_dashboard_for_user
 from advisor import generate_ai_advice
 from backup_manager import create_private_backup
 from migration_manager import run_app_migrations
@@ -2409,18 +2414,61 @@ def register_dashboard_callbacks(app):
 
 
     @app.callback(
+        Output("account-pin-status", "children"),
+        Input("account-pin-button", "n_clicks"),
+        State("account-pin-password", "value"),
+        State("account-pin-new", "value"),
+        State("account-pin-confirm", "value"),
+        prevent_initial_call=True
+    )
+    def save_current_dashboard_pin(n_clicks, password, dashboard_pin, confirm_pin):
+        if not n_clicks:
+            return ""
+
+        current = get_current_session() or {}
+        username = str(current.get("username") or "").strip().lower()
+        password = str(password or "")
+        dashboard_pin = str(dashboard_pin or "").strip()
+        confirm_pin = str(confirm_pin or "").strip()
+
+        if not username:
+            return "No current local user is signed in."
+
+        if not password:
+            return "Enter the current local password."
+
+        if dashboard_pin != confirm_pin:
+            return "PINs do not match."
+
+        valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+
+        if not valid_pin:
+            return pin_message
+
+        try:
+            user = set_dashboard_pin(username, password, dashboard_pin)
+            save_session(user)
+            unlock_dashboard_for_user(username)
+            return "Dashboard PIN saved. Future saved-session unlocks can use this PIN."
+        except Exception as error:
+            return f"Could not save dashboard PIN: {error}"
+
+
+    @app.callback(
         Output("account-switch-status", "children"),
         Input("account-switch-button", "n_clicks"),
         State("account-switch-username", "value"),
         State("account-switch-password", "value"),
+        State("account-switch-pin", "value"),
         prevent_initial_call=True
     )
-    def switch_dashboard_user(n_clicks, username, password):
+    def switch_dashboard_user(n_clicks, username, password, dashboard_pin):
         if not n_clicks:
             return ""
 
         username = str(username or "").strip().lower()
         password = str(password or "")
+        dashboard_pin = str(dashboard_pin or "").strip()
 
         if not username or not password:
             return "Enter username and password."
@@ -2430,7 +2478,14 @@ def register_dashboard_callbacks(app):
         if not user:
             return "Invalid username or password."
 
+        if user_has_dashboard_pin(username) and not dashboard_pin:
+            return "Enter the dashboard PIN for this account."
+
+        if dashboard_pin and not verify_dashboard_pin(username, dashboard_pin):
+            return "Invalid dashboard PIN."
+
         save_session(user)
+        unlock_dashboard_for_user(user["username"])
         apply_account_env(
             app_username=user["username"],
             osrs_account_name=user["osrs_account_name"]
@@ -2448,16 +2503,20 @@ def register_dashboard_callbacks(app):
         State("account-create-username", "value"),
         State("account-create-password", "value"),
         State("account-create-confirm-password", "value"),
+        State("account-create-pin", "value"),
+        State("account-create-confirm-pin", "value"),
         State("account-create-osrs-account", "value"),
         prevent_initial_call=True
     )
-    def create_dashboard_user(n_clicks, username, password, confirm_password, osrs_account_name):
+    def create_dashboard_user(n_clicks, username, password, confirm_password, dashboard_pin, confirm_pin, osrs_account_name):
         if not n_clicks:
             return ""
 
         username = str(username or "").strip().lower()
         password = str(password or "")
         confirm_password = str(confirm_password or "")
+        dashboard_pin = str(dashboard_pin or "").strip()
+        confirm_pin = str(confirm_pin or "").strip()
         osrs_account_name = str(osrs_account_name or "").strip()
 
         if not username:
@@ -2472,17 +2531,27 @@ def register_dashboard_callbacks(app):
         if len(password) < 6:
             return "Password must be at least 6 characters."
 
+        if dashboard_pin != confirm_pin:
+            return "PINs do not match."
+
+        valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+
+        if not valid_pin:
+            return pin_message
+
         try:
             user = create_user(
                 username=username,
                 password=password,
-                osrs_account_name=osrs_account_name
+                osrs_account_name=osrs_account_name,
+                dashboard_pin=dashboard_pin
             )
 
             authenticated = authenticate_user(username, password)
 
             if authenticated:
                 save_session(authenticated)
+                unlock_dashboard_for_user(authenticated["username"])
                 apply_account_env(
                     app_username=authenticated["username"],
                     osrs_account_name=authenticated["osrs_account_name"]

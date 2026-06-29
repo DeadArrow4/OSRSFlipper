@@ -107,6 +107,14 @@ def build_account_manager_tab():
                                     type="password",
                                     placeholder="local OSRSFlipper password"
                                 )
+                            ),
+                            settings_input(
+                                "Dashboard PIN",
+                                dcc.Input(
+                                    id="account-switch-pin",
+                                    type="password",
+                                    placeholder="dashboard PIN"
+                                )
                             )
                         ]
                     ),
@@ -118,6 +126,56 @@ def build_account_manager_tab():
                     ),
                     html.Div(
                         id="account-switch-status",
+                        className="status-text"
+                    )
+                ]
+            ),
+
+            html.Div(
+                className="panel",
+                children=[
+                    html.Div("Dashboard PIN", className="section-title"),
+                    html.Div(
+                        "Set or replace the PIN used to unlock the saved local dashboard session.",
+                        className="muted-text"
+                    ),
+                    html.Div(
+                        className="filter-row",
+                        children=[
+                            settings_input(
+                                "Local password",
+                                dcc.Input(
+                                    id="account-pin-password",
+                                    type="password",
+                                    placeholder="local OSRSFlipper password"
+                                )
+                            ),
+                            settings_input(
+                                "New PIN",
+                                dcc.Input(
+                                    id="account-pin-new",
+                                    type="password",
+                                    placeholder="4-8 digit PIN"
+                                )
+                            ),
+                            settings_input(
+                                "Confirm PIN",
+                                dcc.Input(
+                                    id="account-pin-confirm",
+                                    type="password",
+                                    placeholder="confirm dashboard PIN"
+                                )
+                            )
+                        ]
+                    ),
+                    html.Button(
+                        "Save Dashboard PIN",
+                        id="account-pin-button",
+                        n_clicks=0,
+                        className="primary-button"
+                    ),
+                    html.Div(
+                        id="account-pin-status",
                         className="status-text"
                     )
                 ]
@@ -156,6 +214,22 @@ def build_account_manager_tab():
                                     id="account-create-confirm-password",
                                     type="password",
                                     placeholder="confirm local password"
+                                )
+                            ),
+                            settings_input(
+                                "Dashboard PIN",
+                                dcc.Input(
+                                    id="account-create-pin",
+                                    type="password",
+                                    placeholder="4-8 digit PIN"
+                                )
+                            ),
+                            settings_input(
+                                "Confirm PIN",
+                                dcc.Input(
+                                    id="account-create-confirm-pin",
+                                    type="password",
+                                    placeholder="confirm dashboard PIN"
                                 )
                             ),
                             settings_input(

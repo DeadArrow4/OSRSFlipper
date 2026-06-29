@@ -4056,3 +4056,109 @@ body .VirtualizedSelectSelectedOption {
         grid-column: 1 / -1 !important;
     }
 }
+
+/* Dashboard unlock / first-use setup */
+.auth-shell {
+    min-height: 100vh !important;
+    padding: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--bg) !important;
+}
+
+.auth-card {
+    width: min(620px, 100%) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.96) !important;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35) !important;
+    padding: 22px !important;
+}
+
+.auth-header {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 14px !important;
+    margin-bottom: 18px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+.auth-title {
+    color: var(--text) !important;
+    font-size: 1.35rem !important;
+    font-weight: 900 !important;
+}
+
+.auth-version,
+.auth-session-summary {
+    color: var(--text-soft) !important;
+    font-size: 0.9rem !important;
+}
+
+.auth-session-summary {
+    margin: 6px 0 4px 0 !important;
+}
+
+.auth-tabs {
+    margin-top: 16px !important;
+}
+
+.auth-panel {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    background: rgba(22, 34, 41, 0.82) !important;
+    padding: 14px !important;
+}
+
+.auth-panel--focused {
+    margin-top: 12px !important;
+}
+
+.auth-panel-title {
+    color: var(--text) !important;
+    font-weight: 900 !important;
+    margin-bottom: 12px !important;
+}
+
+.auth-field {
+    margin-bottom: 10px !important;
+}
+
+.auth-field-label {
+    color: var(--gold) !important;
+    font-size: 0.72rem !important;
+    font-weight: 850 !important;
+    text-transform: uppercase !important;
+    margin-bottom: 5px !important;
+}
+
+.auth-field-help {
+    color: var(--text-muted) !important;
+    font-size: 0.78rem !important;
+    line-height: 1.35 !important;
+    margin-top: 5px !important;
+}
+
+.auth-panel .primary-button,
+.auth-panel .secondary-button {
+    width: 100% !important;
+    margin-top: 4px !important;
+}
+
+.auth-panel button:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+}
+
+@media (max-width: 680px) {
+    .auth-shell {
+        padding: 14px !important;
+    }
+
+    .auth-header {
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+}

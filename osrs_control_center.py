@@ -21,7 +21,11 @@ from pathlib import Path
 from account_context import get_account_scope, resolve_app_base_dir
 from app_version import get_version_line
 from capital_budget import get_effective_cash_stack
-from dashboard_control_commands import close_dashboard_app_windows, consume_dashboard_command
+from dashboard_control_commands import (
+    close_dashboard_app_windows,
+    consume_dashboard_command,
+    dashboard_app_window_process_ids,
+)
 from migration_manager import run_app_migrations
 from settings_manager import (
     ensure_default_settings,
@@ -37,8 +41,9 @@ except Exception:
     run_first_run_setup = None
 
 try:
-    from account_manager import interactive_login_or_create, init_user_db
+    from account_manager import get_current_session, interactive_login_or_create, init_user_db
 except Exception:
+    get_current_session = None
     interactive_login_or_create = None
     init_user_db = None
 
@@ -56,6 +61,17 @@ STOP_EVENT = threading.Event()
 
 def running_as_frozen_exe():
     return bool(getattr(sys, "frozen", False))
+
+
+def ensure_windowed_stdio():
+    if not running_as_frozen_exe():
+        return
+
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
 def get_project_python():
@@ -782,7 +798,10 @@ def parse_args():
 
 
 def main():
+    ensure_windowed_stdio()
     args = parse_args()
+    explicit_no_browser = bool(args.no_browser)
+    dashboard_first_exe = running_as_frozen_exe() and not args.first_run and not args.no_dashboard
 
     ensure_dirs()
 
@@ -798,7 +817,7 @@ def main():
             return
         run_first_run_setup(force=True)
 
-    elif not args.skip_first_run_check:
+    elif not args.skip_first_run_check and not dashboard_first_exe:
         ready, setup_message = setup_is_complete()
 
         if not ready:
@@ -822,7 +841,24 @@ def main():
 
     app_user = None
 
-    if not args.no_login and interactive_login_or_create is not None:
+    if dashboard_first_exe:
+        if init_user_db is not None:
+            init_user_db()
+
+        session = get_current_session() if get_current_session is not None else None
+
+        if session:
+            app_user = session
+            account = app_user.get("osrs_account_name") or args.account or DEFAULT_ACCOUNT
+            print("Dashboard-first EXE mode: saved session found. Unlock in the dashboard.")
+        else:
+            account = args.account or DEFAULT_ACCOUNT
+            args.no_collector = True
+            args.no_trade_watcher = True
+            args.skip_setup = True
+            print("Dashboard-first EXE mode: create or sign in from the dashboard.")
+
+    elif not args.no_login and interactive_login_or_create is not None:
         if init_user_db is not None:
             init_user_db()
 
@@ -880,7 +916,12 @@ def main():
 
     # Saved startup settings can disable services unless the user explicitly used
     # the matching command-line flags.
-    if not get_setting("start_dashboard", True):
+    if dashboard_first_exe:
+        args.no_dashboard = False
+        if not explicit_no_browser:
+            args.no_browser = False
+
+    if not dashboard_first_exe and not get_setting("start_dashboard", True):
         args.no_dashboard = True
 
     if not get_setting("start_collector", True):
@@ -889,7 +930,7 @@ def main():
     if not get_setting("start_trade_watcher", True):
         args.no_trade_watcher = True
 
-    if not get_setting("open_browser", True):
+    if not dashboard_first_exe and not get_setting("open_browser", True):
         args.no_browser = True
 
     if not args.skip_setup:
@@ -900,6 +941,9 @@ def main():
     collector_process = None
     trade_status = TradeWatcherStatus()
     trade_thread = None
+    dashboard_window_monitor_enabled = False
+    dashboard_window_seen = False
+    dashboard_window_last_check = 0.0
 
     started_at = now_text()
 
@@ -935,6 +979,8 @@ def main():
         if not args.no_dashboard and not args.no_browser:
             time.sleep(2)
             message = open_dashboard(dashboard_open_mode)
+            dashboard_window_monitor_enabled = dashboard_open_mode == "app"
+            dashboard_window_seen = bool(dashboard_app_window_process_ids()) if dashboard_window_monitor_enabled else False
             if status_mode == "status":
                 print(message)
 
@@ -960,6 +1006,20 @@ def main():
 
             # Refresh loop with keyboard checks.
             for _ in range(10):
+                if dashboard_window_monitor_enabled:
+                    current_time = time.monotonic()
+
+                    if current_time - dashboard_window_last_check >= 3:
+                        dashboard_window_last_check = current_time
+                        app_window_pids = dashboard_app_window_process_ids()
+
+                        if app_window_pids:
+                            dashboard_window_seen = True
+                        elif dashboard_window_seen:
+                            print("Dashboard app window closed. Stopping OSRSFlipper services.")
+                            STOP_EVENT.set()
+                            break
+
                 if handle_dashboard_command(
                     consume_dashboard_command(),
                     dashboard_process=dashboard_process,
@@ -979,6 +1039,9 @@ def main():
 
                 if key == "o":
                     message = open_dashboard(dashboard_open_mode)
+                    dashboard_window_monitor_enabled = dashboard_open_mode == "app"
+                    dashboard_window_seen = False
+                    dashboard_window_last_check = 0.0
                     if status_mode == "quiet":
                         print(message)
 

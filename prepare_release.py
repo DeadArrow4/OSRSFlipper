@@ -65,6 +65,7 @@ RELEASE_FILES = [
     "data_health_modules/snapshots.py",
     "data_health_modules/trends.py",
     "database.py",
+    "dashboard_auth.py",
     "first_run_setup.py",
     "flip_decision_engine.py",
     "health_check.py",
@@ -123,6 +124,7 @@ RELEASE_FILES = [
     "create_desktop_shortcut.bat",
     "build_and_create_shortcut.bat",
     "build_exe.bat",
+    "dev_start_osrsflipper.bat",
 ]
 
 

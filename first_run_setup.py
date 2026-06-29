@@ -13,7 +13,8 @@ from account_manager import (
     get_user_by_username,
     init_user_db,
     list_users,
-    save_session
+    save_session,
+    validate_dashboard_pin,
 )
 from health_check import run_health_check
 from openai_key_manager import (
@@ -228,12 +229,29 @@ def create_new_user():
 
         break
 
+    while True:
+        dashboard_pin = getpass.getpass("Dashboard unlock PIN (4-8 digits): ").strip()
+        confirm_pin = getpass.getpass("Confirm dashboard unlock PIN: ").strip()
+
+        if dashboard_pin != confirm_pin:
+            print("PINs do not match.")
+            continue
+
+        valid_pin, pin_message = validate_dashboard_pin(dashboard_pin)
+
+        if not valid_pin:
+            print(pin_message)
+            continue
+
+        break
+
     osrs_account_name = ask_text("RuneLite/OSRS account name", required=True)
 
     user = create_user(
         username=username,
         password=password,
-        osrs_account_name=osrs_account_name
+        osrs_account_name=osrs_account_name,
+        dashboard_pin=dashboard_pin
     )
 
     # Authenticate immediately to create/update session file.
