@@ -31,109 +31,113 @@ from dashboard_theme import base_table_styles
 
 def build_safety_review_tab():
     return html.Div(
-        className="settings-page safety-review-page",
+        className="settings-page safety-review-page trading-risk-check-page",
         children=[
             settings_section(
-                "Trade Safety Review",
+                "Risk Check",
+                "A compact pre-trade review for the strongest scanner candidates.",
                 children=[
                     html.Div(
-                        "A conservative pre-trade checklist for scanner candidates. "
-                        "It suggests small test quantities, estimates GE tax impact, checks cash exposure, and flags liquidity/trend risks.",
-                        className="muted-text"
+                        id="safety-review-kpi-cards",
+                        className="kpi-grid risk-check-kpis",
                     ),
                     html.Div(
-                        "This is not a guarantee of profit. Treat it as a final review before risking GP.",
-                        className="settings-scope-pill safety-warning-pill"
-                    )
+                        "Use this as a quick sanity check before following a plan. Avoid rows are not hidden, but they should not drive the next trade.",
+                        className="muted-text"
+                    ),
                 ]
             ),
 
-            settings_section(
-                "Safety Controls",
-                "Tune the safety review limits and refresh/export the reviewed candidates.",
+            html.Details(
+                className="ux-collapsible-panel trading-risk-settings",
                 children=[
-                    html.Div(
-                        className="settings-grid safety-control-grid",
+                    html.Summary("Risk Check settings"),
+                    settings_section(
+                        "Risk Check Settings",
                         children=[
-                            setting_card(
-                                "Max cash % per item test",
-                                setting_text_box(
-                                    "safety-max-cash-percent",
-                                    setting_value("max_single_item_cash_percent", 10.0),
-                                    "10.0"
-                                ),
-                                "Caps the GP used for a first test buy."
+                            html.Div(
+                                className="settings-grid safety-control-grid",
+                                children=[
+                                    setting_card(
+                                        "Max cash % per item test",
+                                        setting_text_box(
+                                            "safety-max-cash-percent",
+                                            setting_value("max_single_item_cash_percent", 10.0),
+                                            "10.0"
+                                        ),
+                                        "Caps the GP used for a first test buy."
+                                    ),
+                                    setting_card(
+                                        "Max first-test quantity",
+                                        setting_text_box(
+                                            "safety-max-test-quantity",
+                                            setting_value("max_test_quantity", 25),
+                                            "25"
+                                        ),
+                                        "Hard cap for the first test quantity."
+                                    ),
+                                    setting_card(
+                                        "Rows to review",
+                                        setting_text_box(
+                                            "safety-review-limit",
+                                            25,
+                                            "25"
+                                        ),
+                                        "How many candidates to check."
+                                    )
+                                ]
                             ),
-                            setting_card(
-                                "Max first-test quantity",
-                                setting_text_box(
-                                    "safety-max-test-quantity",
-                                    setting_value("max_test_quantity", 25),
-                                    "25"
-                                ),
-                                "Hard cap for the first test quantity."
-                            ),
-                            setting_card(
-                                "Rows to review",
-                                setting_text_box(
-                                    "safety-review-limit",
-                                    100,
-                                    "100"
-                                ),
-                                "How many candidates to show in the table."
+                            html.Div(
+                                className="settings-action-row",
+                                children=[
+                                    html.Button(
+                                        "Refresh Risk Check",
+                                        id="refresh-safety-review-button",
+                                        n_clicks=0,
+                                        className="primary-button"
+                                    ),
+                                    html.Button(
+                                        "Export CSV",
+                                        id="export-safety-review-button",
+                                        n_clicks=0,
+                                        className="secondary-button"
+                                    ),
+                                ],
                             )
                         ]
                     ),
-                    html.Div(
-                        className="settings-action-row",
-                        children=[
-                            html.Button(
-                                "Refresh Safety Review",
-                                id="refresh-safety-review-button",
-                                n_clicks=0,
-                                className="primary-button"
-                            ),
-                            html.Button(
-                                "Export Safety Review CSV",
-                                id="export-safety-review-button",
-                                n_clicks=0,
-                                className="secondary-button"
-                            ),
-                            html.Div(
-                                id="safety-review-status",
-                                className="status-text settings-save-status",
-                                children="Safety review will refresh automatically."
-                            )
-                        ]
-                    )
                 ]
             ),
 
             dcc.Download(id="safety-review-download"),
 
             html.Div(
-                className="panel settings-panel safety-table-panel",
+                className="panel settings-panel safety-table-panel trading-risk-table-panel",
                 children=[
-                    html.Div("Reviewed Trade Candidates", className="section-title"),
+                    html.Div("Relevant Risk Notes", className="section-title"),
                     html.Div(
-                        "Filter and sort the reviewed candidates below. Verdicts are color-coded from safer test candidates to avoids.",
-                        className="muted-text settings-section-subtitle"
+                        id="safety-review-status",
+                        className="status-text settings-save-status",
+                        children="Risk check will refresh automatically."
                     ),
                     dash_table.DataTable(
                         id="safety-review-table",
                         columns=[],
                         data=[],
-                        page_size=25,
+                        page_size=8,
                         sort_action="native",
-                        filter_action="native",
+                        filter_action="none",
+                        fixed_rows={"headers": True},
+                        style_as_list_view=True,
                         style_table={"overflowX": "auto"},
                         style_cell={
                             "textAlign": "left",
-                            "padding": "8px",
+                            "padding": "9px 10px",
                             "whiteSpace": "normal",
                             "height": "auto",
                             "minWidth": "110px",
-                            "maxWidth": "260px"
+                            "maxWidth": "260px",
+                            "lineHeight": "1.35"
                         },
                         style_data_conditional=[
                             {

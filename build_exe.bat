@@ -69,12 +69,14 @@ pyinstaller ^
   --hidden-import dashboard_tabs.admin_account ^
   --hidden-import dashboard_tabs.admin_data_health ^
   --hidden-import dashboard_tabs.admin_maintenance ^
+  --hidden-import dashboard_tabs.admin_omitted ^
   --hidden-import dashboard_tabs.admin_safety ^
   --hidden-import dashboard_tabs.admin_settings ^
   --hidden-import dashboard_tabs.admin_setup ^
   --hidden-import dashboard_tabs.admin_status ^
   --hidden-import dashboard_tabs.ai ^
   --hidden-import dashboard_tabs.app_layout ^
+  --hidden-import dashboard_tabs.flip_plan ^
   --hidden-import dashboard_tabs.market ^
   --hidden-import dashboard_tabs.overview ^
   --hidden-import dashboard_tabs.trade_board ^
@@ -92,7 +94,11 @@ pyinstaller ^
   --hidden-import data_health_modules.snapshots ^
   --hidden-import data_health_modules.trends ^
   --hidden-import scanner ^
+  --hidden-import flip_decision_engine ^
   --hidden-import market_features ^
+  --hidden-import market_suggestions ^
+  --hidden-import omitted_items ^
+  --hidden-import offer_intents ^
   --hidden-import api ^
   --hidden-import trend_analyzer ^
   --hidden-import recommender ^

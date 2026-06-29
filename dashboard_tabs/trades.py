@@ -109,10 +109,10 @@ def build_trade_history_tab():
         children=[
             settings_section(
                 "Trade History",
-                "Completed FIFO-matched flips and realized profit over time.",
+                "All previous RuneLite trade transactions with matched-profit charts for realized flips.",
                 children=[
                     html.Div(
-                        "Use this for post-trade review: what paid, what dragged, and which items keep showing up in profitable history.",
+                        "Buy rows include the latest scanner sell target when OSRSFlipper can estimate one.",
                         className="muted-text",
                     )
                 ],
@@ -132,8 +132,8 @@ def build_trade_history_tab():
             ),
             build_trade_table(
                 "completed-trades-table",
-                "Completed Matched Flips",
-                "Matched buy/sell pairs with realized profit after tax."
+                "Transaction History",
+                "All imported buy/sell trade events. Buy rows include recommended sell and estimated net where scanner data exists."
             )
         ]
     )

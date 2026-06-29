@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from account_context import BASE_DIR
+from omitted_items import filter_omitted_df
 from settings_manager import get_setting, set_setting, ensure_default_settings
 
 
@@ -101,6 +102,11 @@ def load_latest_scan_rows(limit=500):
         )
     finally:
         conn.close()
+
+    if df.empty:
+        return df
+
+    df = filter_omitted_df(df, "item_name")
 
     if df.empty:
         return df

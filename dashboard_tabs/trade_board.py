@@ -1,5 +1,5 @@
 """Shared Dash layout dependencies for OSRSFlipper tab builders."""
-from dash import html, dcc, dash_table
+from dash import html, dcc
 
 from account_manager import get_current_session
 from app_version import get_version_info, get_version_line
@@ -22,11 +22,11 @@ from dashboard_data import (
     DB_FILE,
     get_account_manager_rows,
     get_current_trade_scope,
-    get_item_options,
     read_saved_ai_advice,
     setting_value,
 )
-from dashboard_theme import base_table_styles
+from .admin_safety import build_safety_review_tab
+from .flip_plan import build_flip_plan_tab
 from .trades import build_current_trades_tab, build_trade_history_tab
 
 try:
@@ -294,6 +294,12 @@ def _build_trade_recommendations_tab():
                 "Best current candidates from the latest scanner run.",
                 header_actions=[
                     html.Button(
+                        "Omit Selected",
+                        id="omit-selected-trade-board-item-button",
+                        n_clicks=0,
+                        className="secondary-button"
+                    ),
+                    html.Button(
                         "Refresh Recommendations",
                         id="refresh-trade-board-button",
                         n_clicks=0,
@@ -366,41 +372,37 @@ def build_trading_workspace_tab():
         children=[
             dcc.Tabs(
                 id="trading-workspace-tabs",
-                value="recommendations",
-                persistence=True,
-                persistence_type="session",
+                value="next-moves",
+                persistence=False,
                 className="custom-tabs trading-subtabs",
                 children=[
                     dcc.Tab(
-                        label="Recommendations",
-                        value="recommendations",
+                        label="Next Moves",
+                        value="next-moves",
                         className="custom-tab",
                         selected_className="custom-tab--selected",
-                        children=[
-                            _build_capital_panel(),
-                            _build_trade_recommendations_tab(),
-                        ],
-                    ),
-                    dcc.Tab(
-                        label="Open Slots",
-                        value="open-slots",
-                        className="custom-tab",
-                        selected_className="custom-tab--selected",
-                        children=[_build_open_slots_tab()],
-                    ),
-                    dcc.Tab(
-                        label="My Trades",
-                        value="my-trades",
-                        className="custom-tab",
-                        selected_className="custom-tab--selected",
-                        children=[build_current_trades_tab()],
+                        children=[build_flip_plan_tab(), build_safety_review_tab()],
                     ),
                     dcc.Tab(
                         label="History",
                         value="history",
                         className="custom-tab",
                         selected_className="custom-tab--selected",
-                        children=[build_trade_history_tab()],
+                        children=[
+                            build_current_trades_tab(),
+                            build_trade_history_tab(),
+                        ],
+                    ),
+                    dcc.Tab(
+                        label="Advanced",
+                        value="advanced",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[
+                            _build_capital_panel(),
+                            _build_trade_recommendations_tab(),
+                            _build_open_slots_tab(),
+                        ],
                     ),
                 ],
             ),

@@ -14,6 +14,7 @@ from .admin import (
 )
 from .ai import build_ai_panel
 from .app_layout import build_app_layout
+from .flip_plan import build_flip_plan_tab
 from .market import (
     build_item_trend_explorer_tab,
     build_market_data_tab,
@@ -36,6 +37,7 @@ __all__ = [
     "build_app_layout",
     "build_data_health_tab",
     "build_filters",
+    "build_flip_plan_tab",
     "build_current_trades_tab",
     "build_item_history_tab",
     "build_item_trend_explorer_tab",

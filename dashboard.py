@@ -29,7 +29,7 @@ register_dashboard_callbacks(app)
 
 if __name__ == "__main__":
     app.run(
-        debug=True,
+        debug=False,
         dev_tools_ui=False,
         use_reloader=False,
         dev_tools_hot_reload=False

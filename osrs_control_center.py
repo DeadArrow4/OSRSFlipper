@@ -21,7 +21,7 @@ from pathlib import Path
 from account_context import get_account_scope, resolve_app_base_dir
 from app_version import get_version_line
 from capital_budget import get_effective_cash_stack
-from dashboard_control_commands import consume_dashboard_command
+from dashboard_control_commands import close_dashboard_app_windows, consume_dashboard_command
 from migration_manager import run_app_migrations
 from settings_manager import (
     ensure_default_settings,
@@ -1021,6 +1021,7 @@ def main():
         print("Stopping OSRSFlipper services...")
         STOP_EVENT.set()
 
+        close_dashboard_app_windows()
         stop_process(collector_process, "collector")
         stop_process(dashboard_process, "dashboard")
 

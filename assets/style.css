@@ -3721,3 +3721,338 @@ body .VirtualizedSelectSelectedOption {
         white-space: normal !important;
     }
 }
+
+/* === OSRSFlipper 1.4.0 Next Moves === */
+.flip-plan-page {
+    gap: 10px !important;
+}
+
+.flip-plan-hero {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    margin-top: 4px !important;
+}
+
+.flip-plan-status-block {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+
+.flip-plan-eyebrow {
+    color: rgba(246, 196, 83, 0.88) !important;
+    font-size: 0.74rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 4px !important;
+}
+
+.flip-plan-headline {
+    color: var(--text) !important;
+    font-size: clamp(1.15rem, 1.55vw, 1.55rem) !important;
+    font-weight: 880 !important;
+    line-height: 1.25 !important;
+    max-width: 980px !important;
+}
+
+.flip-plan-updated {
+    margin-top: 6px !important;
+    font-size: 0.76rem !important;
+}
+
+.flip-plan-refresh-button {
+    flex: 0 0 auto !important;
+}
+
+.flip-plan-kpis {
+    margin-top: 14px !important;
+    margin-bottom: 0 !important;
+}
+
+.flip-plan-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+}
+
+.flip-plan-page .settings-section {
+    margin-bottom: 12px !important;
+}
+
+.flip-plan-page .dash-table-container td,
+.flip-plan-page .dash-spreadsheet-container td {
+    vertical-align: top !important;
+}
+
+.flip-buy-candidate-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+}
+
+.flip-buy-candidate-workspace {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr) !important;
+    align-items: start !important;
+    gap: 12px !important;
+    margin-top: 8px !important;
+}
+
+.flip-buy-candidate-workspace .flip-buy-candidate-list {
+    max-height: 580px !important;
+    overflow-y: auto !important;
+    padding-right: 2px !important;
+    margin-top: 0 !important;
+}
+
+.flip-buy-detail-panel {
+    position: sticky !important;
+    top: 12px !important;
+    margin-top: 0 !important;
+}
+
+.flip-buy-candidate-summary,
+.flip-buy-candidate-empty {
+    color: var(--text-muted) !important;
+    font-size: 0.76rem !important;
+    line-height: 1.35 !important;
+}
+
+.flip-buy-candidate-empty {
+    padding: 11px 12px !important;
+    border: 1px solid rgba(142, 160, 166, 0.16) !important;
+    border-radius: 8px !important;
+    background: rgba(5, 8, 10, 0.48) !important;
+}
+
+.flip-candidate-row {
+    width: 100% !important;
+    min-height: 68px !important;
+    display: grid !important;
+    grid-template-columns: 92px minmax(190px, 1fr) minmax(92px, 118px) 76px 94px 78px !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: 8px !important;
+    background: rgba(16, 24, 32, 0.64) !important;
+    box-shadow: none !important;
+    color: var(--text-soft) !important;
+    cursor: pointer !important;
+    text-align: left !important;
+}
+
+.flip-candidate-row:hover {
+    border-color: rgba(20, 184, 166, 0.34) !important;
+    background: rgba(22, 34, 41, 0.78) !important;
+}
+
+.flip-candidate-row.is-selected {
+    border-color: rgba(20, 184, 166, 0.64) !important;
+    background: rgba(20, 184, 166, 0.14) !important;
+}
+
+.flip-candidate-action {
+    color: rgba(246, 196, 83, 0.92) !important;
+    font-size: 0.74rem !important;
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
+}
+
+.flip-candidate-main {
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+}
+
+.flip-candidate-item {
+    color: var(--text) !important;
+    font-size: 0.9rem !important;
+    font-weight: 900 !important;
+    line-height: 1.2 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.flip-candidate-reason {
+    color: var(--text-muted) !important;
+    display: -webkit-box !important;
+    font-size: 0.72rem !important;
+    line-height: 1.28 !important;
+    overflow: hidden !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+}
+
+.flip-candidate-metric {
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+}
+
+.flip-candidate-metric-label {
+    color: rgba(246, 196, 83, 0.78) !important;
+    font-size: 0.66rem !important;
+    font-weight: 850 !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+}
+
+.flip-candidate-metric-value {
+    color: var(--text-soft) !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    line-height: 1.18 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.flip-plan-notes-list {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+    gap: 10px !important;
+    margin-top: 8px !important;
+}
+
+.flip-plan-note {
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: var(--radius) !important;
+    background: var(--surface-2) !important;
+    padding: 11px 12px !important;
+}
+
+.flip-plan-note-title {
+    color: rgba(246, 196, 83, 0.9) !important;
+    font-size: 0.74rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 5px !important;
+}
+
+.flip-plan-note-body {
+    color: var(--text-soft) !important;
+    font-size: 0.82rem !important;
+    line-height: 1.38 !important;
+}
+
+.flip-plan-detail-panel {
+    margin-top: 10px !important;
+    border: 1px solid rgba(142, 160, 166, 0.18) !important;
+    border-radius: var(--radius) !important;
+    background: rgba(5, 8, 10, 0.55) !important;
+    color: var(--text-muted) !important;
+    padding: 11px 12px !important;
+    font-size: 0.82rem !important;
+    line-height: 1.35 !important;
+}
+
+.flip-plan-detail-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.flip-plan-detail-title {
+    color: var(--text) !important;
+    font-size: 0.95rem !important;
+    font-weight: 880 !important;
+    line-height: 1.25 !important;
+}
+
+.flip-plan-detail-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+    gap: 8px !important;
+}
+
+.flip-plan-detail-field {
+    border: 1px solid rgba(142, 160, 166, 0.14) !important;
+    border-radius: 8px !important;
+    background: rgba(22, 34, 41, 0.52) !important;
+    padding: 8px 9px !important;
+}
+
+.flip-plan-detail-label {
+    color: rgba(246, 196, 83, 0.82) !important;
+    font-size: 0.68rem !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 4px !important;
+}
+
+.flip-plan-detail-value {
+    color: var(--text-soft) !important;
+    font-size: 0.82rem !important;
+    line-height: 1.34 !important;
+    overflow-wrap: anywhere !important;
+}
+
+.flip-plan-page #flip-offer-plan-table .dash-table-container {
+    max-width: 100% !important;
+}
+
+.trading-workspace-page .flip-plan-page,
+.trading-workspace-page .safety-review-page {
+    padding: 0 !important;
+}
+
+.trading-risk-check-page {
+    margin-top: 4px !important;
+}
+
+.trading-risk-settings {
+    margin-bottom: 10px !important;
+}
+
+.trading-risk-settings > summary {
+    min-height: 30px !important;
+    padding: 7px 11px !important;
+    font-size: 0.78rem !important;
+}
+
+.trading-risk-table-panel .status-text {
+    display: inline-flex !important;
+    margin: 2px 0 10px 0 !important;
+    max-width: 100% !important;
+}
+
+@media (max-width: 1100px) {
+    .flip-buy-candidate-workspace {
+        grid-template-columns: 1fr !important;
+    }
+
+    .flip-candidate-row {
+        grid-template-columns: 82px minmax(180px, 1fr) 96px 82px !important;
+    }
+
+    .flip-buy-detail-panel {
+        position: static !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .flip-plan-hero {
+        flex-direction: column !important;
+    }
+
+    .flip-plan-refresh-button {
+        width: 100% !important;
+    }
+
+    .flip-candidate-row {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .flip-candidate-main {
+        grid-column: 1 / -1 !important;
+    }
+}

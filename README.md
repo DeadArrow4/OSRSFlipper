@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.3.0
+## Latest Release: 1.4.0
 
-OSRSFlipper 1.3.0 modernizes the dashboard UI around a new Trading workspace with Recommendations, Open Slots, My Trades, and History subtabs. It tightens the capital-aware Trade Board, removes noisy recommendation summary cards, adds compact dashboard service controls, and keeps the 1.2.x capital-aware AI, RuneLite telemetry, and 24h market context behavior.
+OSRSFlipper 1.4.0 makes Trading the decision-first workspace for current offers, next buys, and trade history. It adds selectable buy candidates with right-side reasoning, current-offer action planning with overnight holds, omitted item controls, AI usage cost visibility, transaction history, and dashboard shutdown that also closes the app-style browser window.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
@@ -12,7 +12,7 @@ The project is designed to run locally on your machine. Private runtime data suc
 ## Features
 
 * Local Dash dashboard
-* Trading workspace with Recommendations, Open Slots, My Trades, and History subtabs
+* Decision-first Trading workspace with Next Moves, History, and Advanced subtabs
 * SQLite trade tracking
 * OSRSFlipper RuneLite telemetry JSON import
 * FIFO matched completed flips
@@ -20,7 +20,9 @@ The project is designed to run locally on your machine. Private runtime data suc
 * Latest flip candidate view
 * Recurring flip candidate view
 * 24h Wiki market context and local candidate market snapshots
-* Safety review checklist before trading
+* Compact risk checks before trading
+* Omitted item controls for hiding unwanted recommendations
+* AI prompt/token usage and cost estimates
 * Account-scoped encrypted OpenAI API key support
 * Health checks, release checks, backups, and update installer support
 
@@ -65,7 +67,7 @@ When downloading a GitHub release ZIP:
 3. Confirm the final path is `C:\OSRSFlipper\osrs_control_center.py`.
 4. Open PowerShell in `C:\OSRSFlipper`.
 
-Current 1.3.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, and saved session. RuneLite telemetry is imported from the newest OSRSFlipper telemetry JSON, preferring the Plugin Hub-compliant default under `%USERPROFILE%\.runelite\osrsflipper-telemetry` while still supporting the older `C:\OSRSFlipper\runtime` file. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
+Current 1.4.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, and saved session. RuneLite telemetry is imported from the newest OSRSFlipper telemetry JSON, preferring the Plugin Hub-compliant default under `%USERPROFILE%\.runelite\osrsflipper-telemetry` while still supporting the older `C:\OSRSFlipper\runtime` file. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
 
 Create and activate a virtual environment:
 

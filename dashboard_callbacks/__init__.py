@@ -26,7 +26,10 @@ from openai_key_manager import (
     validate_key_shape,
 )
 from openai_key_tester import test_current_account_openai_key
-from openai_usage_manager import get_ai_usage_summary, init_ai_usage_db
+from omitted_items import omit_item, restore_omitted_item
+from openai_usage_manager import format_ai_usage_summary, get_ai_usage_summary, init_ai_usage_db
+from flip_decision_engine import build_flip_plan_snapshot
+from offer_intents import clear_offer_intent, mark_offer_overnight
 from prepare_release import prepare_clean_release_package
 from release_check import run_release_check
 from safety_manager import build_safety_review, write_safety_review
@@ -40,6 +43,7 @@ from dashboard_data import (
     OVERNIGHT_ROI_MIN,
     add_chart_size,
     backup_database_file,
+    clear_all_dashboard_caches,
     clear_current_account_ai_notes,
     clear_dashboard_cache,
     clear_log_files,
@@ -51,17 +55,19 @@ from dashboard_data import (
     get_account_manager_rows,
     get_best_recurring_flips,
     get_completed_trade_history,
-    get_completed_trade_rows,
     get_current_trade_scope,
     get_filtered_latest,
     get_item_history_for_item,
+    get_item_options,
     get_live_ge_offer_rows,
     get_open_slot_actions,
     get_open_trade_rows,
+    get_omitted_item_rows,
     get_setup_summary_items,
     get_status_summary,
     get_trade_board_recommendations,
     get_trade_summary,
+    get_transaction_history_rows,
     import_runelite_now,
     optimize_database_file,
     read_last_lines,
@@ -100,7 +106,7 @@ from data_health import (
     rebuild_daily_item_metrics,
     refresh_daily_metrics_if_stale,
 )
-from dashboard_control_commands import write_dashboard_command
+from dashboard_control_commands import schedule_dashboard_shutdown, write_dashboard_command
 from trade_trends import (
     apply_trade_board_trend_boost,
     enrich_trade_board_rows_with_trends,
@@ -119,6 +125,19 @@ def _columns_for_records(rows):
         return []
 
     return [{"name": str(key), "id": str(key)} for key in rows[0].keys()]
+
+
+def _columns_for_names(names):
+    return [{"name": str(name), "id": str(name)} for name in names]
+
+
+def _visible_columns_for_records(rows, preferred_names):
+    if not rows:
+        return _columns_for_names(preferred_names)
+
+    available = set(rows[0].keys())
+    names = [name for name in preferred_names if name in available]
+    return _columns_for_names(names)
 
 
 def _enrich_trade_board_dataframe_with_trends(board_df):
@@ -174,13 +193,498 @@ def register_dashboard_callbacks(app):
 
             if triggered_id == "dashboard-stop-services-button":
                 write_dashboard_command("stop_all")
-                return "Stop requested. Services will close from the control center."
+                schedule_dashboard_shutdown()
+                return "Stop requested. Services and dashboard are closing."
 
             return ""
 
         except Exception as error:
             return f"Dashboard command failed: {type(error).__name__}: {error}"
 
+
+    @app.callback(
+        Output("flip-plan-status", "children"),
+        Output("flip-plan-updated", "children"),
+        Output("flip-plan-kpi-cards", "children"),
+        Output("flip-buy-plan-records", "data"),
+        Output("flip-offer-plan-table", "data"),
+        Output("flip-offer-plan-table", "columns"),
+        Output("flip-plan-notes-list", "children"),
+        Input("flip-plan-refresh-button", "n_clicks"),
+        Input("auto-refresh", "n_intervals"),
+        Input("dashboard-refresh-status-button", "n_clicks"),
+        Input("flip-offer-intents-version", "data"),
+    )
+    def update_flip_plan(refresh_clicks, intervals, status_clicks, offer_intents_version):
+        try:
+            snapshot = build_flip_plan_snapshot(max_buy_rows=12)
+            summary = snapshot.get("summary") or {}
+            buy_rows = snapshot.get("buy_plan") or [
+                {
+                    "Action": "Wait",
+                    "Item": "No capital-fit buy",
+                    "Why": "Current GP, open slots, filters, or market conditions do not support a strong new buy.",
+                }
+            ]
+            offer_rows = snapshot.get("offer_plan") or [
+                {
+                    "Action": "No active offer",
+                    "Item": "",
+                    "Reason": "No active RuneLite GE offers are available in the current capital snapshot.",
+                }
+            ]
+            for row in buy_rows:
+                if row.get("Buy") or row.get("Sell"):
+                    row["Target"] = f"{row.get('Buy', 'n/a')} -> {row.get('Sell', 'n/a')}"
+                row["Profit"] = row.get("Projected Profit", "")
+
+            for row in offer_rows:
+                row["P/L"] = row.get("Projected P/L", "")
+
+            notes = snapshot.get("notes") or [
+                {
+                    "Topic": "Plan",
+                    "Note": "Run the collector and RuneLite telemetry import to build a current plan.",
+                }
+            ]
+            note_cards = [
+                html.Div(
+                    className="flip-plan-note",
+                    children=[
+                        html.Div(note.get("Topic", "Note"), className="flip-plan-note-title"),
+                        html.Div(note.get("Note", ""), className="flip-plan-note-body"),
+                    ],
+                )
+                for note in notes
+            ]
+
+            card_subtitles = {
+                "Raw GP": "cash currently visible",
+                "Usable GP": "after cap/reserve rules",
+                "Free Slots": "Grand Exchange slots",
+                "Offer P/L": "projected active-offer result",
+                "Next Buy": "top capital-fit candidate",
+                "Wait": "expected patience window",
+            }
+            cards = [
+                make_card(name, value, card_subtitles.get(name, ""))
+                for name, value in summary.items()
+            ]
+
+            offer_visible_columns = [
+                "Action",
+                "Item",
+                "Qty",
+                "P/L",
+                "Intent",
+                "Wait",
+            ]
+
+            status = snapshot.get("status", "")
+            updated = f"Updated {snapshot.get('generated_at', '')}."
+
+            return (
+                status,
+                updated,
+                cards,
+                buy_rows,
+                offer_rows,
+                _visible_columns_for_records(offer_rows, offer_visible_columns),
+                note_cards,
+            )
+
+        except Exception as error:
+            error_note = f"Next Moves failed: {type(error).__name__}: {error}"
+            return (
+                error_note,
+                "",
+                [make_card("Next Moves", "Error", "review dashboard logs")],
+                [{"Action": "Error", "Item": "", "Why": error_note}],
+                [{"Action": "Error", "Item": "", "Reason": error_note}],
+                _columns_for_names(["Action", "Item", "Reason"]),
+                [
+                    html.Div(
+                        className="flip-plan-note",
+                        children=[
+                            html.Div("Error", className="flip-plan-note-title"),
+                            html.Div(error_note, className="flip-plan-note-body"),
+                        ],
+                    )
+                ],
+            )
+
+
+    def _selected_table_row(active_cell, rows, default_index=0):
+        rows = rows or []
+        if not rows:
+            return {}
+
+        row_index = default_index
+        if active_cell and active_cell.get("row") is not None:
+            try:
+                row_index = int(active_cell.get("row"))
+            except Exception:
+                row_index = default_index
+
+        if row_index < 0 or row_index >= len(rows):
+            row_index = 0
+
+        return rows[row_index] or {}
+
+
+    def _detail_field(label, value):
+        value = "" if value is None else str(value)
+        if not value:
+            value = "n/a"
+
+        return html.Div(
+            className="flip-plan-detail-field",
+            children=[
+                html.Div(label, className="flip-plan-detail-label"),
+                html.Div(value, className="flip-plan-detail-value"),
+            ],
+        )
+
+
+    def _safe_selected_index(selected_index, rows):
+        rows = rows or []
+        if not rows:
+            return 0
+
+        try:
+            selected_index = int(selected_index or 0)
+        except Exception:
+            selected_index = 0
+
+        if selected_index < 0 or selected_index >= len(rows):
+            return 0
+
+        return selected_index
+
+
+    def _candidate_metric(label, value):
+        value = "" if value is None else str(value)
+        if not value:
+            value = "n/a"
+
+        return html.Span(
+            className="flip-candidate-metric",
+            children=[
+                html.Span(label, className="flip-candidate-metric-label"),
+                html.Span(value, className="flip-candidate-metric-value"),
+            ],
+        )
+
+
+    def _buy_candidate_button(row, index, selected_index):
+        action = str(row.get("Action") or "Review")
+        item = str(row.get("Item") or "Unknown item")
+        target = row.get("Target")
+        if not target and (row.get("Buy") or row.get("Sell")):
+            target = f"{row.get('Buy', 'n/a')} -> {row.get('Sell', 'n/a')}"
+
+        classes = ["flip-candidate-row"]
+        if index == selected_index:
+            classes.append("is-selected")
+
+        return html.Button(
+            id={"type": "flip-buy-candidate-button", "index": index},
+            n_clicks=0,
+            type="button",
+            className=" ".join(classes),
+            title=f"{action}: {item}",
+            children=[
+                html.Span(action, className="flip-candidate-action"),
+                html.Span(
+                    className="flip-candidate-main",
+                    children=[
+                        html.Span(item, className="flip-candidate-item"),
+                        html.Span(row.get("Why") or "Open for details.", className="flip-candidate-reason"),
+                    ],
+                ),
+                _candidate_metric("Target", target),
+                _candidate_metric("Qty", row.get("Qty")),
+                _candidate_metric("Profit", row.get("Profit") or row.get("Projected Profit")),
+                _candidate_metric("Wait", row.get("Wait")),
+            ],
+        )
+
+
+    @app.callback(
+        Output("flip-buy-selected-index", "data"),
+        Input({"type": "flip-buy-candidate-button", "index": ALL}, "n_clicks"),
+        State("flip-buy-selected-index", "data"),
+        prevent_initial_call=True,
+    )
+    def select_flip_buy_candidate(candidate_clicks, current_index):
+        triggered_id = ctx.triggered_id
+
+        if isinstance(triggered_id, dict) and triggered_id.get("type") == "flip-buy-candidate-button":
+            try:
+                return int(triggered_id.get("index", 0))
+            except Exception:
+                return int(current_index or 0)
+
+        return int(current_index or 0)
+
+
+    @app.callback(
+        Output("flip-buy-candidate-list", "children"),
+        Output("flip-buy-plan-detail", "children"),
+        Input("flip-buy-plan-records", "data"),
+        Input("flip-buy-selected-index", "data"),
+    )
+    def render_flip_buy_candidates(rows, selected_index):
+        rows = rows or []
+        selected_index = _safe_selected_index(selected_index, rows)
+        if not rows:
+            empty_detail = "No capital-fit buy candidates are available right now."
+            return (
+                html.Div(empty_detail, className="muted-text flip-buy-candidate-empty"),
+                empty_detail,
+            )
+
+        row = rows[selected_index] or {}
+        candidate_list = [
+            html.Div(
+                f"{len(rows)} buy candidates. Select one to inspect prices, quantity, wait time, and reasoning.",
+                className="muted-text flip-buy-candidate-summary",
+            )
+        ]
+        candidate_list.extend(
+            _buy_candidate_button(candidate, index, selected_index)
+            for index, candidate in enumerate(rows)
+        )
+
+        detail = html.Div(
+            className="flip-plan-detail-content",
+            children=[
+                html.Div(
+                    className="flip-plan-detail-title",
+                    children=f"{row.get('Action', 'Review')} - {row.get('Item', '')}",
+                ),
+                _detail_field("Why", row.get("Why")),
+                _detail_field("Capital Note", row.get("Capital Note")),
+                html.Div(
+                    className="flip-plan-detail-grid",
+                    children=[
+                        _detail_field("Buy", row.get("Buy")),
+                        _detail_field("Sell", row.get("Sell")),
+                        _detail_field("Quantity", row.get("Qty")),
+                        _detail_field("Use GP", row.get("Use GP")),
+                        _detail_field("Projected Profit", row.get("Projected Profit")),
+                        _detail_field("Wait", row.get("Wait")),
+                        _detail_field("ROI", row.get("ROI")),
+                        _detail_field("Confidence", row.get("Confidence")),
+                    ],
+                ),
+            ],
+        )
+
+        return candidate_list, detail
+
+
+    @app.callback(
+        Output("flip-offer-plan-detail", "children"),
+        Input("flip-offer-plan-table", "active_cell"),
+        Input("flip-offer-plan-table", "selected_rows"),
+        Input("flip-offer-plan-table", "derived_virtual_selected_rows"),
+        Input("flip-offer-plan-table", "derived_virtual_data"),
+        Input("flip-offer-plan-table", "data"),
+    )
+    def update_flip_offer_detail(active_cell, selected_rows, visible_selected_rows, visible_rows, all_rows):
+        rows = visible_rows or all_rows or []
+
+        selected_index = 0
+        active_selected_rows = visible_selected_rows or selected_rows or []
+        if active_cell and active_cell.get("row") is not None:
+            try:
+                selected_index = int(active_cell.get("row"))
+            except Exception:
+                selected_index = 0
+        elif active_selected_rows:
+            try:
+                selected_index = int(active_selected_rows[0])
+            except Exception:
+                selected_index = 0
+
+        row = _selected_table_row(None, rows, default_index=selected_index)
+        if not row:
+            return "Click an offer row to see the tax, reason, and overnight status."
+
+        return html.Div(
+            className="flip-plan-detail-content",
+            children=[
+                html.Div(
+                    className="flip-plan-detail-title",
+                    children=f"{row.get('Action', 'Review')} - {row.get('Item', '')}",
+                ),
+                _detail_field("Reason", row.get("Reason")),
+                html.Div(
+                    className="flip-plan-detail-grid",
+                    children=[
+                        _detail_field("Side", row.get("Side")),
+                        _detail_field("Quantity", row.get("Qty")),
+                        _detail_field("Buy Price", row.get("Buy Price")),
+                        _detail_field("Sell Price", row.get("Sell Price")),
+                        _detail_field("Tax Total", row.get("Tax Total")),
+                        _detail_field("Projected P/L", row.get("Projected P/L")),
+                        _detail_field("Wait", row.get("Wait")),
+                        _detail_field("Intent", row.get("Intent") or "Normal"),
+                    ],
+                ),
+            ],
+        )
+
+
+    @app.callback(
+        Output("flip-offer-intent-status", "children"),
+        Output("flip-offer-intents-version", "data"),
+        Output("flip-offer-plan-table", "selected_rows"),
+        Input("flip-mark-overnight-button", "n_clicks"),
+        Input("flip-clear-overnight-button", "n_clicks"),
+        State("flip-offer-plan-table", "selected_rows"),
+        State("flip-offer-plan-table", "derived_virtual_selected_rows"),
+        State("flip-offer-plan-table", "derived_virtual_data"),
+        State("flip-offer-plan-table", "data"),
+        State("flip-offer-intents-version", "data"),
+        prevent_initial_call=True,
+    )
+    def update_flip_offer_intent(mark_clicks, clear_clicks, selected_rows, visible_selected_rows, visible_rows, all_rows, version):
+        triggered_id = ctx.triggered_id
+        active_selected_rows = visible_selected_rows or selected_rows or []
+        rows = visible_rows if visible_selected_rows else all_rows
+        rows = rows or []
+
+        if not active_selected_rows:
+            return "Select one current offer row first.", int(version or 0), no_update
+
+        row_index = int(active_selected_rows[0])
+        if row_index < 0 or row_index >= len(rows):
+            return "The selected offer row is no longer available.", int(version or 0), []
+
+        row = rows[row_index] or {}
+
+        try:
+            if triggered_id == "flip-mark-overnight-button":
+                result = mark_offer_overnight(row)
+                item_name = result.get("item_name") or row.get("Item") or "offer"
+                version = int(version or 0) + 1
+                return (
+                    f"Marked {item_name} as an overnight hold until tomorrow.",
+                    version,
+                    [],
+                )
+
+            if triggered_id == "flip-clear-overnight-button":
+                cleared = clear_offer_intent(row)
+                item_name = row.get("Item") or "offer"
+                version = int(version or 0) + 1 if cleared else int(version or 0)
+                status = (
+                    f"Cleared overnight hold for {item_name}."
+                    if cleared
+                    else f"No active overnight hold found for {item_name}."
+                )
+                return status, version, []
+
+            return "", int(version or 0), no_update
+
+        except Exception as error:
+            return f"Offer intent update failed: {type(error).__name__}: {error}", int(version or 0), no_update
+
+
+    @app.callback(
+        Output("omitted-items-table", "data"),
+        Output("omitted-items-table", "columns"),
+        Output("omit-item-status", "children"),
+        Output("omit-items-version", "data"),
+        Output("omit-item-dropdown", "options"),
+        Input("omit-item-button", "n_clicks"),
+        Input("omit-selected-trade-board-item-button", "n_clicks"),
+        Input("restore-omitted-item-button", "n_clicks"),
+        State("omit-item-dropdown", "value"),
+        State("omit-item-reason", "value"),
+        State("trade-board-table", "active_cell"),
+        State("trade-board-table", "derived_virtual_data"),
+        State("trade-board-table", "data"),
+        State("omitted-items-table", "selected_rows"),
+        State("omitted-items-table", "data"),
+        State("omit-items-version", "data"),
+    )
+    def update_omitted_items(
+        omit_clicks,
+        omit_selected_clicks,
+        restore_clicks,
+        selected_item,
+        reason,
+        active_cell,
+        trade_board_visible_rows,
+        trade_board_rows,
+        selected_rows,
+        omitted_rows,
+        version,
+    ):
+        triggered_id = ctx.triggered_id
+        status = ""
+        changed = False
+
+        try:
+            if triggered_id == "omit-item-button":
+                result = omit_item(selected_item, reason=reason)
+                status = f"Omitted {result.get('item_name')}."
+                changed = True
+
+            elif triggered_id == "omit-selected-trade-board-item-button":
+                if not active_cell or active_cell.get("row") is None:
+                    status = "Click a recommendation row first, then press Omit Selected."
+                else:
+                    rows = trade_board_visible_rows or trade_board_rows or []
+                    row_index = int(active_cell.get("row"))
+                    if row_index < 0 or row_index >= len(rows):
+                        status = "The selected recommendation row is no longer available."
+                    else:
+                        row = rows[row_index] or {}
+                        item_name = row.get("Item") or row.get("item_name")
+                        item_id = row.get("Item ID") or row.get("item_id")
+                        result = omit_item(item_name, item_id=item_id, reason=reason or "Omitted from Trade Board")
+                        status = f"Omitted {result.get('item_name')}."
+                        changed = True
+
+            elif triggered_id == "restore-omitted-item-button":
+                selected_rows = selected_rows or []
+                rows = omitted_rows or []
+                if not selected_rows:
+                    status = "Select an omitted item row to restore."
+                else:
+                    row_index = int(selected_rows[0])
+                    if row_index < 0 or row_index >= len(rows):
+                        status = "The selected omitted row is no longer available."
+                    else:
+                        restored = restore_omitted_item(row_id=rows[row_index].get("ID"))
+                        item_name = rows[row_index].get("Item") or "item"
+                        status = f"Restored {item_name}." if restored else "No omitted item was restored."
+                        changed = restored > 0
+
+            if changed:
+                clear_all_dashboard_caches()
+                version = int(version or 0) + 1
+
+        except Exception as error:
+            status = f"Omitted item update failed: {type(error).__name__}: {error}"
+
+        rows = get_omitted_item_rows()
+        columns = [
+            {"name": "ID", "id": "ID"},
+            {"name": "Item", "id": "Item"},
+            {"name": "Item ID", "id": "Item ID"},
+            {"name": "Reason", "id": "Reason"},
+            {"name": "Created", "id": "Created"},
+        ]
+
+        if not status:
+            status = f"{len(rows)} omitted item(s)." if rows else "No omitted items."
+
+        return rows, columns, status, int(version or 0), get_item_options()
 
 
 
@@ -762,6 +1266,7 @@ def register_dashboard_callbacks(app):
         Input("trade-board-trend-confidence-filter", "value"),
         Input("trade-board-trend-boost-mode", "value"),
         Input("dashboard-refresh-status-button", "n_clicks"),
+        Input("omit-items-version", "data"),
     )
     def update_trade_board_phase1(
         n_clicks,
@@ -775,6 +1280,7 @@ def register_dashboard_callbacks(app):
         trend_confidence_filter,
         trend_boost_mode,
         dashboard_refresh_clicks,
+        omitted_items_version,
     ):
         try:
             from datetime import datetime
@@ -940,6 +1446,7 @@ def register_dashboard_callbacks(app):
         Input("limit-filter", "value"),
         Input("auto-refresh", "n_intervals"),
         Input("dashboard-refresh-status-button", "n_clicks"),
+        Input("omit-items-version", "data"),
     )
     def update_dashboard(
         window_filter,
@@ -950,6 +1457,7 @@ def register_dashboard_callbacks(app):
         limit,
         _,
         dashboard_refresh_clicks,
+        omitted_items_version,
     ):
         df = get_filtered_latest(
             window_filter=window_filter,
@@ -1235,10 +1743,11 @@ def register_dashboard_callbacks(app):
         Input("refresh-trades-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
         Input("dashboard-refresh-status-button", "n_clicks"),
+        Input("omit-items-version", "data"),
         Input("main-tabs", "value"),
         State("my-trades-limit", "value")
     )
-    def update_trade_dashboard(refresh_clicks, intervals, dashboard_refresh_clicks, active_tab, row_limit):
+    def update_trade_dashboard(refresh_clicks, intervals, dashboard_refresh_clicks, omitted_items_version, active_tab, row_limit):
         if active_tab not in {"my-trades", "trade-board", "trading"}:
             return (
                 no_update,
@@ -1324,7 +1833,7 @@ def register_dashboard_callbacks(app):
                 bottom_margin=130
             )
 
-        completed_df = clean_trade_display_df(get_completed_trade_rows(limit=limit))
+        completed_df = clean_trade_display_df(get_transaction_history_rows(limit=limit))
         live_offers_df = clean_trade_display_df(get_live_ge_offer_rows(limit=limit))
         open_df = clean_trade_display_df(get_open_trade_rows(limit=limit))
 
@@ -1367,11 +1876,20 @@ def register_dashboard_callbacks(app):
                 risk_profile=risk_profile,
                 limit=limit
             )
+            usage_summary = get_ai_usage_summary()
+            latest_usage = usage_summary.get("latest") or {}
+            latest_tokens = int(latest_usage.get("total_tokens") or 0)
+            latest_cost = latest_usage.get("estimated_cost")
+            if latest_cost is None:
+                cost_text = "cost estimate off"
+            else:
+                cost_text = f"estimated cost ${float(latest_cost):.4f}"
 
             status = (
                 "AI advice generated successfully. "
                 f"Risk profile: {risk_profile}. "
-                f"Candidate source limit: {limit}."
+                f"Candidate source limit: {limit}. "
+                f"Last prompt: {latest_tokens:,} tokens, {cost_text}."
             )
 
             return advice, status
@@ -1436,16 +1954,7 @@ def register_dashboard_callbacks(app):
         init_ai_usage_db()
         summary = get_ai_usage_summary()
 
-        today = summary["today"]
-        all_time = summary["all_time"]
-        limit = summary["daily_limit"]
-
-        return (
-            f"AI usage today: {today.get('total_requests', 0)}/{limit} requests, "
-            f"{int(today.get('total_tokens', 0) or 0):,} tokens. "
-            f"All time: {all_time.get('total_requests', 0)} requests, "
-            f"{int(all_time.get('total_tokens', 0) or 0):,} tokens."
-        )
+        return format_ai_usage_summary(summary)
 
 
     @app.callback(
@@ -1558,13 +2067,29 @@ def register_dashboard_callbacks(app):
         State("setting-ai-value-choices", "value"),
         State("setting-exclude-items-traded-today", "value"),
         State("setting-max-ai-requests-per-day", "value"),
+        State("setting-ai-input-cost-per-1m-tokens", "value"),
+        State("setting-ai-output-cost-per-1m-tokens", "value"),
         State("setting-min-overnight-raw-margin", "value"),
         State("setting-min-overnight-roi-percent", "value"),
         State("setting-max-small-loss-percent", "value"),
         State("setting-max-medium-loss-percent", "value"),
         prevent_initial_call=True
     )
-    def save_ai_settings(n_clicks, source_limit, quick_choices, overnight_choices, value_choices, exclude_today, max_ai_requests, min_margin, min_roi, small_loss, medium_loss):
+    def save_ai_settings(
+        n_clicks,
+        source_limit,
+        quick_choices,
+        overnight_choices,
+        value_choices,
+        exclude_today,
+        max_ai_requests,
+        input_cost_per_1m,
+        output_cost_per_1m,
+        min_margin,
+        min_roi,
+        small_loss,
+        medium_loss,
+    ):
         if not n_clicks:
             return ""
 
@@ -1575,6 +2100,8 @@ def register_dashboard_callbacks(app):
             set_setting("ai_value_choices", int(value_choices or 10), "int")
             set_setting("exclude_items_traded_today", exclude_today == "true", "bool")
             set_setting("max_ai_requests_per_day", int(max_ai_requests or 0), "int")
+            set_setting("ai_input_cost_per_1m_tokens", float(input_cost_per_1m or 0), "float")
+            set_setting("ai_output_cost_per_1m_tokens", float(output_cost_per_1m or 0), "float")
             set_setting("min_overnight_raw_margin", int(min_margin or 10000), "int")
             set_setting("min_overnight_roi_percent", float(min_roi or 5.0), "float")
             set_setting("max_small_loss_percent", float(small_loss or 2.0), "float")
@@ -2034,34 +2561,77 @@ def register_dashboard_callbacks(app):
 
 
     @app.callback(
+        Output("safety-review-kpi-cards", "children"),
         Output("safety-review-table", "data"),
         Output("safety-review-table", "columns"),
         Output("safety-review-status", "children"),
         Input("refresh-safety-review-button", "n_clicks"),
         Input("auto-refresh", "n_intervals"),
         Input("main-tabs", "value"),
+        Input("trading-workspace-tabs", "value"),
         State("safety-review-limit", "value"),
         State("safety-max-cash-percent", "value"),
         State("safety-max-test-quantity", "value")
     )
-    def update_safety_review_table(refresh_clicks, intervals, active_tab, limit, max_cash_percent, max_test_quantity):
-        if active_tab != "safety-review":
-            return no_update, no_update, no_update
+    def update_safety_review_table(
+        refresh_clicks,
+        intervals,
+        active_tab,
+        trading_tab,
+        limit,
+        max_cash_percent,
+        max_test_quantity,
+    ):
+        if active_tab not in {"trading", "trade-board"} or trading_tab != "next-moves":
+            return no_update, no_update, no_update, no_update
 
         try:
             set_setting("max_single_item_cash_percent", float(max_cash_percent or 10.0), "float")
             set_setting("max_test_quantity", int(max_test_quantity or 25), "int")
 
-            df = build_safety_review(limit=int(limit or 100))
+            df = build_safety_review(limit=int(limit or 25))
 
             if df.empty:
-                return [], [], "No scan rows found yet. Run the collector/scanner first."
+                cards = [
+                    make_card("Risk Check", "No data", "run collector/scanner"),
+                    make_card("Safer Tests", "0", "candidate count"),
+                    make_card("Avoid", "0", "candidate count"),
+                ]
+                return cards, [], [], "No scan rows found yet. Run the collector/scanner first."
 
-            columns = [{"name": column, "id": column} for column in df.columns]
-            return df.to_dict("records"), columns, f"Safety review loaded: {len(df)} candidates."
+            visible_columns = [
+                "Safety Verdict",
+                "Item",
+                "Suggested Test Qty",
+                "Buy Price",
+                "Sell Price",
+                "Net Margin/Item",
+                "Net ROI %",
+                "Projected Test Profit",
+                "Cash Exposure",
+                "Expected Fill",
+                "Flags",
+            ]
+            visible_columns = [column for column in visible_columns if column in df.columns]
+            display_df = df[visible_columns].copy()
+            verdict_counts = df["Safety Verdict"].value_counts().to_dict() if "Safety Verdict" in df.columns else {}
+
+            cards = [
+                make_card("Safer Tests", str(int(verdict_counts.get("Safer Test", 0))), "lowest friction candidates"),
+                make_card("Test First", str(int(verdict_counts.get("Test First", 0))), "small test before full qty"),
+                make_card("Tiny Test", str(int(verdict_counts.get("Watch / Test Tiny", 0))), "watch or use minimum size"),
+                make_card("Avoid", str(int(verdict_counts.get("Avoid", 0))), "do not lead with these"),
+            ]
+
+            columns = [{"name": column, "id": column} for column in display_df.columns]
+            status = f"Risk check loaded: {len(display_df)} relevant candidates."
+            return cards, display_df.to_dict("records"), columns, status
 
         except Exception as error:
-            return [], [], f"Safety review failed: {error}"
+            cards = [
+                make_card("Risk Check", "Error", str(error)[:80]),
+            ]
+            return cards, [], [], f"Risk check failed: {error}"
 
 
     @app.callback(

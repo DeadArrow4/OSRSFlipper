@@ -39,6 +39,8 @@ DEFAULT_SETTINGS = {
     "ai_value_choices": {"value": 10, "type": "int", "description": "Maximum additional valuable flips the AI should suggest."},
     "exclude_items_traded_today": {"value": True, "type": "bool", "description": "Prevent AI from recommending items already traded today."},
     "max_ai_requests_per_day": {"value": 20, "type": "int", "description": "Maximum AI requests allowed per account per UTC day. Set to 0 to disable AI for the account."},
+    "ai_input_cost_per_1m_tokens": {"value": 0.0, "type": "float", "description": "Input token cost in dollars per 1M tokens for AI cost estimates."},
+    "ai_output_cost_per_1m_tokens": {"value": 0.0, "type": "float", "description": "Output token cost in dollars per 1M tokens for AI cost estimates."},
 
     # Overnight / loss-cut rules
     "min_overnight_raw_margin": {"value": 10_000, "type": "int", "description": "Minimum raw margin per item for overnight recommendations."},

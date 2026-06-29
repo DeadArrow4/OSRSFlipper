@@ -5,6 +5,7 @@ from .admin_about import build_about_tab
 from .admin_account import build_account_manager_tab
 from .admin_data_health import build_data_health_tab
 from .admin_maintenance import build_maintenance_tab
+from .admin_omitted import build_omitted_items_tab
 from .admin_safety import build_safety_review_tab
 from .admin_settings import build_settings_tab
 from .admin_setup import build_setup_tab
@@ -62,6 +63,13 @@ dcc.Tab(
                         className="custom-tab",
                         selected_className="custom-tab--selected",
                         children=[build_maintenance_tab()]
+                    ),
+                    dcc.Tab(
+                        label="Omitted Items",
+                        value="admin-omitted-items",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                        children=[build_omitted_items_tab()]
                     ),
                     dcc.Tab(
                         label="Settings",

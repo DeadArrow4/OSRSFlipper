@@ -20,6 +20,83 @@ def get_connection():
     return sqlite3.connect(DB_FILE)
 
 
+def _safe_int(value, default=0):
+    try:
+        if value in (None, ""):
+            return default
+        return int(float(value or 0))
+    except Exception:
+        return default
+
+
+def _safe_float(value, default=0.0):
+    try:
+        if value in (None, ""):
+            return default
+        return float(value or 0)
+    except Exception:
+        return default
+
+
+def get_ai_token_cost_rates():
+    input_rate = max(0.0, _safe_float(get_setting("ai_input_cost_per_1m_tokens", 0.0), 0.0))
+    output_rate = max(0.0, _safe_float(get_setting("ai_output_cost_per_1m_tokens", 0.0), 0.0))
+
+    return {
+        "input_per_1m": input_rate,
+        "output_per_1m": output_rate,
+        "configured": input_rate > 0 or output_rate > 0,
+    }
+
+
+def estimate_ai_cost(prompt_tokens=0, completion_tokens=0, rates=None):
+    rates = rates or get_ai_token_cost_rates()
+    prompt_tokens = _safe_int(prompt_tokens)
+    completion_tokens = _safe_int(completion_tokens)
+
+    input_cost = (prompt_tokens / 1_000_000) * rates["input_per_1m"]
+    output_cost = (completion_tokens / 1_000_000) * rates["output_per_1m"]
+    total_cost = input_cost + output_cost
+
+    return {
+        "configured": bool(rates.get("configured")),
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": total_cost,
+    }
+
+
+def _decorate_usage_costs(row, rates):
+    row = dict(row or {})
+    requests = max(0, _safe_int(row.get("total_requests")))
+    prompt_tokens = _safe_int(row.get("prompt_tokens"))
+    completion_tokens = _safe_int(row.get("completion_tokens"))
+    total_tokens = _safe_int(row.get("total_tokens"), prompt_tokens + completion_tokens)
+    costs = estimate_ai_cost(prompt_tokens, completion_tokens, rates=rates)
+
+    row["total_tokens"] = total_tokens
+    row["prompt_tokens"] = prompt_tokens
+    row["completion_tokens"] = completion_tokens
+    row["estimated_input_cost"] = costs["input_cost"] if costs["configured"] else None
+    row["estimated_output_cost"] = costs["output_cost"] if costs["configured"] else None
+    row["estimated_cost"] = costs["total_cost"] if costs["configured"] else None
+    row["average_tokens_per_request"] = round(total_tokens / requests, 2) if requests else 0
+    row["average_cost_per_request"] = (
+        (costs["total_cost"] / requests) if requests and costs["configured"] else None
+    )
+    return row
+
+
+def _format_cost(value):
+    if value is None:
+        return "n/a"
+
+    value = float(value or 0)
+    if value < 0.01:
+        return f"${value:.5f}"
+    return f"${value:.2f}"
+
+
 def init_ai_usage_db():
     conn = get_connection()
     cursor = conn.cursor()
@@ -134,14 +211,116 @@ def get_ai_usage_summary(app_username=None, osrs_account_name=None):
 
     today = dict(cursor.fetchone())
 
+    cursor.execute("""
+        SELECT
+            model,
+            request_type,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            success,
+            error_message,
+            created_at
+        FROM ai_usage_events
+        WHERE app_username = ?
+          AND osrs_account_name = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (
+        scope["app_username"],
+        scope["osrs_account_name"]
+    ))
+
+    latest_row = cursor.fetchone()
+    latest = dict(latest_row) if latest_row else {}
+
     conn.close()
+    rates = get_ai_token_cost_rates()
+    all_time = _decorate_usage_costs(all_time, rates)
+    today = _decorate_usage_costs(today, rates)
+
+    if latest:
+        latest_costs = estimate_ai_cost(
+            latest.get("prompt_tokens"),
+            latest.get("completion_tokens"),
+            rates=rates,
+        )
+        latest["prompt_tokens"] = _safe_int(latest.get("prompt_tokens"))
+        latest["completion_tokens"] = _safe_int(latest.get("completion_tokens"))
+        latest["total_tokens"] = _safe_int(
+            latest.get("total_tokens"),
+            latest["prompt_tokens"] + latest["completion_tokens"],
+        )
+        latest["estimated_cost"] = latest_costs["total_cost"] if latest_costs["configured"] else None
 
     return {
         "scope": scope,
         "daily_limit": get_daily_ai_limit(),
+        "cost_rates": rates,
         "today": today,
-        "all_time": all_time
+        "all_time": all_time,
+        "latest": latest,
     }
+
+
+def format_ai_usage_summary(summary=None):
+    summary = summary or get_ai_usage_summary()
+    today = summary.get("today") or {}
+    all_time = summary.get("all_time") or {}
+    latest = summary.get("latest") or {}
+    rates = summary.get("cost_rates") or get_ai_token_cost_rates()
+    limit = summary.get("daily_limit", 0)
+
+    today_requests = _safe_int(today.get("total_requests"))
+    today_tokens = _safe_int(today.get("total_tokens"))
+    today_prompt = _safe_int(today.get("prompt_tokens"))
+    today_completion = _safe_int(today.get("completion_tokens"))
+    all_requests = _safe_int(all_time.get("total_requests"))
+    all_tokens = _safe_int(all_time.get("total_tokens"))
+
+    pieces = [
+        (
+            f"AI usage today: {today_requests}/{limit} requests, "
+            f"{today_tokens:,} tokens "
+            f"(input {today_prompt:,}, output {today_completion:,})."
+        ),
+        (
+            f"Average today: {today.get('average_tokens_per_request', 0):,.0f} "
+            f"tokens/request."
+        ),
+        f"All time: {all_requests:,} requests, {all_tokens:,} tokens.",
+    ]
+
+    if latest:
+        pieces.append(
+            (
+                "Last prompt: "
+                f"{_safe_int(latest.get('total_tokens')):,} tokens "
+                f"(input {_safe_int(latest.get('prompt_tokens')):,}, "
+                f"output {_safe_int(latest.get('completion_tokens')):,}), "
+                f"model {latest.get('model') or 'n/a'}, "
+                f"status {'ok' if latest.get('success') else 'failed'}."
+            )
+        )
+
+    if rates.get("configured"):
+        pieces.append(
+            (
+                f"Estimated cost today: {_format_cost(today.get('estimated_cost'))}; "
+                f"average/prompt {_format_cost(today.get('average_cost_per_request'))}; "
+                f"last prompt {_format_cost(latest.get('estimated_cost') if latest else None)}."
+            )
+        )
+        pieces.append(
+            (
+                f"Rates: input ${rates.get('input_per_1m', 0):g}/1M tokens, "
+                f"output ${rates.get('output_per_1m', 0):g}/1M tokens."
+            )
+        )
+    else:
+        pieces.append("Cost estimate off: set input/output $ per 1M tokens in AI Advisor Rules.")
+
+    return " ".join(pieces)
 
 
 def assert_ai_daily_limit(app_username=None, osrs_account_name=None):
@@ -273,6 +452,8 @@ def print_summary():
     print(f"  Successful: {summary['all_time']['successful_requests']}")
     print(f"  Tokens: {summary['all_time']['total_tokens']}")
     print(f"  Last request: {summary['all_time']['last_request_at'] or 'n/a'}")
+    print()
+    print(format_ai_usage_summary(summary))
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from dash import html, dcc
 from account_manager import get_current_session
 from app_version import get_version_line
 
-from .admin import build_admin_tab, build_safety_review_tab
+from .admin import build_admin_tab
 from .ai import build_ai_panel
 from .market import build_market_data_tab
 from .overview import build_filters
@@ -62,7 +62,7 @@ def _build_app_command_bar():
                                 id="dashboard-stop-services-button",
                                 n_clicks=0,
                                 className="app-command-button app-command-button--stop",
-                                title="Stop services",
+                                title="Stop OSRSFlipper",
                             ),
                         ],
                     ),
@@ -103,12 +103,11 @@ def build_app_layout():
 
             dcc.Tabs(
                 id="main-tabs",
-                value="overview",
-                persistence=True,
-                persistence_type="session",
+                value="trading",
+                persistence=False,
                 className="dash-tabs",
                 children=[
-dcc.Tab(
+                    dcc.Tab(
                         label="Overview",
                         value="overview",
                         className="tab",
@@ -140,7 +139,7 @@ dcc.Tab(
 
                     dcc.Tab(
                         label="Trading",
-                        value="trade-board",
+                        value="trading",
                         className="tab",
                         selected_className="tab--selected",
                         children=[build_trading_workspace_tab()]
@@ -153,15 +152,6 @@ dcc.Tab(
                         selected_className="tab--selected",
                         children=[build_ai_panel()]
                     ),
-
-                    dcc.Tab(
-                        label="Safety Review",
-                        value="safety-review",
-                        className="tab",
-                        selected_className="tab--selected",
-                        children=[build_safety_review_tab()]
-                    ),
-
 
                     dcc.Tab(
                         label="Market Data",

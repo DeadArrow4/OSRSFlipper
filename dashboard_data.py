@@ -18,6 +18,8 @@ from first_run_setup import locate_runelite_file
 from openai_key_manager import get_api_key_status
 from openai_usage_manager import get_ai_usage_summary
 from settings_manager import get_setting, DEFAULT_SETTINGS
+from market_suggestions import buy_exit_estimate
+from omitted_items import filter_omitted_df, init_omitted_items_db, is_item_omitted, list_omitted_items
 
 from dashboard_formatters import (
     parse_positive_int,
@@ -39,6 +41,7 @@ BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 
 # Make sure SQLite has all current columns before the dashboard queries it.
 init_db()
+init_omitted_items_db()
 
 # Trade tracker tables are optional, but create them when trade_tracker.py exists.
 if init_trade_db is not None:
@@ -166,6 +169,28 @@ def _trade_cache_set(cache_key, value):
 def clear_trade_dashboard_cache():
     _trade_dashboard_cache.clear()
 
+
+def clear_all_dashboard_caches():
+    clear_dashboard_cache()
+    clear_trade_dashboard_cache()
+
+
+def get_omitted_item_rows():
+    rows = []
+
+    for row in list_omitted_items(include_restored=False):
+        rows.append(
+            {
+                "ID": row.get("id"),
+                "Item": row.get("item_name"),
+                "Item ID": row.get("item_id") or "",
+                "Reason": row.get("reason") or "",
+                "Created": str(row.get("created_at") or "").replace("T", " ")[:19],
+            }
+        )
+
+    return rows
+
 def open_dashboard_connection(read_only=True):
     conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
     conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
@@ -261,6 +286,8 @@ def get_latest_rows():
     if not df.empty and "scanned_at" in df.columns:
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
 
+    df = filter_omitted_df(df, "item_name")
+
     return _cache_set(cache_key, df)
 
 
@@ -291,6 +318,8 @@ def get_all_history(limit=MAX_HISTORY_ROWS_DEFAULT):
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
         df = df.sort_values("scanned_at")
 
+    df = filter_omitted_df(df, "item_name")
+
     return _cache_set(cache_key, df)
 
 
@@ -318,6 +347,8 @@ def get_item_history_for_item(item_name, limit=5000):
 
     if not df.empty and "scanned_at" in df.columns:
         df["scanned_at"] = pd.to_datetime(df["scanned_at"], errors="coerce")
+
+    df = filter_omitted_df(df, "item_name")
 
     return _cache_set(cache_key, df)
 
@@ -378,12 +409,15 @@ def get_best_recurring_flips(limit=25):
 
         df = query_df(query_fallback, (min_run_id, limit))
 
+    df = filter_omitted_df(df, "Item")
     formatted_df = format_recurring_display_df(df)
     return _cache_set(cache_key, formatted_df)
 
 
 def get_item_options():
-    cached = _cache_get("item_options", ITEM_OPTIONS_CACHE_TTL_SECONDS)
+    scope = get_current_trade_scope()
+    cache_key = ("item_options", scope["app_username"], scope["osrs_account_name"])
+    cached = _cache_get(cache_key, ITEM_OPTIONS_CACHE_TTL_SECONDS)
 
     if cached is not None:
         return cached
@@ -399,12 +433,14 @@ def get_item_options():
     if df.empty or "item_name" not in df.columns:
         return []
 
+    df = filter_omitted_df(df, "item_name")
+
     options = [
         {"label": item_name, "value": item_name}
         for item_name in df["item_name"].dropna().tolist()
     ]
 
-    return _cache_set("item_options", options)
+    return _cache_set(cache_key, options)
 
 
 def _trade_board_gp(value):
@@ -1080,6 +1116,9 @@ def get_open_slot_actions(limit=12):
             f"Item {position.get('item_id', '')}".strip()
         )
 
+        if is_item_omitted(item_name):
+            continue
+
         qty = _slot_action_first(
             position,
             ["remaining_qty", "remaining_quantity", "quantity", "qty", "remaining"],
@@ -1104,6 +1143,9 @@ def get_open_slot_actions(limit=12):
             ""
         )
 
+        market = position.get("market") or {}
+        recommended_sell = market.get("target_sell") or market.get("patient_exit_price") or market.get("avg_high") or ""
+
         estimated_pl = _slot_action_first(
             position,
             ["estimated_fast_profit_total", "estimated_profit_total", "estimated_pl", "profit_total"],
@@ -1122,6 +1164,7 @@ def get_open_slot_actions(limit=12):
             "Suggested Action": action,
             "Loss %": _slot_action_percent(position.get("loss_percent")),
             "Fast Exit": _slot_action_gp(fast_exit_price) if fast_exit_price not in ("", None) else "n/a",
+            "Recommended Sell": _slot_action_gp(recommended_sell) if recommended_sell not in ("", None) else "n/a",
             "Est. P/L": _slot_action_gp(estimated_pl) if estimated_pl not in ("", None) else "n/a",
             "Reason": _slot_action_reason(position, slot_pressure),
         })
@@ -1425,11 +1468,9 @@ def get_trade_summary():
 
     completed_df = query_df("""
         SELECT
-            COUNT(*) AS completed_count,
-            COALESCE(SUM(total_profit), 0) AS realized_profit,
-            COALESCE(AVG(roi_percent), 0) AS avg_roi,
-            COALESCE(MAX(total_profit), 0) AS best_trade,
-            COALESCE(MIN(total_profit), 0) AS worst_trade
+            item_name AS Item,
+            total_profit,
+            roi_percent
         FROM completed_trades
         WHERE app_username = ?
           AND osrs_account_name = ?
@@ -1441,8 +1482,10 @@ def get_trade_summary():
     if table_exists("trade_events"):
         open_df = query_df("""
             SELECT
-                COUNT(*) AS open_event_count,
-                COALESCE(SUM(CASE WHEN side = 'BUY' THEN price_each * remaining_quantity ELSE 0 END), 0) AS open_buy_value
+                item_name AS Item,
+                side,
+                price_each,
+                remaining_quantity
             FROM trade_events
             WHERE app_username = ?
               AND osrs_account_name = ?
@@ -1454,6 +1497,9 @@ def get_trade_summary():
     else:
         open_df = pd.DataFrame()
 
+    completed_df = filter_omitted_df(completed_df, "Item")
+    open_df = filter_omitted_df(open_df, "Item")
+
     if completed_df.empty:
         summary = {
             "completed_count": 0,
@@ -1463,13 +1509,26 @@ def get_trade_summary():
             "worst_trade": 0
         }
     else:
-        summary = completed_df.iloc[0].to_dict()
+        total_profit = pd.to_numeric(completed_df["total_profit"], errors="coerce").fillna(0)
+        roi = pd.to_numeric(completed_df["roi_percent"], errors="coerce").fillna(0)
+        summary = {
+            "completed_count": int(len(completed_df)),
+            "realized_profit": int(total_profit.sum()),
+            "avg_roi": float(roi.mean()) if not roi.empty else 0,
+            "best_trade": int(total_profit.max()) if not total_profit.empty else 0,
+            "worst_trade": int(total_profit.min()) if not total_profit.empty else 0,
+        }
 
     if open_df.empty:
         summary["open_event_count"] = 0
         summary["open_buy_value"] = 0
     else:
-        summary.update(open_df.iloc[0].to_dict())
+        remaining = pd.to_numeric(open_df["remaining_quantity"], errors="coerce").fillna(0)
+        price_each = pd.to_numeric(open_df["price_each"], errors="coerce").fillna(0)
+        side = open_df["side"].fillna("").astype(str).str.upper()
+        buy_value = (price_each * remaining).where(side == "BUY", 0)
+        summary["open_event_count"] = int(len(open_df))
+        summary["open_buy_value"] = int(buy_value.sum())
 
     return _trade_cache_set(cache_key, summary)
 
@@ -1512,6 +1571,101 @@ def get_completed_trade_rows(limit=100):
         limit
     ))
 
+    df = filter_omitted_df(df, "Item")
+
+    return _trade_cache_set(cache_key, df)
+
+
+def get_transaction_history_rows(limit=100):
+    limit = parse_positive_int(limit, default=100, minimum=10, maximum=500)
+
+    if not table_exists("trade_events"):
+        return pd.DataFrame()
+
+    scope = get_current_trade_scope()
+    cache_key = ("transaction_history_rows", scope["app_username"], scope["osrs_account_name"], limit)
+    cached = _trade_cache_get(cache_key)
+
+    if cached is not None:
+        return cached
+
+    df = query_df("""
+        SELECT
+            traded_at AS Time,
+            item_id AS Item_ID,
+            item_name AS Item,
+            side AS Side,
+            price_each AS Price_Each,
+            quantity AS Qty,
+            remaining_quantity AS Remaining_Qty,
+            total_value AS Total_Value,
+            status AS Status,
+            source AS Source,
+            notes AS Notes
+        FROM trade_events
+        WHERE app_username = ?
+          AND osrs_account_name = ?
+        ORDER BY traded_at DESC, id DESC
+        LIMIT ?
+    """, (
+        scope["app_username"],
+        scope["osrs_account_name"],
+        limit
+    ))
+
+    df = filter_omitted_df(df, "Item")
+
+    if df.empty:
+        return _trade_cache_set(cache_key, df)
+
+    recommended_sell = []
+    estimated_net_each = []
+    estimated_total_profit = []
+    sell_window = []
+    sell_note = []
+
+    for _, row in df.iterrows():
+        side = str(row.get("Side") or "").upper()
+
+        if side != "BUY":
+            recommended_sell.append("")
+            estimated_net_each.append("")
+            estimated_total_profit.append("")
+            sell_window.append("")
+            sell_note.append("")
+            continue
+
+        estimate = buy_exit_estimate(
+            item_id=row.get("Item_ID"),
+            item_name=row.get("Item"),
+            buy_price=row.get("Price_Each"),
+            quantity=row.get("Remaining_Qty") or row.get("Qty"),
+        )
+        suggestion = estimate.get("suggestion") or {}
+        sell_price = estimate.get("recommended_sell", 0)
+
+        recommended_sell.append(sell_price if sell_price else "")
+        estimated_net_each.append(estimate.get("estimated_net_each", "") if sell_price else "")
+        estimated_total_profit.append(estimate.get("estimated_total_profit", "") if sell_price else "")
+        sell_window.append(suggestion.get("window_name", "") if sell_price else "")
+
+        if sell_price:
+            warnings = [
+                suggestion.get("price_warning"),
+                suggestion.get("market_context_warning"),
+                suggestion.get("trend_warning"),
+            ]
+            warnings = [warning for warning in warnings if warning and str(warning).upper() != "OK"]
+            sell_note.append(" | ".join(warnings[:2]) if warnings else "Latest scanner target")
+        else:
+            sell_note.append("")
+
+    df["Recommended_Sell"] = recommended_sell
+    df["Est_Net_Each"] = estimated_net_each
+    df["Est_Total_Profit"] = estimated_total_profit
+    df["Sell_Window"] = sell_window
+    df["Sell_Note"] = sell_note
+
     return _trade_cache_set(cache_key, df)
 
 
@@ -1551,6 +1705,8 @@ def get_open_trade_rows(limit=100):
         scope["osrs_account_name"],
         limit
     ))
+
+    df = filter_omitted_df(df, "Item")
 
     return _trade_cache_set(cache_key, df)
 
@@ -1593,6 +1749,11 @@ def get_live_ge_offer_rows(limit=100):
             remaining_qty = 0
 
         side = str(offer.get("side") or "").lower()
+        item_name = offer.get("item_name") or f"Item {offer.get('item_id', '')}"
+
+        if is_item_omitted(item_name):
+            continue
+
         raw_filled_value = (
             offer.get("filled_buy_value")
             or offer.get("filledBuyValue")
@@ -1612,13 +1773,25 @@ def get_live_ge_offer_rows(limit=100):
         remaining_offer_value = int(float(offer.get("remaining_offer_value") or price * remaining_qty or 0))
         remaining_ge_value = int(float(offer.get("remaining_ge_value") or offer.get("remainingGeValue") or display_ge_price * remaining_qty or 0))
         price_source = "RuneLite GE" if ge_price > 0 else "offer fallback"
+        exit_estimate = buy_exit_estimate(
+            item_id=offer.get("item_id"),
+            item_name=item_name,
+            buy_price=price,
+            quantity=remaining_qty,
+        )
+        suggested_sell = exit_estimate.get("recommended_sell", 0)
+        suggestion = exit_estimate.get("suggestion") or {}
 
         rows.append(
             {
                 "Slot": offer.get("slot", ""),
-                "Item": offer.get("item_name") or f"Item {offer.get('item_id', '')}",
+                "Item": item_name,
                 "Side": str(offer.get("side") or "").upper(),
                 "Price_Each": price,
+                "Recommended_Sell": suggested_sell if side == "buy" and suggested_sell else "",
+                "Est_Net_Each": exit_estimate.get("estimated_net_each", "") if side == "buy" and suggested_sell else "",
+                "Est_Total_Profit": exit_estimate.get("estimated_total_profit", "") if side == "buy" and suggested_sell else "",
+                "Sell_Window": suggestion.get("window_name", "") if side == "buy" and suggested_sell else "",
                 "GE_Price": display_ge_price,
                 "Price_Source": price_source,
                 "Original_Qty": total_qty,
@@ -1676,6 +1849,8 @@ def get_completed_trade_history(limit=5000):
         scope["osrs_account_name"],
         limit
     ))
+
+    df = filter_omitted_df(df, "item_name")
 
     if not df.empty:
         df["sell_time"] = pd.to_datetime(df["sell_time"], errors="coerce")
@@ -1992,6 +2167,8 @@ def export_completed_trades_csv():
         )
     )
 
+    df = filter_omitted_df(df, "item_name")
+
     filename = f"{prefix}_completed_trades_{timestamp}.csv"
     return export_dataframe_to_csv(df, filename)
 
@@ -2014,6 +2191,8 @@ def export_trade_events_csv():
             scope["osrs_account_name"]
         )
     )
+
+    df = filter_omitted_df(df, "item_name")
 
     filename = f"{prefix}_trade_events_{timestamp}.csv"
     return export_dataframe_to_csv(df, filename)
@@ -2061,6 +2240,8 @@ def export_latest_scan_csv():
             """,
             (latest_run_id,)
         )
+
+    df = filter_omitted_df(df, "item_name")
 
     filename = f"latest_scan_run_{latest_run_id or 'none'}_{timestamp}.csv"
     return export_dataframe_to_csv(df, filename)

@@ -274,6 +274,24 @@ def build_settings_tab():
                                 "Set to 0 to disable AI for this account."
                             ),
                             setting_card(
+                                "Input cost / 1M tokens",
+                                setting_text_box(
+                                    "setting-ai-input-cost-per-1m-tokens",
+                                    setting_value("ai_input_cost_per_1m_tokens", 0.0),
+                                    "0.00"
+                                ),
+                                "Used only for local cost estimates. Leave 0 to disable cost math."
+                            ),
+                            setting_card(
+                                "Output cost / 1M tokens",
+                                setting_text_box(
+                                    "setting-ai-output-cost-per-1m-tokens",
+                                    setting_value("ai_output_cost_per_1m_tokens", 0.0),
+                                    "0.00"
+                                ),
+                                "Used with logged token counts to estimate per-prompt cost."
+                            ),
+                            setting_card(
                                 "AI source row limit",
                                 setting_text_box(
                                     "setting-ai-source-row-limit",

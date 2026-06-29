@@ -166,6 +166,18 @@ def bootstrap_module_initializers():
     except Exception as error:
         results.append(("openai_usage_manager.init_ai_usage_db", "warning", f"Not available: {error}"))
 
+    try:
+        from omitted_items import init_omitted_items_db
+        initializers.append(("omitted_items.init_omitted_items_db", init_omitted_items_db))
+    except Exception as error:
+        results.append(("omitted_items.init_omitted_items_db", "warning", f"Not available: {error}"))
+
+    try:
+        from offer_intents import init_offer_intents_db
+        initializers.append(("offer_intents.init_offer_intents_db", init_offer_intents_db))
+    except Exception as error:
+        results.append(("offer_intents.init_offer_intents_db", "warning", f"Not available: {error}"))
+
     for name, func in initializers:
         try:
             func()

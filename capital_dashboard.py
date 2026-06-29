@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from account_context import get_current_osrs_account
+from account_context import BASE_DIR, get_account_scope, get_current_osrs_account
+from market_suggestions import buy_exit_estimate, ge_tax_per_item, latest_hour_sell_suggestion
+from omitted_items import is_item_omitted
 
 try:
     from dash import Input, Output, callback_context, dcc, html, dash_table
@@ -21,6 +24,9 @@ from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_p
 
 
 DEFAULT_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
+DB_FILE = Path(BASE_DIR) / "osrs_flip_scanner.db"
+SQLITE_TIMEOUT_SECONDS = 30
+SQLITE_BUSY_TIMEOUT_MS = 30000
 
 
 def _now_text() -> str:
@@ -40,6 +46,13 @@ def _format_gp(value: Any) -> str:
     if abs(amount) >= 1_000:
         return f"{amount / 1_000:.1f}K"
     return f"{amount:,}"
+
+
+def _format_full_gp(value: Any) -> str:
+    try:
+        return f"{int(float(value or 0)):,}"
+    except Exception:
+        return ""
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -104,6 +117,133 @@ def _sell_filled_value_gp(offer: dict[str, Any], price: int, filled: int) -> int
     return (ge_price or price) * filled
 
 
+def _cost_basis_from_trades(item_id: Any, item_name: str) -> dict[str, Any] | None:
+    if not DB_FILE.exists():
+        return None
+
+    scope = get_account_scope()
+    item_id_value = _safe_int(item_id)
+    params: list[Any] = [scope["app_username"], scope["osrs_account_name"]]
+
+    if item_id_value > 0:
+        where = "item_id = ?"
+        params.append(item_id_value)
+    else:
+        where = "LOWER(item_name) = LOWER(?)"
+        params.append(str(item_name or "").strip())
+
+    conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            f"""
+            SELECT
+                COALESCE(SUM(price_each * remaining_quantity), 0) AS total_cost,
+                COALESCE(SUM(remaining_quantity), 0) AS total_qty
+            FROM trade_events
+            WHERE app_username = ?
+              AND osrs_account_name = ?
+              AND side = 'BUY'
+              AND remaining_quantity > 0
+              AND {where}
+            """,
+            params,
+        )
+        row = cursor.fetchone()
+    except Exception:
+        row = None
+    finally:
+        conn.close()
+
+    if not row:
+        return None
+
+    total_cost = _safe_int(row[0])
+    total_qty = _safe_int(row[1])
+
+    if total_qty <= 0:
+        return None
+
+    return {
+        "avg_buy_price": int(total_cost / total_qty),
+        "quantity_basis": total_qty,
+        "total_cost_basis": total_cost,
+    }
+
+
+def _sell_guidance(item_id: Any, item_name: str, offer_price: int, quantity: int, side: str) -> dict[str, Any]:
+    hour_suggestion = latest_hour_sell_suggestion(item_id=item_id, item_name=item_name)
+
+    if hour_suggestion:
+        recommended_sell = _safe_int(hour_suggestion.get("recommended_sell"))
+
+        return {
+            "recommended_sell": recommended_sell,
+            "hour_low": _safe_int(hour_suggestion.get("avg_low_1h")),
+            "hour_high": _safe_int(hour_suggestion.get("avg_high_1h")),
+        }
+
+    exit_estimate = buy_exit_estimate(
+        item_id=item_id,
+        item_name=item_name,
+        buy_price=offer_price,
+        quantity=quantity,
+    )
+    suggestion = exit_estimate.get("suggestion") or {}
+    recommended_sell = _safe_int(exit_estimate.get("recommended_sell"))
+
+    return {
+        "recommended_sell": recommended_sell,
+        "hour_low": 0,
+        "hour_high": 0,
+    }
+
+
+def _project_offer_values(item_id: Any, item_name: str, side: str, offer_price: int, quantity: int) -> dict[str, Any]:
+    guidance = _sell_guidance(
+        item_id=item_id,
+        item_name=item_name,
+        offer_price=offer_price,
+        quantity=quantity,
+        side=side,
+    )
+    recommended_sell = _safe_int(guidance.get("recommended_sell"))
+    cost_basis = _cost_basis_from_trades(item_id, item_name) if side == "sell" else None
+
+    buy_price = offer_price if side == "buy" else _safe_int((cost_basis or {}).get("avg_buy_price"))
+    sell_price = recommended_sell if side == "buy" else offer_price
+    tax_each = ge_tax_per_item(sell_price) if sell_price > 0 else 0
+    tax_total = tax_each * max(0, quantity)
+    buy_value = buy_price * max(0, quantity) if buy_price > 0 else 0
+    net_sell_value = (sell_price - tax_each) * max(0, quantity) if sell_price > 0 else 0
+
+    net_each = 0
+    projected_profit = 0
+    has_projection = buy_price > 0 and sell_price > 0 and quantity > 0
+
+    if has_projection:
+        net_each = sell_price - tax_each - buy_price
+        projected_profit = net_each * quantity
+
+    return {
+        "buy_price": buy_price,
+        "sell_price": sell_price,
+        "recommended_sell": recommended_sell,
+        "hour_low": _safe_int(guidance.get("hour_low")),
+        "hour_high": _safe_int(guidance.get("hour_high")),
+        "tax_each": tax_each,
+        "tax_total": tax_total,
+        "buy_value": buy_value,
+        "net_sell_value": net_sell_value,
+        "net_each": net_each,
+        "projected_profit": projected_profit,
+        "has_projection": has_projection,
+        "cost_basis_qty": _safe_int((cost_basis or {}).get("quantity_basis")),
+    }
+
+
 def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
@@ -112,6 +252,11 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
             continue
 
         side = str(offer.get("side") or offer.get("type") or "unknown").lower()
+        item_name = offer.get("item_name") or offer.get("name") or f"Item {offer.get('item_id', '')}"
+
+        if is_item_omitted(item_name):
+            continue
+
         price = _safe_int(offer.get("price") or offer.get("unit_price"))
         remaining = _offer_remaining(offer)
         filled = _safe_int(offer.get("quantity_filled") or offer.get("filled"))
@@ -122,16 +267,32 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
         else:
             filled_value_gp = 0
 
+        projection = _project_offer_values(
+            item_id=offer.get("item_id"),
+            item_name=item_name,
+            side=side,
+            offer_price=price,
+            quantity=remaining,
+        )
+
         rows.append(
             {
                 "Slot": offer.get("slot", ""),
-                "Item": offer.get("item_name") or offer.get("name") or f"Item {offer.get('item_id', '')}",
+                "Item": item_name,
                 "Side": side.title(),
-                "Price": f"{price:,}",
-                "Remaining": f"{remaining:,}",
-                "Locked GP": f"{price * remaining:,}" if side == "buy" else "",
+                "Qty": f"{remaining:,}",
+                "Buy Price": _format_full_gp(projection.get("buy_price")) if projection.get("buy_price") else "",
+                "Sell Price": _format_full_gp(projection.get("sell_price")) if projection.get("sell_price") else "",
+                "Recommended Sell": _format_full_gp(projection.get("recommended_sell")) if projection.get("recommended_sell") else "",
+                "1h Low": _format_full_gp(projection.get("hour_low")) if projection.get("hour_low") else "",
+                "1h High": _format_full_gp(projection.get("hour_high")) if projection.get("hour_high") else "",
+                "Tax/Item": _format_full_gp(projection.get("tax_each")) if projection.get("tax_each") else "",
+                "Tax Total": _format_full_gp(projection.get("tax_total")) if projection.get("tax_total") else "",
+                "Buy Value": _format_full_gp(projection.get("buy_value")) if projection.get("buy_value") else "",
+                "Net Sell Value": _format_full_gp(projection.get("net_sell_value")) if projection.get("net_sell_value") else "",
+                "Net/Item": _format_full_gp(projection.get("net_each")) if projection.get("has_projection") else "",
+                "Projected P/L": _format_full_gp(projection.get("projected_profit")) if projection.get("has_projection") else "",
                 "Filled Value": f"{filled_value_gp:,}" if filled > 0 else "",
-                "Sell Value": f"{price * remaining:,}" if side == "sell" else "",
                 "Age Min": offer.get("offer_age_minutes", ""),
                 "State": offer.get("state", ""),
             }
@@ -148,18 +309,38 @@ def _offer_rows_from_locks(locks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         remaining = _safe_int(lock.get("quantity_remaining"))
         filled = _safe_int(lock.get("quantity_filled"))
         side = str(lock.get("side") or "unknown").lower()
+        item_name = lock.get("item_name") or f"Item {lock.get('item_id', '')}"
+
+        if is_item_omitted(item_name):
+            continue
+
         filled_value_gp = price * filled
+        projection = _project_offer_values(
+            item_id=lock.get("item_id"),
+            item_name=item_name,
+            side=side,
+            offer_price=price,
+            quantity=remaining,
+        )
 
         rows.append(
             {
                 "Slot": lock.get("slot", ""),
-                "Item": lock.get("item_name") or f"Item {lock.get('item_id', '')}",
+                "Item": item_name,
                 "Side": side.title(),
-                "Price": f"{price:,}",
-                "Remaining": f"{remaining:,}",
-                "Locked GP": f"{price * remaining:,}" if side == "buy" else "",
+                "Qty": f"{remaining:,}",
+                "Buy Price": _format_full_gp(projection.get("buy_price")) if projection.get("buy_price") else "",
+                "Sell Price": _format_full_gp(projection.get("sell_price")) if projection.get("sell_price") else "",
+                "Recommended Sell": _format_full_gp(projection.get("recommended_sell")) if projection.get("recommended_sell") else "",
+                "1h Low": _format_full_gp(projection.get("hour_low")) if projection.get("hour_low") else "",
+                "1h High": _format_full_gp(projection.get("hour_high")) if projection.get("hour_high") else "",
+                "Tax/Item": _format_full_gp(projection.get("tax_each")) if projection.get("tax_each") else "",
+                "Tax Total": _format_full_gp(projection.get("tax_total")) if projection.get("tax_total") else "",
+                "Buy Value": _format_full_gp(projection.get("buy_value")) if projection.get("buy_value") else "",
+                "Net Sell Value": _format_full_gp(projection.get("net_sell_value")) if projection.get("net_sell_value") else "",
+                "Net/Item": _format_full_gp(projection.get("net_each")) if projection.get("has_projection") else "",
+                "Projected P/L": _format_full_gp(projection.get("projected_profit")) if projection.get("has_projection") else "",
                 "Filled Value": f"{filled_value_gp:,}" if filled > 0 else "",
-                "Sell Value": f"{price * remaining:,}" if side == "sell" else "",
                 "Age Min": lock.get("offer_age_minutes", ""),
                 "State": lock.get("status", ""),
             }
@@ -512,12 +693,31 @@ def _budget_cards():
 
 
 def _table_columns(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
-    default = ["Slot", "Item", "Side", "Price", "Remaining", "Locked GP", "Filled Value", "Sell Value", "Age Min", "State"]
+    default = [
+        "Slot",
+        "Item",
+        "Side",
+        "Qty",
+        "Buy Price",
+        "Sell Price",
+        "Tax/Item",
+        "Tax Total",
+        "Buy Value",
+        "Net Sell Value",
+        "Net/Item",
+        "Projected P/L",
+        "Recommended Sell",
+        "1h Low",
+        "1h High",
+        "Filled Value",
+        "Age Min",
+        "State",
+    ]
     if not rows:
         columns = default
         return [{"name": col, "id": col} for col in columns]
 
-    core_columns = {"Slot", "Item", "Side", "Price", "Remaining", "Age Min", "State"}
+    core_columns = {"Slot", "Item", "Side", "Qty", "Age Min", "State"}
     columns = []
     for col in default:
         if col in core_columns or any(str(row.get(col, "")).strip() for row in rows):

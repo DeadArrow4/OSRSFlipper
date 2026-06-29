@@ -12,6 +12,7 @@ from openai_key_manager import get_api_key, get_api_key_status
 from openai_usage_manager import assert_ai_daily_limit, log_ai_usage
 from settings_manager import get_setting
 from security_runtime import scrub_shared_openai_env, get_non_secret_env_value
+from omitted_items import filter_omitted_df, list_omitted_items
 
 
 from ai_capital_advisor_context import append_capital_context_to_trade_memory
@@ -1056,6 +1057,11 @@ def get_latest_candidates(limit=AI_SOURCE_ROW_LIMIT):
         return df, todays_trades, []
 
     df = prepare_candidate_numbers(df)
+    df = filter_omitted_df(df, "item_name")
+
+    if df.empty:
+        todays_trades = get_todays_traded_items()
+        return df, todays_trades, []
 
     filtered_df, todays_trades, excluded_items = exclude_todays_traded_candidates(df)
 
@@ -1094,6 +1100,29 @@ def format_excluded_candidates_summary(excluded_items, max_items=30):
             f"net/item {item.get('profit_per_item')}, "
             f"ROI {item.get('roi_percent')}"
         )
+
+    return "\n".join(lines)
+
+
+def format_omitted_items_summary(max_items=50):
+    omitted_items = list_omitted_items(include_restored=False)
+
+    if not omitted_items:
+        return "No user-omitted items are active."
+
+    lines = [
+        "User-omitted items: never recommend these unless the user explicitly restores them."
+    ]
+
+    for index, item in enumerate(omitted_items, start=1):
+        if index > max_items:
+            lines.append(f"- ...and {len(omitted_items) - max_items} more omitted items.")
+            break
+
+        id_text = f"ID {item.get('item_id')}" if item.get("item_id") else "No item ID"
+        reason = item.get("reason") or ""
+        reason_text = f", reason: {reason}" if reason else ""
+        lines.append(f"- {item.get('item_name')} ({id_text}){reason_text}")
 
     return "\n".join(lines)
 
@@ -1351,7 +1380,16 @@ def format_trade_board_ai_context(trade_board_context):
     return "\\n".join(lines)
 
 
-def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, todays_trade_summary=None, excluded_summary=None, trade_board_context=None):
+def build_ai_prompt(
+    run_info,
+    candidates_df,
+    risk_profile,
+    trade_memory=None,
+    todays_trade_summary=None,
+    excluded_summary=None,
+    omitted_summary=None,
+    trade_board_context=None,
+):
     compact_candidates = compact_candidates_for_ai(candidates_df)
     candidate_json = pd.DataFrame(compact_candidates).to_json(
         orient="records",
@@ -1368,6 +1406,9 @@ def build_ai_prompt(run_info, candidates_df, risk_profile, trade_memory=None, to
 
     if excluded_summary is None:
         excluded_summary = "No excluded-candidate summary was provided."
+
+    if omitted_summary is None:
+        omitted_summary = "No user-omitted item summary was provided."
 
     trade_board_context_text = format_trade_board_ai_context(trade_board_context)
 
@@ -1398,6 +1439,7 @@ Hard rules:
 - Prefer realistic fills, strong liquidity, stable trend, good ROI, and repeatable profit.
 - Avoid or downgrade rows with price_warning, margin_warning, trend_warning, poor liquidity, or weak confidence.
 - Do not recommend items already traded today.
+- Do not recommend user-omitted items.
 - If a candidate was skipped because it was traded today, mention it only in the skipped section.
 - Overnight picks must have raw_margin >= {MIN_OVERNIGHT_RAW_MARGIN_PER_ITEM:,}, profit_per_item > 0, and roi_percent >= {MIN_OVERNIGHT_ROI_PERCENT}%.
 - For live SELLING offers only, you may suggest accepting a controlled small loss when the position is stale and slot pressure justifies freeing a GE slot.
@@ -1470,6 +1512,9 @@ Today's trade exclusion memory:
 Excluded scanner candidates:
 {excluded_summary}
 
+User-omitted items:
+{omitted_summary}
+
 User trade memory:
 {trade_memory}
 
@@ -1509,6 +1554,7 @@ def ask_ai_for_advice(prompt):
                 "give the user many viable alternatives, "
                 "use the user's My Trades history to personalize advice, "
                 "never recommend items already traded today, "
+                "never recommend user-omitted items, "
                 "identify repeated profit/loss patterns, consider open exposure, "
                 "use stale-position analysis to suggest holding, repricing, or controlled loss exits when appropriate, "
                 f"use daily and weekly trend data, enforce overnight rules of raw margin "
@@ -1599,11 +1645,13 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
     if candidates_df.empty:
         todays_summary = format_todays_trade_summary(todays_trades)
         excluded_summary = format_excluded_candidates_summary(excluded_items)
+        omitted_summary = format_omitted_items_summary()
 
         return (
             "No candidates found in the latest scan after applying filters.\n\n"
             f"{todays_summary}\n\n"
-            f"{excluded_summary}"
+            f"{excluded_summary}\n\n"
+            f"{omitted_summary}"
         )
 
     if risk_profile not in ("low", "medium", "high"):
@@ -1620,6 +1668,7 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
 
     todays_trade_summary = format_todays_trade_summary(todays_trades)
     excluded_summary = format_excluded_candidates_summary(excluded_items)
+    omitted_summary = format_omitted_items_summary()
 
     trade_board_context = build_trade_board_ai_context(
         risk_profile=risk_profile,
@@ -1635,6 +1684,7 @@ def generate_ai_advice(risk_profile="medium", limit=AI_SOURCE_ROW_LIMIT):
         trade_memory=trade_memory,
         todays_trade_summary=todays_trade_summary,
         excluded_summary=excluded_summary,
+        omitted_summary=omitted_summary,
         trade_board_context=trade_board_context,)
 
     advice = ask_ai_for_advice(prompt)

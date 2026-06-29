@@ -8,20 +8,20 @@ except Exception:
 
 
 APP_NAME = "OSRSFlipper"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 BUILD_CHANNEL = "stable"
 PROJECT_URL = ""
 APP_DESCRIPTION = (
     "Local OSRS Grand Exchange flipping dashboard with trade tracking, "
     "OSRSFlipper RuneLite telemetry import, account-scoped OpenAI advisor, "
-    "24h market context, local candidate market history, safety review, "
-    "health checks, release checks, clean release packaging, and safe update "
-    "installation."
+    "decision-first Trading workspace, overnight offer holds, compact risk checks, "
+    "item omission controls, 24h market context, local candidate market history, "
+    "health checks, release checks, clean release packaging, and safe update installation."
 )
 
 
 def get_build_time():
-    return "2026-06-28T04:48:54Z"
+    return "2026-06-29T17:40:12Z"
 
 
 def get_project_root():
