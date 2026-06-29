@@ -9,9 +9,10 @@ from account_context import BASE_DIR, get_account_scope
 
 
 DB_FILE = Path(BASE_DIR) / "osrs_flip_scanner.db"
-SQLITE_TIMEOUT_SECONDS = 30
-SQLITE_BUSY_TIMEOUT_MS = 30000
+SQLITE_TIMEOUT_SECONDS = 3
+SQLITE_BUSY_TIMEOUT_MS = 3000
 OVERNIGHT_INTENT = "overnight"
+_OFFER_INTENTS_DB_INITIALIZED = False
 
 
 def _now_utc() -> datetime:
@@ -75,54 +76,110 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_offer_intents_db() -> None:
+def init_offer_intents_db(force: bool = False) -> None:
+    global _OFFER_INTENTS_DB_INITIALIZED
+
+    if _OFFER_INTENTS_DB_INITIALIZED and not force:
+        return
+
     conn = get_connection()
+
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS offer_intents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_username TEXT NOT NULL,
+                osrs_account_name TEXT NOT NULL,
+                item_name TEXT NOT NULL,
+                normalized_item_name TEXT NOT NULL,
+                side TEXT NOT NULL,
+                slot TEXT,
+                price INTEGER,
+                intent TEXT NOT NULL,
+                note TEXT,
+                created_at TEXT NOT NULL,
+                expires_at TEXT,
+                cleared_at TEXT
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_offer_intents_account_active
+            ON offer_intents(app_username, osrs_account_name, cleared_at, expires_at)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_offer_intents_offer_match
+            ON offer_intents(
+                app_username,
+                osrs_account_name,
+                normalized_item_name,
+                side,
+                slot,
+                price,
+                cleared_at
+            )
+            """
+        )
+
+        conn.commit()
+        _OFFER_INTENTS_DB_INITIALIZED = True
+    finally:
+        conn.close()
+
+
+def list_active_offer_intents() -> list[dict[str, Any]]:
+    try:
+        init_offer_intents_db()
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc).lower():
+            return []
+        raise
+
+    scope = get_account_scope()
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS offer_intents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            app_username TEXT NOT NULL,
-            osrs_account_name TEXT NOT NULL,
-            item_name TEXT NOT NULL,
-            normalized_item_name TEXT NOT NULL,
-            side TEXT NOT NULL,
-            slot TEXT,
-            price INTEGER,
-            intent TEXT NOT NULL,
-            note TEXT,
-            created_at TEXT NOT NULL,
-            expires_at TEXT,
-            cleared_at TEXT
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                item_name,
+                normalized_item_name,
+                side,
+                slot,
+                price,
+                intent,
+                note,
+                created_at,
+                expires_at
+            FROM offer_intents
+            WHERE app_username = ?
+              AND osrs_account_name = ?
+              AND cleared_at IS NULL
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY created_at DESC, id DESC
+            """,
+            (scope["app_username"], scope["osrs_account_name"], _now_utc_text()),
         )
-        """
-    )
+        rows = [dict(row) for row in cursor.fetchall()]
+    except sqlite3.OperationalError as exc:
+        if "locked" not in str(exc).lower():
+            raise
+        rows = []
+    finally:
+        conn.close()
 
-    cursor.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_offer_intents_account_active
-        ON offer_intents(app_username, osrs_account_name, cleared_at, expires_at)
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_offer_intents_offer_match
-        ON offer_intents(
-            app_username,
-            osrs_account_name,
-            normalized_item_name,
-            side,
-            slot,
-            price,
-            cleared_at
-        )
-        """
-    )
-
-    conn.commit()
-    conn.close()
+    return rows
 
 
 def _base_match_where(row: dict[str, Any]) -> tuple[str, list[Any]]:
@@ -240,33 +297,46 @@ def clear_offer_intent(row: dict[str, Any]) -> int:
 
 
 def get_offer_intent(row: dict[str, Any]) -> dict[str, Any] | None:
-    init_offer_intents_db()
+    try:
+        init_offer_intents_db()
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc).lower():
+            return None
+        raise
+
     where, params = _base_match_where(row)
     conn = get_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute(
-        f"""
-        SELECT
-            id,
-            item_name,
-            side,
-            slot,
-            price,
-            intent,
-            note,
-            created_at,
-            expires_at
-        FROM offer_intents
-        WHERE {where}
-          AND (expires_at IS NULL OR expires_at > ?)
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-        """,
-        [*params, _now_utc_text()],
-    )
+    try:
+        cursor.execute(
+            f"""
+            SELECT
+                id,
+                item_name,
+                side,
+                slot,
+                price,
+                intent,
+                note,
+                created_at,
+                expires_at
+            FROM offer_intents
+            WHERE {where}
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            [*params, _now_utc_text()],
+        )
 
-    record = cursor.fetchone()
-    conn.close()
+        record = cursor.fetchone()
+    except sqlite3.OperationalError as exc:
+        if "locked" not in str(exc).lower():
+            raise
+        record = None
+    finally:
+        conn.close()
+
     return dict(record) if record else None

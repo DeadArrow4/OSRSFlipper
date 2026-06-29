@@ -275,8 +275,9 @@ def register_dashboard_callbacks(app):
                 "Action",
                 "Item",
                 "Qty",
+                "Sell Price",
+                "Recommended Sell",
                 "P/L",
-                "Intent",
                 "Wait",
             ]
 
@@ -527,10 +528,10 @@ def register_dashboard_callbacks(app):
                         _detail_field("Quantity", row.get("Qty")),
                         _detail_field("Buy Price", row.get("Buy Price")),
                         _detail_field("Sell Price", row.get("Sell Price")),
+                        _detail_field("Recommended Sell", row.get("Recommended Sell")),
                         _detail_field("Tax Total", row.get("Tax Total")),
                         _detail_field("Projected P/L", row.get("Projected P/L")),
                         _detail_field("Wait", row.get("Wait")),
-                        _detail_field("Intent", row.get("Intent") or "Normal"),
                     ],
                 ),
             ],
@@ -2069,6 +2070,7 @@ def register_dashboard_callbacks(app):
         State("setting-max-ai-requests-per-day", "value"),
         State("setting-ai-input-cost-per-1m-tokens", "value"),
         State("setting-ai-output-cost-per-1m-tokens", "value"),
+        State("setting-overnight-slot-target", "value"),
         State("setting-min-overnight-raw-margin", "value"),
         State("setting-min-overnight-roi-percent", "value"),
         State("setting-max-small-loss-percent", "value"),
@@ -2085,6 +2087,7 @@ def register_dashboard_callbacks(app):
         max_ai_requests,
         input_cost_per_1m,
         output_cost_per_1m,
+        overnight_slot_target,
         min_margin,
         min_roi,
         small_loss,
@@ -2102,6 +2105,8 @@ def register_dashboard_callbacks(app):
             set_setting("max_ai_requests_per_day", int(max_ai_requests or 0), "int")
             set_setting("ai_input_cost_per_1m_tokens", float(input_cost_per_1m or 0), "float")
             set_setting("ai_output_cost_per_1m_tokens", float(output_cost_per_1m or 0), "float")
+            target_slots = max(0, min(2, int(overnight_slot_target or 1)))
+            set_setting("overnight_slot_target", target_slots, "int")
             set_setting("min_overnight_raw_margin", int(min_margin or 10000), "int")
             set_setting("min_overnight_roi_percent", float(min_roi or 5.0), "float")
             set_setting("max_small_loss_percent", float(small_loss or 2.0), "float")

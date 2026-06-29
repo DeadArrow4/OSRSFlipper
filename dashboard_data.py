@@ -60,9 +60,9 @@ OVERNIGHT_ROI_MIN = 5.0
 # SQLite can briefly lock when the collector/scanner is writing while the
 # dashboard is refreshing. These settings make dashboard reads wait and retry
 # instead of immediately printing noisy "database is locked" errors.
-SQLITE_TIMEOUT_SECONDS = 30
-SQLITE_BUSY_TIMEOUT_MS = 30000
-SQLITE_LOCK_RETRIES = 3
+SQLITE_TIMEOUT_SECONDS = 3
+SQLITE_BUSY_TIMEOUT_MS = 3000
+SQLITE_LOCK_RETRIES = 2
 
 # 1.0.4 dashboard performance cache.
 # Keep this intentionally short-lived so the dashboard stays responsive while
@@ -877,6 +877,8 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
             "Capital Fit Cost": 0,
             "Capital Fit Profit": 0,
             "Capital Note": f"Capital fit unavailable: {capital_error}",
+            "Daily Limit Used": 0,
+            "Daily Limit Remaining": 0,
         }.items():
             if _column not in df.columns:
                 df[_column] = _default
@@ -890,6 +892,8 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
         "Capital Fit Cost": 0,
         "Capital Fit Profit": 0,
         "Capital Note": "Capital state not checked.",
+        "Daily Limit Used": 0,
+        "Daily Limit Remaining": 0,
     }.items():
         if _column not in top_df.columns:
             top_df[_column] = _default
@@ -911,6 +915,8 @@ def get_trade_board_recommendations(limit=25, risk_profile="medium", minimum_pro
         "Fit Qty": top_df["Capital Fit Qty"].round(0).astype(int),
         "Fit Cost": top_df["Capital Fit Cost"].apply(_trade_board_gp),
         "Fit Profit": top_df["Capital Fit Profit"].apply(_trade_board_gp),
+        "Limit Used": top_df["Daily Limit Used"].round(0).astype(int),
+        "Limit Left": top_df["Daily Limit Remaining"].round(0).astype(int),
         "Capital Note": top_df["Capital Note"],
         "Fill": top_df["Fill"],
         "Volume": top_df["volume"].round(0).astype(int),

@@ -21,7 +21,7 @@ LOG_DIR = PROJECT_ROOT / "logs"
 
 STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 WRAPPER_DIR = PROJECT_ROOT / "runelite_companion" / "osrsflipper-telemetry-plugin-wrapper"
-STALE_AFTER_SECONDS = 120
+STALE_AFTER_SECONDS = 600
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -148,8 +148,9 @@ def format_runelite_telemetry_status(path: str | Path | None = None) -> str:
         return (
             "RuneLite telemetry: missing\n"
             f"  Expected file: {status['path']}\n"
-            "  Normal Jagex-launched RuneLite only writes this if the OSRSFlipper plugin is installed there.\n"
-            "  Until then, run: python runelite_telemetry_control.py start-dev"
+            "  Install or enable OSRSFlipper Telemetry from RuneLite Plugin Hub in normal RuneLite.\n"
+            "  Then log into OSRS and wait for a fresh full payload.\n"
+            "  Local fallback: python runelite_telemetry_control.py start-dev"
         )
 
     freshness = "stale" if status["stale"] else "fresh"
@@ -178,8 +179,9 @@ def format_runelite_telemetry_status(path: str | Path | None = None) -> str:
 
     if not status["ready"]:
         text += (
-            "\n  Guidance: launch the telemetry dev client, log into OSRS there, "
-            "and wait for a fresh full payload."
+            "\n  Guidance: install or enable OSRSFlipper Telemetry from RuneLite Plugin Hub, "
+            "log into OSRS in normal RuneLite, and wait for a fresh full payload. "
+            "Use the telemetry dev client only for local troubleshooting."
         )
 
     return text

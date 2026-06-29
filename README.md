@@ -1,8 +1,8 @@
 # OSRSFlipper
 
-## Latest Release: 1.4.0
+## Latest Release: 1.4.1
 
-OSRSFlipper 1.4.0 makes Trading the decision-first workspace for current offers, next buys, and trade history. It adds selectable buy candidates with right-side reasoning, current-offer action planning with overnight holds, omitted item controls, AI usage cost visibility, transaction history, and dashboard shutdown that also closes the app-style browser window.
+OSRSFlipper 1.4.1 improves the decision-first Trading workspace with smarter Next Moves ranking, active-offer duplicate protection, daily buy-limit awareness, overnight slot targeting, clearer overnight reprice guidance, and faster lock-tolerant settings/intent reads. It keeps the dashboard focused on buy, sell, hold, wait, and reprice decisions without adding another panel to sift through.
 
 
 OSRSFlipper is a local Old School RuneScape Grand Exchange flipping dashboard for tracking trades, reviewing flip history, and finding potential item opportunities.
@@ -102,6 +102,10 @@ http://127.0.0.1:8050
 ```
 
 By default, the control center opens the local dashboard in an app-style Edge/Chrome window when available and keeps the console quiet. Use `python osrs_control_center.py --status-screen` to show the older continuously refreshed status screen.
+
+## RuneLite Telemetry Setup
+
+Install `OSRSFlipper Telemetry` from RuneLite Plugin Hub in normal Jagex-launched RuneLite, then log into OSRS and wait for the telemetry file to refresh. OSRSFlipper reads that local JSON file for GP, active Grand Exchange offers, open slots, and capital-aware recommendations. The local telemetry dev client is now only a troubleshooting fallback.
 
 ## Updating an Existing Install
 

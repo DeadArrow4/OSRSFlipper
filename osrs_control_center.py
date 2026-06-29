@@ -325,9 +325,9 @@ def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_cli
             emit(start_runelite_telemetry_dev_client())
         else:
             emit(
-                "RuneLite telemetry auto-start is off. "
-                "If the plugin is not available in Jagex-launched RuneLite, run: "
-                "python runelite_telemetry_control.py start-dev"
+                "RuneLite telemetry dev-client auto-start is off. "
+                "Install OSRSFlipper Telemetry from RuneLite Plugin Hub in normal RuneLite. "
+                "For local troubleshooting only, run: python runelite_telemetry_control.py start-dev"
             )
 
         if status.get("ready"):
@@ -338,8 +338,8 @@ def runelite_telemetry_startup_check(force_open_jagex=False, force_start_dev_cli
         else:
             emit(f"RuneLite telemetry import skipped: {status.get('problem') or 'not ready'}.")
             emit(
-                "Normal Jagex-launched RuneLite will not list this local plugin unless it is installed there. "
-                "Use the telemetry dev client until the plugin is available in your normal RuneLite client."
+                "Open Jagex Launcher, start RuneLite, install or enable OSRSFlipper Telemetry from Plugin Hub, "
+                "then log into OSRS and wait for telemetry to refresh."
             )
 
     except Exception as telemetry_error:

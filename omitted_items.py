@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,14 @@ from account_context import BASE_DIR, get_account_scope
 DB_FILE = Path(BASE_DIR) / "osrs_flip_scanner.db"
 SQLITE_TIMEOUT_SECONDS = 30
 SQLITE_BUSY_TIMEOUT_MS = 30000
+_OMITTED_NAMES_TTL_SECONDS = 5.0
+
+_SCHEMA_READY = False
+_SCHEMA_LOCK = threading.Lock()
+_OMITTED_NAMES_CACHE: set[str] | None = None
+_OMITTED_NAMES_CACHE_ACCOUNT: tuple[str, str] | None = None
+_OMITTED_NAMES_CACHE_EXPIRES_AT = 0.0
+_OMITTED_NAMES_LOCK = threading.Lock()
 
 
 def _now_utc() -> str:
@@ -32,49 +42,81 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _scope_key(scope: dict[str, Any] | None = None) -> tuple[str, str]:
+    scope = scope or get_account_scope()
+    return (
+        str(scope.get("app_username") or ""),
+        str(scope.get("osrs_account_name") or ""),
+    )
+
+
+def clear_omitted_items_cache() -> None:
+    global _OMITTED_NAMES_CACHE
+    global _OMITTED_NAMES_CACHE_ACCOUNT
+    global _OMITTED_NAMES_CACHE_EXPIRES_AT
+
+    with _OMITTED_NAMES_LOCK:
+        _OMITTED_NAMES_CACHE = None
+        _OMITTED_NAMES_CACHE_ACCOUNT = None
+        _OMITTED_NAMES_CACHE_EXPIRES_AT = 0.0
+
+
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_FILE, timeout=SQLITE_TIMEOUT_SECONDS)
     conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
     return conn
 
 
-def init_omitted_items_db() -> None:
-    conn = get_connection()
-    cursor = conn.cursor()
+def init_omitted_items_db(force: bool = False) -> None:
+    global _SCHEMA_READY
 
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS omitted_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            app_username TEXT NOT NULL,
-            osrs_account_name TEXT NOT NULL,
-            item_id INTEGER,
-            item_name TEXT NOT NULL,
-            normalized_item_name TEXT NOT NULL,
-            reason TEXT,
-            created_at TEXT NOT NULL,
-            restored_at TEXT
-        )
-        """
-    )
+    if _SCHEMA_READY and not force:
+        return
 
-    cursor.execute(
-        """
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_omitted_items_account_name_active
-        ON omitted_items(app_username, osrs_account_name, normalized_item_name)
-        WHERE restored_at IS NULL
-        """
-    )
+    with _SCHEMA_LOCK:
+        if _SCHEMA_READY and not force:
+            return
 
-    cursor.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_omitted_items_account_active
-        ON omitted_items(app_username, osrs_account_name, restored_at, item_name)
-        """
-    )
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
 
-    conn.commit()
-    conn.close()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS omitted_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_username TEXT NOT NULL,
+                    osrs_account_name TEXT NOT NULL,
+                    item_id INTEGER,
+                    item_name TEXT NOT NULL,
+                    normalized_item_name TEXT NOT NULL,
+                    reason TEXT,
+                    created_at TEXT NOT NULL,
+                    restored_at TEXT
+                )
+                """
+            )
+
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_omitted_items_account_name_active
+                ON omitted_items(app_username, osrs_account_name, normalized_item_name)
+                WHERE restored_at IS NULL
+                """
+            )
+
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_omitted_items_account_active
+                ON omitted_items(app_username, osrs_account_name, restored_at, item_name)
+                """
+            )
+
+            conn.commit()
+        finally:
+            conn.close()
+
+        _SCHEMA_READY = True
 
 
 def omit_item(item_name: str, item_id: Any = None, reason: str | None = None) -> dict[str, Any]:
@@ -88,41 +130,45 @@ def omit_item(item_name: str, item_id: Any = None, reason: str | None = None) ->
     scope = get_account_scope()
     item_id_value = _safe_int(item_id)
     conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        INSERT INTO omitted_items (
-            app_username,
-            osrs_account_name,
-            item_id,
-            item_name,
-            normalized_item_name,
-            reason,
-            created_at,
-            restored_at
+        cursor.execute(
+            """
+            INSERT INTO omitted_items (
+                app_username,
+                osrs_account_name,
+                item_id,
+                item_name,
+                normalized_item_name,
+                reason,
+                created_at,
+                restored_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+            ON CONFLICT(app_username, osrs_account_name, normalized_item_name)
+            WHERE restored_at IS NULL
+            DO UPDATE SET
+                item_id = COALESCE(excluded.item_id, omitted_items.item_id),
+                item_name = excluded.item_name,
+                reason = excluded.reason
+            """,
+            (
+                scope["app_username"],
+                scope["osrs_account_name"],
+                item_id_value,
+                item_name,
+                normalized,
+                str(reason or "").strip(),
+                _now_utc(),
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
-        ON CONFLICT(app_username, osrs_account_name, normalized_item_name)
-        WHERE restored_at IS NULL
-        DO UPDATE SET
-            item_id = COALESCE(excluded.item_id, omitted_items.item_id),
-            item_name = excluded.item_name,
-            reason = excluded.reason
-        """,
-        (
-            scope["app_username"],
-            scope["osrs_account_name"],
-            item_id_value,
-            item_name,
-            normalized,
-            str(reason or "").strip(),
-            _now_utc(),
-        ),
-    )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
+
+    clear_omitted_items_cache()
 
     return {
         "item_name": item_name,
@@ -165,6 +211,7 @@ def restore_omitted_item(item_name: str | None = None, row_id: Any = None) -> in
     count = int(cursor.rowcount or 0)
     conn.commit()
     conn.close()
+    clear_omitted_items_cache()
     return count
 
 
@@ -201,11 +248,42 @@ def list_omitted_items(include_restored: bool = False) -> list[dict[str, Any]]:
 
 
 def get_omitted_item_names() -> set[str]:
-    return {
-        _normalize_item_name(row.get("item_name"))
-        for row in list_omitted_items(include_restored=False)
-        if _normalize_item_name(row.get("item_name"))
-    }
+    global _OMITTED_NAMES_CACHE
+    global _OMITTED_NAMES_CACHE_ACCOUNT
+    global _OMITTED_NAMES_CACHE_EXPIRES_AT
+
+    scope_key = _scope_key()
+    now = time.monotonic()
+
+    with _OMITTED_NAMES_LOCK:
+        if (
+            _OMITTED_NAMES_CACHE is not None
+            and _OMITTED_NAMES_CACHE_ACCOUNT == scope_key
+            and _OMITTED_NAMES_CACHE_EXPIRES_AT > now
+        ):
+            return set(_OMITTED_NAMES_CACHE)
+
+    try:
+        omitted = {
+            _normalize_item_name(row.get("item_name"))
+            for row in list_omitted_items(include_restored=False)
+            if _normalize_item_name(row.get("item_name"))
+        }
+    except sqlite3.OperationalError as exc:
+        if "locked" not in str(exc).lower():
+            raise
+
+        with _OMITTED_NAMES_LOCK:
+            if _OMITTED_NAMES_CACHE is not None and _OMITTED_NAMES_CACHE_ACCOUNT == scope_key:
+                return set(_OMITTED_NAMES_CACHE)
+        return set()
+
+    with _OMITTED_NAMES_LOCK:
+        _OMITTED_NAMES_CACHE = set(omitted)
+        _OMITTED_NAMES_CACHE_ACCOUNT = scope_key
+        _OMITTED_NAMES_CACHE_EXPIRES_AT = time.monotonic() + _OMITTED_NAMES_TTL_SECONDS
+
+    return set(omitted)
 
 
 def filter_omitted_df(df: pd.DataFrame | None, item_column: str = "item_name") -> pd.DataFrame:

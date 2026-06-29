@@ -9,8 +9,8 @@ from account_context import get_account_scope, BASE_DIR
 
 
 DB_FILE = BASE_DIR / "osrs_flip_scanner.db"
-SQLITE_TIMEOUT_SECONDS = 60
-SQLITE_BUSY_TIMEOUT_MS = 60000
+SQLITE_TIMEOUT_SECONDS = 3
+SQLITE_BUSY_TIMEOUT_MS = 3000
 _SETTINGS_DB_INITIALIZED = False
 
 
@@ -43,6 +43,7 @@ DEFAULT_SETTINGS = {
     "ai_output_cost_per_1m_tokens": {"value": 0.0, "type": "float", "description": "Output token cost in dollars per 1M tokens for AI cost estimates."},
 
     # Overnight / loss-cut rules
+    "overnight_slot_target": {"value": 1, "type": "int", "description": "Target GE slots to reserve for longer overnight flips. Use 0, 1, or 2."},
     "min_overnight_raw_margin": {"value": 10_000, "type": "int", "description": "Minimum raw margin per item for overnight recommendations."},
     "min_overnight_roi_percent": {"value": 5.0, "type": "float", "description": "Minimum ROI percent for overnight recommendations."},
     "max_small_loss_percent": {"value": 2.0, "type": "float", "description": "Small controlled-loss threshold for slot recovery."},

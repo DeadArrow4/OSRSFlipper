@@ -6,8 +6,14 @@ from typing import Any
 
 from capital_dashboard import load_capital_dashboard_state
 from dashboard_data import get_trade_board_recommendations
-from offer_intents import get_offer_intent
+from market_suggestions import ge_tax_per_item, latest_hour_sell_suggestion
+from offer_intents import list_active_offer_intents
 from settings_manager import get_setting
+
+
+OVERNIGHT_BUY_RECHECK_MINUTES = 8 * 60
+OVERNIGHT_SELL_RECHECK_MINUTES = 10 * 60
+OVERNIGHT_CRITICAL_RECHECK_MINUTES = 24 * 60
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -40,6 +46,26 @@ def _parse_gp(value: Any) -> int:
         return int(float(text) * multiplier)
     except Exception:
         return 0
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        if value in (None, ""):
+            return default
+        return float(str(value).replace(",", "").strip())
+    except Exception:
+        return default
+
+
+def _parse_percent(value: Any) -> float:
+    text = str(value or "").strip().replace("%", "").replace(",", "")
+    if not text:
+        return 0.0
+
+    try:
+        return float(text)
+    except Exception:
+        return 0.0
 
 
 def _format_gp(value: Any) -> str:
@@ -87,12 +113,224 @@ def _confidence_note(row: dict[str, Any]) -> str:
     return f"{confidence or 'Medium'} confidence; {fill.lower() or 'unknown'} fill"
 
 
-def _build_buy_plan(board_rows: list[dict[str, Any]], usable_gp: int, max_rows: int = 8) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def _candidate_item_key(row: dict[str, Any]) -> str:
+    return str(row.get("Item") or "").strip().lower()
+
+
+def _setting_int_clamped(key: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(get_setting(key, default) or default)
+    except Exception:
+        value = default
+
+    return max(minimum, min(maximum, value))
+
+
+def _is_overnight_market_row(row: dict[str, Any] | None) -> bool:
+    if not row:
+        return False
+
+    action = str(row.get("Action") or "").strip().lower()
+    wait = str(row.get("Wait") or "").strip().lower()
+    reason = str(row.get("Reason") or row.get("Why") or "").strip().lower()
+
+    return "overnight" in action or "overnight" in wait or "overnight" in reason
+
+
+def _market_rows_by_item(board_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    rows_by_item: dict[str, dict[str, Any]] = {}
 
     for row in board_rows:
+        key = _candidate_item_key(row)
+        if key and key not in rows_by_item:
+            rows_by_item[key] = row
+
+    return rows_by_item
+
+
+def _market_row_for_offer(row: dict[str, Any], market_rows_by_item: dict[str, dict[str, Any]] | None) -> dict[str, Any]:
+    if not market_rows_by_item:
+        return {}
+
+    key = str(row.get("Item") or "").strip().lower()
+    return market_rows_by_item.get(key) or {}
+
+
+def _offer_intent_matches(row: dict[str, Any], intent: dict[str, Any]) -> bool:
+    if str(intent.get("intent") or "").lower() != "overnight":
+        return False
+
+    item_name = str(row.get("Item") or "").strip().lower()
+    side = str(row.get("Side") or "").strip().lower()
+    if not item_name or not side:
+        return False
+
+    if str(intent.get("normalized_item_name") or "").strip().lower() != item_name:
+        return False
+
+    if str(intent.get("side") or "").strip().lower() != side:
+        return False
+
+    intent_slot = str(intent.get("slot") or "").strip()
+    row_slot = str(row.get("Slot") or "").strip()
+    if intent_slot and row_slot and intent_slot != row_slot:
+        return False
+
+    intent_price = _safe_int(intent.get("price"))
+    row_price = _parse_gp(row.get("Buy Price") if side == "buy" else row.get("Sell Price"))
+    if intent_price > 0 and row_price > 0 and intent_price != row_price:
+        return False
+
+    return True
+
+
+def _manual_overnight_intent_for_row(row: dict[str, Any], active_offer_intents: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for intent in active_offer_intents:
+        if _offer_intent_matches(row, intent):
+            return intent
+
+    return None
+
+
+def _offer_has_overnight_intent(
+    row: dict[str, Any],
+    market_rows_by_item: dict[str, dict[str, Any]] | None = None,
+    active_offer_intents: list[dict[str, Any]] | None = None,
+) -> bool:
+    if _is_overnight_market_row(_market_row_for_offer(row, market_rows_by_item)):
+        return True
+
+    return bool(_manual_overnight_intent_for_row(row, active_offer_intents or []))
+
+
+def _active_overnight_slot_count(
+    capital_rows: list[dict[str, Any]],
+    market_rows_by_item: dict[str, dict[str, Any]],
+    active_offer_intents: list[dict[str, Any]],
+) -> int:
+    count = 0
+
+    for row in capital_rows:
+        if _offer_has_overnight_intent(row, market_rows_by_item, active_offer_intents):
+            count += 1
+
+    return count
+
+
+def _buy_candidate_score(
+    row: dict[str, Any],
+    *,
+    fit_cost: int,
+    fit_profit: int,
+    usable_gp: int,
+    open_slots: int,
+    overnight_slot_target: int,
+    active_overnight_slots: int,
+    source_rank: int,
+) -> float:
+    action = str(row.get("Action") or "")
+    confidence = str(row.get("Confidence") or "")
+    fill = str(row.get("Fill") or "").lower()
+    warning = str(row.get("Warning") or "").strip()
+
+    action_score = {
+        "Buy Now": 120.0,
+        "Test Small": 70.0,
+        "Overnight": 35.0,
+    }.get(action, 0.0)
+    confidence_score = {
+        "High": 45.0,
+        "Medium": 20.0,
+        "Low": -10.0,
+    }.get(confidence, 0.0)
+
+    if "fast" in fill:
+        fill_score = 28.0
+    elif "moderate" in fill:
+        fill_score = 12.0
+    elif "thin" in fill:
+        fill_score = -15.0
+    elif "slow" in fill:
+        fill_score = -28.0
+    else:
+        fill_score = 0.0
+
+    score = action_score + confidence_score + fill_score
+    score += min(max(_safe_float(row.get("Score")), 0.0), 100.0) * 0.55
+    score += min(max(_safe_float(row.get("Liquidity")), 0.0), 100.0) * 0.20
+    score += min(max(_parse_percent(row.get("ROI")), 0.0), 20.0) * 2.0
+    score += min(max(_parse_gp(row.get("Profit/1M")), 0), 80_000) / 2_500
+    score += min(max(fit_profit, 0), 250_000) / 6_000
+
+    if usable_gp > 0 and open_slots > 0:
+        usage_ratio = fit_cost / usable_gp
+        score += min(max(usage_ratio, 0.0), 0.35) * 90.0
+
+        if usage_ratio < 0.025 and fit_profit < 50_000:
+            score -= 18.0
+        elif fit_cost >= 500_000 and fit_profit >= 25_000:
+            score += 12.0
+
+    if warning and warning.upper() != "OK":
+        score -= 35.0
+
+    if action == "Overnight":
+        if overnight_slot_target > active_overnight_slots and open_slots > 0:
+            score += 105.0
+        else:
+            score -= 85.0
+
+    # Preserve the board's judgment as a quiet tie-breaker.
+    return score - (source_rank * 0.02)
+
+
+def _live_buy_exit_check(row: dict[str, Any], buy_price: int, quantity: int) -> dict[str, Any]:
+    if buy_price <= 0 or quantity <= 0:
+        return {"ok": True}
+
+    try:
+        suggestion = latest_hour_sell_suggestion(item_name=str(row.get("Item") or ""))
+    except Exception:
+        suggestion = None
+
+    if not suggestion:
+        return {"ok": True}
+
+    live_sell = _safe_int(suggestion.get("recommended_sell"))
+    if live_sell <= 0:
+        return {"ok": True}
+
+    tax_each = ge_tax_per_item(live_sell)
+    profit_each = live_sell - tax_each - buy_price
+
+    return {
+        "ok": profit_each > 0,
+        "sell": live_sell,
+        "tax_each": tax_each,
+        "profit_each": profit_each,
+        "profit_total": profit_each * quantity,
+        "source": suggestion.get("window_name") or "latest hour",
+    }
+
+
+def _build_buy_plan(
+    board_rows: list[dict[str, Any]],
+    usable_gp: int,
+    open_slots: int,
+    overnight_slot_target: int,
+    active_overnight_slots: int,
+    max_rows: int = 8,
+) -> list[dict[str, Any]]:
+    candidates_by_item: dict[str, dict[str, Any]] = {}
+
+    for source_rank, row in enumerate(board_rows):
         action = str(row.get("Action") or "")
         if action not in {"Buy Now", "Test Small", "Overnight"}:
+            continue
+
+        if action == "Overnight" and (
+            overnight_slot_target <= 0 or active_overnight_slots >= overnight_slot_target
+        ):
             continue
 
         fit_qty = _safe_int(row.get("Fit Qty"))
@@ -106,49 +344,161 @@ def _build_buy_plan(board_rows: list[dict[str, Any]], usable_gp: int, max_rows: 
         if usable_gp > 0 and fit_cost > usable_gp:
             continue
 
-        wait = _wait_label(action, row.get("Window"), row.get("Fill"))
-        out.append(
-            {
-                "Priority": len(out) + 1,
-                "Action": action,
-                "Item": row.get("Item", ""),
-                "Buy": row.get("Buy", ""),
-                "Sell": row.get("Sell", ""),
-                "Qty": fit_qty,
-                "Use GP": _format_gp(fit_cost),
-                "Projected Profit": _format_gp(fit_profit),
-                "Wait": wait,
-                "ROI": row.get("ROI", ""),
-                "Confidence": row.get("Confidence", ""),
-                "Why": row.get("Reason", ""),
-                "Capital Note": row.get("Capital Note", ""),
-                "_fit_cost": fit_cost,
-                "_fit_profit": fit_profit,
-                "_requested_cost": requested_cost,
-            }
-        )
+        buy_price = _parse_gp(row.get("Buy"))
+        live_exit = {"ok": True} if action == "Overnight" else _live_buy_exit_check(row, buy_price, fit_qty)
+        if not live_exit.get("ok", True):
+            continue
 
-        if len(out) >= max_rows:
-            break
+        live_sell = live_exit.get("sell")
+        sell_price = f"{int(live_sell):,}" if live_sell else row.get("Sell", "")
+        projected_profit = live_exit.get("profit_total", fit_profit)
+        if live_exit.get("sell"):
+            why = (
+                f"{row.get('Reason', '')} Live sell check: {live_sell:,} sell, "
+                f"{live_exit.get('tax_each', 0):,} tax, "
+                f"{live_exit.get('profit_each', 0):,} gp/item after tax."
+            ).strip()
+            roi = f"{((live_exit.get('profit_each', 0) / buy_price) * 100):.2f}%" if buy_price else row.get("ROI", "")
+        else:
+            why = row.get("Reason", "")
+            roi = row.get("ROI", "")
+
+        wait = _wait_label(action, row.get("Window"), row.get("Fill"))
+        candidate = {
+            "Priority": 0,
+            "Action": action,
+            "Item": row.get("Item", ""),
+            "Buy": row.get("Buy", ""),
+            "Sell": sell_price,
+            "Qty": fit_qty,
+            "Use GP": _format_gp(fit_cost),
+            "Projected Profit": _format_gp(projected_profit),
+            "Wait": wait,
+            "ROI": roi,
+            "Confidence": row.get("Confidence", ""),
+            "Why": why,
+            "Capital Note": row.get("Capital Note", ""),
+            "_fit_cost": fit_cost,
+            "_fit_profit": projected_profit,
+            "_requested_cost": requested_cost,
+            "_score": _buy_candidate_score(
+                row,
+                fit_cost=fit_cost,
+                fit_profit=projected_profit,
+                usable_gp=usable_gp,
+                open_slots=open_slots,
+                overnight_slot_target=overnight_slot_target,
+                active_overnight_slots=active_overnight_slots,
+                source_rank=source_rank,
+            ),
+        }
+
+        item_key = _candidate_item_key(candidate)
+        existing = candidates_by_item.get(item_key)
+        if not existing or candidate["_score"] > existing.get("_score", 0):
+            candidates_by_item[item_key] = candidate
+
+    out = sorted(candidates_by_item.values(), key=lambda item: item.get("_score", 0), reverse=True)
+    out = out[:max_rows]
+
+    for index, row in enumerate(out, start=1):
+        row["Priority"] = index
 
     return out
 
 
-def _offer_action(row: dict[str, Any]) -> tuple[str, str, str]:
-    intent = get_offer_intent(row)
-
-    if intent and intent.get("intent") == "overnight":
-        return (
-            "Overnight hold",
-            "next day",
-            "Marked as an intentional overnight flip. Ignore normal stale-offer warnings until tomorrow.",
-        )
-
+def _offer_action(
+    row: dict[str, Any],
+    market_rows_by_item: dict[str, dict[str, Any]] | None = None,
+    active_offer_intents: list[dict[str, Any]] | None = None,
+) -> tuple[str, str, str]:
+    market_row = _market_row_for_offer(row, market_rows_by_item)
+    intent = _manual_overnight_intent_for_row(row, active_offer_intents or [])
+    is_overnight = bool(intent) or _is_overnight_market_row(market_row)
     side = str(row.get("Side") or "").lower()
     projected = _parse_gp(row.get("Projected P/L"))
     age = _safe_int(row.get("Age Min"))
+    buy_price = _parse_gp(row.get("Buy Price"))
     sell_price = _parse_gp(row.get("Sell Price"))
-    recommended = _parse_gp(row.get("Recommended Sell"))
+    recommended = _parse_gp(row.get("Recommended Sell")) or _parse_gp(market_row.get("Sell"))
+    market_buy = _parse_gp(market_row.get("Buy"))
+    state = str(row.get("State") or "").lower()
+    remaining_qty = _safe_int(row.get("Remaining Qty"))
+    filled_qty = _safe_int(row.get("Filled Qty"))
+
+    if side == "buy" and ("bought" in state or (remaining_qty <= 0 and filled_qty > 0)):
+        suggested = str(row.get("Recommended Sell") or row.get("Sell Price") or "").strip()
+        if not suggested:
+            suggested = _format_gp(recommended or sell_price)
+        if is_overnight:
+            return (
+                "List overnight sell",
+                "now",
+                f"Overnight buy filled. Collect it, then list around {suggested} and keep overnight patience after listing.",
+            )
+        return (
+            "Collect and sell",
+            "now",
+            f"Buy filled. Collect it, then list around {suggested} based on latest sell guidance.",
+        )
+
+    if is_overnight:
+        source_text = "marked overnight" if intent and intent.get("intent") == "overnight" else "auto overnight setup"
+
+        if side == "buy":
+            if projected <= 0:
+                return "Recheck overnight buy", "now", "Projected margin is no longer positive after tax."
+
+            if age >= OVERNIGHT_BUY_RECHECK_MINUTES:
+                if market_buy > 0 and buy_price > 0 and buy_price < market_buy:
+                    return (
+                        f"Raise overnight buy to {market_buy:,}",
+                        "now",
+                        f"This {source_text} buy has sat about {max(1, age // 60)}h at {buy_price:,}; latest target buy is {market_buy:,}.",
+                    )
+
+                return (
+                    "Recheck overnight buy",
+                    "now",
+                    f"This {source_text} buy has sat about {max(1, age // 60)}h without filling; confirm the buy price still matches the market.",
+                )
+
+            return (
+                "Let overnight buy sit",
+                "overnight",
+                f"Using an overnight slot. Recheck after about {OVERNIGHT_BUY_RECHECK_MINUTES // 60}h if it has not filled.",
+            )
+
+        if side == "sell":
+            if projected < 0:
+                return "Review overnight sell", "now", "Current sell price is below known cost after tax."
+
+            if age >= OVERNIGHT_CRITICAL_RECHECK_MINUTES:
+                if recommended > 0 and sell_price > recommended:
+                    return (
+                        f"Lower overnight sell to {recommended:,}",
+                        "now",
+                        f"This {source_text} sell has sat about {max(1, age // 60)}h; latest 1h sell reference is {recommended:,}.",
+                    )
+
+                return (
+                    "Reprice overnight sell",
+                    "now",
+                    f"This {source_text} sell has sat about {max(1, age // 60)}h; refresh the sell price before using the slot again.",
+                )
+
+            if age >= OVERNIGHT_SELL_RECHECK_MINUTES and recommended > 0 and sell_price > recommended:
+                return (
+                    f"Lower overnight sell to {recommended:,}",
+                    "now",
+                    f"This {source_text} sell is above the latest 1h sell reference after about {max(1, age // 60)}h.",
+                )
+
+            return (
+                "Let overnight sell sit",
+                "overnight",
+                f"Using an overnight slot. Recheck after about {OVERNIGHT_SELL_RECHECK_MINUTES // 60}h if it has not sold.",
+            )
 
     if side == "buy":
         if projected <= 0:
@@ -163,9 +513,21 @@ def _offer_action(row: dict[str, Any]) -> tuple[str, str, str]:
         if projected < 0:
             return "Review sell loss", "now", "Current sell price is below known cost after tax."
         if recommended and sell_price and sell_price > recommended and age >= 60:
-            return "Lower toward 1h high", "now", "Offer is above current 1h sell reference and aging."
+            target = f"{recommended:,}"
+            current = f"{sell_price:,}"
+            return (
+                f"Lower sell to {target}",
+                "now",
+                f"Current sell is {current}, but the latest 1h sell reference is {target} and this offer is aging.",
+            )
         if recommended and sell_price and sell_price < recommended and age < 45:
-            return "Hold or raise sell", "30-90m", "Current offer is below the 1h reference."
+            target = f"{recommended:,}"
+            current = f"{sell_price:,}"
+            return (
+                f"Hold or raise to {target}",
+                "30-90m",
+                f"Current sell is {current}, below the latest 1h sell reference of {target}.",
+            )
         if age >= 180:
             return "Reprice sell", "now", "Sell offer is stale; keep profit but improve fill chance."
         return "Hold sell", "30-120m", "Sell remains profitable after tax."
@@ -173,11 +535,16 @@ def _offer_action(row: dict[str, Any]) -> tuple[str, str, str]:
     return "Review", "now", "Unknown GE offer side."
 
 
-def _build_offer_plan(capital_rows: list[dict[str, Any]], max_rows: int = 10) -> list[dict[str, Any]]:
+def _build_offer_plan(
+    capital_rows: list[dict[str, Any]],
+    market_rows_by_item: dict[str, dict[str, Any]],
+    active_offer_intents: list[dict[str, Any]],
+    max_rows: int = 10,
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
 
     for row in capital_rows:
-        action, wait, reason = _offer_action(row)
+        action, wait, reason = _offer_action(row, market_rows_by_item, active_offer_intents)
         out.append(
             {
                 "Priority": len(out) + 1,
@@ -186,9 +553,9 @@ def _build_offer_plan(capital_rows: list[dict[str, Any]], max_rows: int = 10) ->
                 "Item": row.get("Item", ""),
                 "Side": row.get("Side", ""),
                 "Qty": row.get("Qty", ""),
-                "Intent": "Overnight" if wait == "next day" else "",
                 "Buy Price": row.get("Buy Price", ""),
                 "Sell Price": row.get("Sell Price", ""),
+                "Recommended Sell": row.get("Recommended Sell", ""),
                 "Tax Total": row.get("Tax Total", ""),
                 "Projected P/L": row.get("Projected P/L", ""),
                 "Wait": wait,
@@ -241,7 +608,7 @@ def _build_notes(capital: dict[str, Any], buy_plan: list[dict[str, Any]], offer_
         )
 
     now_actions = [row for row in offer_plan if row.get("Wait") == "now"]
-    overnight_holds = [row for row in offer_plan if row.get("Wait") == "next day"]
+    overnight_holds = [row for row in offer_plan if row.get("Wait") in {"next day", "overnight"}]
     if now_actions:
         notes.append(
             {
@@ -283,6 +650,7 @@ def _build_notes(capital: dict[str, Any], buy_plan: list[dict[str, Any]], offer_
 def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) -> dict[str, Any]:
     risk_profile = str(get_setting("risk_profile", "medium") or "medium")
     minimum_profit = get_setting("minimum_profit", 50000)
+    overnight_slot_target = _setting_int_clamped("overnight_slot_target", 1, 0, 2)
 
     capital_data = load_capital_dashboard_state(import_live=False)
     capital = capital_data.get("capital") or {}
@@ -292,7 +660,7 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
     capital_rows = capital_data.get("rows") or []
 
     board_df, board_summary = get_trade_board_recommendations(
-        limit=60,
+        limit=180,
         risk_profile=risk_profile,
         minimum_profit=minimum_profit,
         action_filter="all",
@@ -300,8 +668,27 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
         fill_filter="all",
     )
     board_rows = board_df.to_dict("records") if hasattr(board_df, "to_dict") else []
-    buy_plan = _build_buy_plan(board_rows, usable_gp, max_rows=max_buy_rows)
-    offer_plan = _build_offer_plan(capital_rows, max_rows=max_offer_rows)
+    market_rows_by_item = _market_rows_by_item(board_rows)
+    active_offer_intents = list_active_offer_intents()
+    active_overnight_slots = _active_overnight_slot_count(
+        capital_rows,
+        market_rows_by_item,
+        active_offer_intents,
+    )
+    buy_plan = _build_buy_plan(
+        board_rows,
+        usable_gp,
+        open_slots,
+        overnight_slot_target,
+        active_overnight_slots,
+        max_rows=max_buy_rows,
+    )
+    offer_plan = _build_offer_plan(
+        capital_rows,
+        market_rows_by_item,
+        active_offer_intents,
+        max_rows=max_offer_rows,
+    )
     notes = _build_notes(capital, buy_plan, offer_plan, board_summary or {})
 
     projected_offer_pl = sum(_parse_gp(row.get("Projected P/L")) for row in capital_rows)
@@ -314,10 +701,16 @@ def build_flip_plan_snapshot(max_buy_rows: int = 8, max_offer_rows: int = 10) ->
             f"{immediate_offer.get('Item')}."
         )
     elif next_buy:
-        headline = (
-            f"Buy {next_buy.get('Qty')} {next_buy.get('Item')} at {next_buy.get('Buy')} "
-            f"and sell around {next_buy.get('Sell')}."
-        )
+        if next_buy.get("Action") == "Overnight":
+            headline = (
+                f"Set overnight buy: {next_buy.get('Qty')} {next_buy.get('Item')} "
+                f"at {next_buy.get('Buy')}; sell around {next_buy.get('Sell')} tomorrow."
+            )
+        else:
+            headline = (
+                f"Buy {next_buy.get('Qty')} {next_buy.get('Item')} at {next_buy.get('Buy')} "
+                f"and sell around {next_buy.get('Sell')}."
+            )
     elif offer_plan:
         headline = f"Manage current offer first: {offer_plan[0].get('Action')} {offer_plan[0].get('Item')}."
     else:

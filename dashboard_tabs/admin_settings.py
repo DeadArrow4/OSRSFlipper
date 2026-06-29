@@ -332,6 +332,15 @@ def build_settings_tab():
                                 )
                             ),
                             setting_card(
+                                "Overnight slots",
+                                setting_text_box(
+                                    "setting-overnight-slot-target",
+                                    setting_value("overnight_slot_target", 1),
+                                    "1"
+                                ),
+                                "Target GE slots for longer overnight flips. Use 0, 1, or 2."
+                            ),
+                            setting_card(
                                 "Min overnight raw margin",
                                 setting_text_box(
                                     "setting-min-overnight-raw-margin",

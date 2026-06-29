@@ -66,15 +66,14 @@ cd C:\OSRSFlipper\runelite_companion\osrsflipper-telemetry-plugin-wrapper
 ```
 
 The development runner starts RuneLite with this plugin registered as a local
-built-in plugin. That is why it works before the plugin is available in a
-normal Jagex-launched RuneLite client.
+built-in plugin. This is now only needed for local plugin development or
+troubleshooting.
 
 ## Normal RuneLite install path
 
 A normal Jagex-launched RuneLite client does not scan this local project
-folder. To make OSRSFlipper Telemetry appear there, package the companion plugin
-as a Plugin Hub submission and install it from RuneLite's Plugin Hub after it is
-accepted.
+folder. Install OSRSFlipper Telemetry from RuneLite's Plugin Hub in the normal
+Jagex-launched client.
 
 From the OSRSFlipper project root:
 
@@ -96,7 +95,7 @@ The source-controlled submission checklist is:
 C:\OSRSFlipper\runelite_companion\PLUGIN_HUB_SUBMISSION.md
 ```
 
-Until that Plugin Hub path is complete, use:
+For local troubleshooting only, use:
 
 ```powershell
 python runelite_telemetry_control.py start-dev

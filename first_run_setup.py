@@ -147,10 +147,10 @@ def show_runelite_status(osrs_account_name):
     print("Status: not found yet")
     print()
     print("If this is a new setup:")
-    print("1. Start RuneLite with the OSRSFlipper Telemetry plugin.")
-    print("2. Log into the OSRS account.")
+    print("1. Install OSRSFlipper Telemetry from RuneLite Plugin Hub.")
+    print("2. Start normal Jagex-launched RuneLite and log into the OSRS account.")
     print(f"3. Wait for {RUNELITE_STATE_PATH} to be written.")
-    print("4. Use the dev client until the plugin is available in normal RuneLite.")
+    print("4. Use the dev client only as a local troubleshooting fallback.")
 
     return False
 

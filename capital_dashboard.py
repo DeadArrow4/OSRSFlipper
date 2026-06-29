@@ -260,6 +260,11 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
         price = _safe_int(offer.get("price") or offer.get("unit_price"))
         remaining = _offer_remaining(offer)
         filled = _safe_int(offer.get("quantity_filled") or offer.get("filled"))
+        state = str(offer.get("state", "") or "")
+        projection_quantity = remaining
+        if side == "buy" and remaining <= 0 and filled > 0:
+            projection_quantity = filled
+
         if side == "buy":
             filled_value_gp = _buy_filled_value_gp(offer, price, filled)
         elif side == "sell":
@@ -272,7 +277,7 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
             item_name=item_name,
             side=side,
             offer_price=price,
-            quantity=remaining,
+            quantity=projection_quantity,
         )
 
         rows.append(
@@ -280,7 +285,9 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
                 "Slot": offer.get("slot", ""),
                 "Item": item_name,
                 "Side": side.title(),
-                "Qty": f"{remaining:,}",
+                "Qty": f"{projection_quantity:,}",
+                "Remaining Qty": remaining,
+                "Filled Qty": filled,
                 "Buy Price": _format_full_gp(projection.get("buy_price")) if projection.get("buy_price") else "",
                 "Sell Price": _format_full_gp(projection.get("sell_price")) if projection.get("sell_price") else "",
                 "Recommended Sell": _format_full_gp(projection.get("recommended_sell")) if projection.get("recommended_sell") else "",
@@ -294,7 +301,7 @@ def _offer_rows_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
                 "Projected P/L": _format_full_gp(projection.get("projected_profit")) if projection.get("has_projection") else "",
                 "Filled Value": f"{filled_value_gp:,}" if filled > 0 else "",
                 "Age Min": offer.get("offer_age_minutes", ""),
-                "State": offer.get("state", ""),
+                "State": state,
             }
         )
 
@@ -310,6 +317,10 @@ def _offer_rows_from_locks(locks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         filled = _safe_int(lock.get("quantity_filled"))
         side = str(lock.get("side") or "unknown").lower()
         item_name = lock.get("item_name") or f"Item {lock.get('item_id', '')}"
+        state = str(lock.get("status", "") or "")
+        projection_quantity = remaining
+        if side == "buy" and remaining <= 0 and filled > 0:
+            projection_quantity = filled
 
         if is_item_omitted(item_name):
             continue
@@ -320,7 +331,7 @@ def _offer_rows_from_locks(locks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             item_name=item_name,
             side=side,
             offer_price=price,
-            quantity=remaining,
+            quantity=projection_quantity,
         )
 
         rows.append(
@@ -328,7 +339,9 @@ def _offer_rows_from_locks(locks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "Slot": lock.get("slot", ""),
                 "Item": item_name,
                 "Side": side.title(),
-                "Qty": f"{remaining:,}",
+                "Qty": f"{projection_quantity:,}",
+                "Remaining Qty": remaining,
+                "Filled Qty": filled,
                 "Buy Price": _format_full_gp(projection.get("buy_price")) if projection.get("buy_price") else "",
                 "Sell Price": _format_full_gp(projection.get("sell_price")) if projection.get("sell_price") else "",
                 "Recommended Sell": _format_full_gp(projection.get("recommended_sell")) if projection.get("recommended_sell") else "",
@@ -342,7 +355,7 @@ def _offer_rows_from_locks(locks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "Projected P/L": _format_full_gp(projection.get("projected_profit")) if projection.get("has_projection") else "",
                 "Filled Value": f"{filled_value_gp:,}" if filled > 0 else "",
                 "Age Min": lock.get("offer_age_minutes", ""),
-                "State": lock.get("status", ""),
+                "State": state,
             }
         )
 
@@ -456,6 +469,43 @@ def _preserve_last_nonzero_gp(capital: dict[str, Any], account_name: str) -> tup
     return out, True, snapshot
 
 
+def _remember_nonzero_capital_snapshot(capital: dict[str, Any], state: dict[str, Any], source_path: Path) -> None:
+    raw_gp = _safe_int(capital.get("raw_gp_available"))
+    if raw_gp <= 0:
+        return
+
+    account_name = str(capital.get("account_name") or get_current_osrs_account() or "default")
+    inventory_gp = _safe_int(capital.get("inventory_gp"))
+    bank_gp = _safe_int(capital.get("bank_gp"))
+
+    try:
+        from capital_ai_memory import latest_nonzero_capital_snapshot, record_capital_snapshot
+
+        latest = latest_nonzero_capital_snapshot(account_name)
+        if latest and (
+            _safe_int(latest.get("raw_gp_available")) == raw_gp
+            and _safe_int(latest.get("inventory_gp")) == inventory_gp
+            and _safe_int(latest.get("bank_gp")) == bank_gp
+        ):
+            return
+
+        captured_at = state.get("captured_at") or state.get("capturedAt") or ""
+        record_capital_snapshot(
+            raw_gp_available=raw_gp,
+            inventory_gp=inventory_gp,
+            bank_gp=bank_gp,
+            safety_reserve_gp=_safe_int(capital.get("safety_reserve_gp")),
+            account_name=account_name,
+            source="runelite",
+            source_path=str(source_path),
+            notes=f"Observed nonzero RuneLite telemetry captured_at={captured_at}",
+        )
+    except Exception:
+        # Dashboard refresh must never fail because the baseline snapshot could
+        # not be saved. The current telemetry value is still used for this view.
+        return
+
+
 def _try_import_runelite_state(state_path: Path) -> dict[str, Any]:
     if not state_path.exists():
         return {"ok": False, "message": f"Telemetry file not found: {state_path}"}
@@ -480,18 +530,25 @@ def load_capital_dashboard_state(import_live: bool = False, state_path: str | Pa
     telemetry_ready = bool(telemetry_status.get("ready"))
 
     state_json = _read_json(path)
+    payload_kind = telemetry_status.get("payload_kind") or state_json.get("payload_kind") or "unknown"
+    has_full_state = bool(state_json) and str(payload_kind or "").lower() != "minimal"
     capital_source = "live_telemetry" if telemetry_ready else "unavailable"
     using_last_known = False
+    using_stale_telemetry = False
 
-    if telemetry_ready:
+    if telemetry_ready or has_full_state:
         capital = _capital_from_state(state_json)
+        _remember_nonzero_capital_snapshot(capital, state_json, path)
         capital, using_preserved_gp, preserved_snapshot = _preserve_last_nonzero_gp(
             capital,
             str(capital.get("account_name") or get_current_osrs_account() or "default"),
         )
         rows = _offer_rows_from_state(state_json)
-        if using_preserved_gp:
-            capital_source = "live_telemetry_preserved_gp"
+        if telemetry_ready:
+            capital_source = "live_telemetry_preserved_gp" if using_preserved_gp else "live_telemetry"
+        else:
+            capital_source = "stale_telemetry_preserved_gp" if using_preserved_gp else "stale_telemetry"
+            using_stale_telemetry = True
     else:
         using_preserved_gp = False
         preserved_snapshot = None
@@ -515,13 +572,14 @@ def load_capital_dashboard_state(import_live: bool = False, state_path: str | Pa
             rows = []
 
     telemetry_exists = path.exists()
-    payload_kind = telemetry_status.get("payload_kind") or state_json.get("payload_kind") or capital.get("payload_kind") or "unknown"
+    payload_kind = payload_kind or capital.get("payload_kind") or "unknown"
 
     return {
-        "ok": telemetry_ready or using_last_known,
+        "ok": telemetry_ready or using_stale_telemetry or using_last_known,
         "state_path": str(path),
         "telemetry_exists": telemetry_exists,
         "telemetry_ready": telemetry_ready,
+        "using_stale_telemetry": using_stale_telemetry,
         "using_last_known": using_last_known,
         "using_preserved_gp": using_preserved_gp,
         "preserved_snapshot": preserved_snapshot,
@@ -553,8 +611,12 @@ def build_ai_capital_context_text() -> str:
         )
 
     capital = data["capital"]
-    if data.get("using_preserved_gp"):
+    if data.get("using_stale_telemetry") and data.get("using_preserved_gp"):
+        source_note = "newest full telemetry snapshot with last nonzero GP preserved"
+    elif data.get("using_preserved_gp"):
         source_note = "live telemetry with last nonzero GP preserved"
+    elif data.get("using_stale_telemetry"):
+        source_note = "newest full telemetry snapshot"
     else:
         source_note = "live telemetry" if data.get("telemetry_ready") else "last known imported telemetry"
 
@@ -584,6 +646,8 @@ def _telemetry_state_label(data: dict[str, Any]) -> tuple[str, str, str]:
         if data.get("using_preserved_gp"):
             return "Live + saved GP", "capital-ai-source-pill capital-ai-source-pill--warn", "Fresh offers with last nonzero GP preserved."
         return "Live", "capital-ai-source-pill capital-ai-source-pill--ok", "Fresh RuneLite telemetry."
+    if data.get("using_stale_telemetry"):
+        return "Latest snapshot", "capital-ai-source-pill capital-ai-source-pill--warn", "Showing the newest full telemetry file; refresh RuneLite if offers changed."
     if data.get("using_last_known"):
         return "Last known", "capital-ai-source-pill capital-ai-source-pill--warn", "Telemetry is stale; showing last imported values."
     return "Needs refresh", "capital-ai-source-pill capital-ai-source-pill--bad", "Start RuneLite telemetry or import a fresh payload."
@@ -652,6 +716,8 @@ def _kpi_cards(data: dict[str, Any]):
 
     if data.get("using_preserved_gp"):
         source_note = "preserved last nonzero GP"
+    elif data.get("using_stale_telemetry"):
+        source_note = "latest full telemetry"
     else:
         source_note = "live telemetry" if data.get("telemetry_ready") else "last known import"
 

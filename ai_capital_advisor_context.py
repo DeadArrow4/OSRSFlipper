@@ -16,7 +16,7 @@ def build_capital_aware_advisor_rules(capital_context: str = "") -> str:
 Rules:
 - Do not treat missing, stale, or minimal RuneLite telemetry as live GP or GE slot state.
 - Do not invent live GP, open slot count, or active GE offers.
-- If live capital state is needed, tell the user to start the telemetry dev client and wait for a fresh full payload.
+- If live capital state is needed, tell the user to install or enable OSRSFlipper Telemetry from RuneLite Plugin Hub, log into OSRS, and wait for a fresh full payload. The telemetry dev client is only a local troubleshooting fallback.
 """.strip()
 
     return f"""
