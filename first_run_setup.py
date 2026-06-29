@@ -25,9 +25,10 @@ from openai_key_manager import (
 from openai_usage_manager import init_ai_usage_db
 from security_runtime import scrub_shared_openai_env
 from settings_manager import ensure_default_settings, get_setting, set_setting
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_path
 
 
-RUNELITE_STATE_PATH = BASE_DIR / "runtime" / "runelite_state.json"
+RUNELITE_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 
 
 def heading(title):
@@ -128,7 +129,7 @@ def choose_from(prompt, options, default):
 
 
 def locate_runelite_file(osrs_account_name):
-    return RUNELITE_STATE_PATH
+    return resolve_runelite_state_path()
 
 
 def show_runelite_status(osrs_account_name):
@@ -148,7 +149,7 @@ def show_runelite_status(osrs_account_name):
     print("If this is a new setup:")
     print("1. Start RuneLite with the OSRSFlipper Telemetry plugin.")
     print("2. Log into the OSRS account.")
-    print("3. Wait for runtime\\runelite_state.json to be written.")
+    print(f"3. Wait for {RUNELITE_STATE_PATH} to be written.")
     print("4. Use the dev client until the plugin is available in normal RuneLite.")
 
     return False

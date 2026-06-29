@@ -6,11 +6,12 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from account_context import BASE_DIR as APP_BASE_DIR, get_account_scope
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_path
 
 BASE_DIR = str(APP_BASE_DIR)
 DB_FILE = os.path.join(BASE_DIR, "osrs_flip_scanner.db")
 
-RUNELITE_STATE_PATH = Path(APP_BASE_DIR) / "runtime" / "runelite_state.json"
+RUNELITE_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 
 GE_SLOT_COUNT = 8
 
@@ -649,7 +650,7 @@ def get_weighted_cost_basis(cursor, item_id, item_name):
     }
 
 def locate_runelite_telemetry_file(account=None):
-    return RUNELITE_STATE_PATH
+    return resolve_runelite_state_path()
 
 
 def load_runelite_telemetry_json(account=None):

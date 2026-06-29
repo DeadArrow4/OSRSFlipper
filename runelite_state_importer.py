@@ -17,9 +17,10 @@ from capital_ai_memory import (
     score_flip_for_capital,
     summarize_capital_state,
 )
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_path
 
 
-DEFAULT_STATE_PATH = Path(__file__).resolve().parent / "runtime" / "runelite_state.json"
+DEFAULT_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 
 
 def _int_value(payload: dict[str, Any], keys: list[str], default: int = 0) -> int:
@@ -91,8 +92,8 @@ def normalize_offer(raw: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def load_runelite_state(path: str | Path = DEFAULT_STATE_PATH) -> dict[str, Any]:
-    state_path = Path(path).expanduser().resolve()
+def load_runelite_state(path: str | Path | None = None) -> dict[str, Any]:
+    state_path = resolve_runelite_state_path(path)
 
     if not state_path.exists():
         raise FileNotFoundError(
@@ -104,14 +105,14 @@ def load_runelite_state(path: str | Path = DEFAULT_STATE_PATH) -> dict[str, Any]
 
 
 def import_runelite_state(
-    path: str | Path = DEFAULT_STATE_PATH,
+    path: str | Path | None = None,
     account_name: str | None = None,
     safety_reserve_gp: int | None = None,
     db_path: str | Path | None = None,
 ) -> dict[str, Any]:
     ensure_capital_ai_tables(db_path)
 
-    source_path = str(Path(path).expanduser().resolve())
+    source_path = str(resolve_runelite_state_path(path))
     payload = load_runelite_state(source_path)
 
     account = account_name or str(payload.get("account_name") or payload.get("accountName") or "default")
@@ -242,8 +243,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Import read-only RuneLite telemetry into OSRSFlipper")
     parser.add_argument(
         "--state",
-        default=str(DEFAULT_STATE_PATH),
-        help="Path to RuneLite telemetry JSON file",
+        default=None,
+        help="Path to RuneLite telemetry JSON file. Defaults to the newest OSRSFlipper telemetry file.",
     )
     parser.add_argument("--account", help="Override account name from telemetry file")
     parser.add_argument("--reserve", type=int, help="Safety reserve GP")

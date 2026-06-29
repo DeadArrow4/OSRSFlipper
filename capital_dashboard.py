@@ -17,9 +17,10 @@ except Exception:
     from dash import callback_context
 
 from runelite_telemetry_control import build_runelite_telemetry_status
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_path
 
 
-DEFAULT_STATE_PATH = Path("runtime") / "runelite_state.json"
+DEFAULT_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 
 
 def _now_text() -> str:
@@ -291,8 +292,8 @@ def _try_import_runelite_state(state_path: Path) -> dict[str, Any]:
         return {"ok": False, "message": f"Import failed: {exc}"}
 
 
-def load_capital_dashboard_state(import_live: bool = False, state_path: str | Path = DEFAULT_STATE_PATH) -> dict[str, Any]:
-    path = Path(state_path)
+def load_capital_dashboard_state(import_live: bool = False, state_path: str | Path | None = None) -> dict[str, Any]:
+    path = resolve_runelite_state_path(state_path)
     import_result = _try_import_runelite_state(path) if import_live else {"ok": None, "message": "Live import not requested."}
     telemetry_status = build_runelite_telemetry_status(path)
     telemetry_ready = bool(telemetry_status.get("ready"))

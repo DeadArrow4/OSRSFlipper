@@ -14,11 +14,12 @@ from trade_tracker import (
     record_trade_event
 )
 from account_context import BASE_DIR, apply_account_env
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, LEGACY_RUNELITE_STATE_PATH, resolve_runelite_state_path
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".json", ".jsonl"}
 
-OSRSFLIPPER_RUNELITE_STATE_PATH = Path(BASE_DIR) / "runtime" / "runelite_state.json"
+OSRSFLIPPER_RUNELITE_STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 RUNELITE_TELEMETRY_SOURCE = "osrsflipper-runelite-telemetry"
 
 ITEM_NAME_KEYS = [
@@ -905,7 +906,7 @@ def watch_folder(folder=IMPORT_DIR, source="runelite", seconds=10):
 
 
 def get_osrsflipper_runelite_state_path():
-    return OSRSFLIPPER_RUNELITE_STATE_PATH.resolve()
+    return resolve_runelite_state_path()
 
 
 def resolve_runelite_file(file_path=None, account=None):
@@ -921,7 +922,8 @@ def resolve_runelite_file(file_path=None, account=None):
     account_note = f" for account {account}" if account else ""
     raise FileNotFoundError(
         f"Could not find OSRSFlipper RuneLite telemetry JSON{account_note}: {resolved}. "
-        "Start the OSRSFlipper Telemetry RuneLite plugin and wait for runtime\\runelite_state.json."
+        f"Start the OSRSFlipper Telemetry RuneLite plugin and wait for {DEFAULT_RUNELITE_STATE_PATH}. "
+        f"Existing legacy installs are also checked at {LEGACY_RUNELITE_STATE_PATH}."
     )
 
 

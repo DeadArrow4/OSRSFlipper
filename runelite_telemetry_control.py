@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from runelite_paths import DEFAULT_RUNELITE_STATE_PATH, resolve_runelite_state_path
+
 try:
     from account_context import resolve_app_base_dir
 except Exception:
@@ -16,7 +18,8 @@ except Exception:
 PROJECT_ROOT = resolve_app_base_dir() if resolve_app_base_dir else Path(__file__).resolve().parent
 RUNTIME_DIR = PROJECT_ROOT / "runtime"
 LOG_DIR = PROJECT_ROOT / "logs"
-STATE_PATH = RUNTIME_DIR / "runelite_state.json"
+
+STATE_PATH = DEFAULT_RUNELITE_STATE_PATH
 WRAPPER_DIR = PROJECT_ROOT / "runelite_companion" / "osrsflipper-telemetry-plugin-wrapper"
 STALE_AFTER_SECONDS = 120
 
@@ -39,8 +42,8 @@ def _format_gp(value: Any) -> str:
     return f"{amount:,} gp"
 
 
-def read_runelite_state(path: str | Path = STATE_PATH) -> dict[str, Any]:
-    state_path = Path(path)
+def read_runelite_state(path: str | Path | None = None) -> dict[str, Any]:
+    state_path = resolve_runelite_state_path(path)
     if not state_path.exists():
         return {}
 
@@ -53,8 +56,8 @@ def read_runelite_state(path: str | Path = STATE_PATH) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def build_runelite_telemetry_status(path: str | Path = STATE_PATH) -> dict[str, Any]:
-    state_path = Path(path)
+def build_runelite_telemetry_status(path: str | Path | None = None) -> dict[str, Any]:
+    state_path = resolve_runelite_state_path(path)
     exists = state_path.exists()
     data = read_runelite_state(state_path) if exists else {}
 
@@ -138,7 +141,7 @@ def build_runelite_telemetry_status(path: str | Path = STATE_PATH) -> dict[str, 
     }
 
 
-def format_runelite_telemetry_status(path: str | Path = STATE_PATH) -> str:
+def format_runelite_telemetry_status(path: str | Path | None = None) -> str:
     status = build_runelite_telemetry_status(path)
 
     if not status["exists"]:
@@ -271,7 +274,7 @@ def import_runelite_state_now() -> str:
     status = build_runelite_telemetry_status()
 
     if not status["exists"]:
-        return f"RuneLite telemetry file is missing: {STATE_PATH}"
+        return f"RuneLite telemetry file is missing: {status['path']}"
 
     if not status["ready"]:
         return f"Skipped RuneLite telemetry import: {status['problem']}."
@@ -279,7 +282,7 @@ def import_runelite_state_now() -> str:
     try:
         from runelite_state_importer import import_runelite_state
 
-        result = import_runelite_state(STATE_PATH)
+        result = import_runelite_state(status["path"])
         return f"Imported RuneLite telemetry: {result}"
     except Exception as exc:
         return f"Could not import RuneLite telemetry: {exc}"

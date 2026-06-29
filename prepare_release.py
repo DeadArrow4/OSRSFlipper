@@ -78,6 +78,7 @@ RELEASE_FILES = [
     "report.py",
     "release_check.py",
     "runelite_plugin_packager.py",
+    "runelite_paths.py",
     "runelite_state_importer.py",
     "runelite_telemetry_control.py",
     "safety_manager.py",

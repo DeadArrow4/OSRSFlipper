@@ -264,7 +264,7 @@ def _write_submission_helpers() -> None:
                 "2. Confirm the published repository includes the BSD-2-Clause `LICENSE` file.",
                 "3. Build and test locally with `gradlew.bat clean test shadowJar --no-daemon`.",
                 "4. Confirm `runelite-plugin.properties` has displayName, author, description, tags, plugins, version, and `build=standard`.",
-                "5. Confirm the README clearly documents that the plugin is read-only and only writes local telemetry JSON.",
+                "5. Confirm the README clearly documents that the plugin is read-only and defaults file I/O to `.runelite/osrsflipper-telemetry`.",
                 "6. Fork `runelite/plugin-hub` and add a plugin marker from `plugin-hub-marker-template.properties`.",
                 "7. Open the Plugin Hub pull request and wait for approval.",
                 "8. After approval, install OSRSFlipper Telemetry from RuneLite's Plugin Hub in the Jagex-launched client.",

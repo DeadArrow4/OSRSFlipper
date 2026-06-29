@@ -310,7 +310,12 @@ def check_runelite(lines):
     lines.append("RUNELITE / OSRSFLIPPER TELEMETRY")
     lines.append("--------------------------------")
 
-    runelite_file = BASE_DIR / "runtime" / "runelite_state.json"
+    try:
+        from runelite_paths import resolve_runelite_state_path
+
+        runelite_file = resolve_runelite_state_path()
+    except Exception:
+        runelite_file = BASE_DIR / "runtime" / "runelite_state.json"
 
     if runelite_file.exists():
         lines.append(ok_line(f"OSRSFlipper RuneLite telemetry JSON found: {runelite_file}"))

@@ -2,13 +2,17 @@
 
 This is the read-only RuneLite-side companion for OSRSFlipper 1.2.0.
 
-It exports local telemetry to:
+By default, it exports local telemetry to a plugin-owned directory under
+RuneLite's user data folder:
 
 ```text
-C:\OSRSFlipper\runtime\runelite_state.json
+%USERPROFILE%\.runelite\osrsflipper-telemetry\runelite_state.json
 ```
 
-OSRSFlipper then imports that file with:
+The output path setting can be customized, but leaving it blank keeps all
+default plugin file I/O under `.runelite\osrsflipper-telemetry`.
+
+OSRSFlipper then imports the newest available telemetry file with:
 
 ```powershell
 python runelite_state_importer.py import

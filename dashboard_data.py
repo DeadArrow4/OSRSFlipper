@@ -1561,9 +1561,8 @@ def get_live_ge_offer_rows(limit=100):
     try:
         from runelite_telemetry_control import build_runelite_telemetry_status, read_runelite_state
 
-        state_path = Path(BASE_DIR) / "runtime" / "runelite_state.json"
-        status = build_runelite_telemetry_status(state_path)
-        state = read_runelite_state(state_path)
+        status = build_runelite_telemetry_status()
+        state = read_runelite_state(status.get("path"))
     except Exception:
         return pd.DataFrame()
 

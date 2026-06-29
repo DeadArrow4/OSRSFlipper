@@ -65,7 +65,7 @@ When downloading a GitHub release ZIP:
 3. Confirm the final path is `C:\OSRSFlipper\osrs_control_center.py`.
 4. Open PowerShell in `C:\OSRSFlipper`.
 
-Current 1.3.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, saved session, and telemetry state. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
+Current 1.3.x builds use `C:\OSRSFlipper` as the stable runtime folder for the local database, settings, and saved session. RuneLite telemetry is imported from the newest OSRSFlipper telemetry JSON, preferring the Plugin Hub-compliant default under `%USERPROFILE%\.runelite\osrsflipper-telemetry` while still supporting the older `C:\OSRSFlipper\runtime` file. Running from a timestamped extracted folder can work on a brand-new machine, but using one stable install folder makes updates and local data safer to reason about.
 
 Create and activate a virtual environment:
 

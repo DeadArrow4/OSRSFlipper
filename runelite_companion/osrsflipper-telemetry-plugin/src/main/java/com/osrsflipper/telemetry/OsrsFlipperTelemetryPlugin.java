@@ -30,6 +30,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.client.RuneLite;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -45,6 +46,8 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
 {
     private static final int COINS_ITEM_ID = 995;
     private static final int MAX_TRADE_HISTORY = 2000;
+    private static final String PLUGIN_DATA_DIR = "osrsflipper-telemetry";
+    private static final String TELEMETRY_FILE_NAME = "runelite_state.json";
     private static final DateTimeFormatter ISO_UTC = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
     @Inject
     private Client client;
@@ -74,7 +77,7 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
     {
         ticksSinceExport = 0;
         loadExistingOfferHistory();
-        log.warn("OSRSFlipper Telemetry plugin STARTED. enabled={}, outputPath={}", config.enabled(), config.outputPath());
+        log.warn("OSRSFlipper Telemetry plugin STARTED. enabled={}, outputPath={}", config.enabled(), safeOutputPath());
         writeStartupMarker("startup");
         writeMinimalTelemetry("startup");
     }
@@ -780,10 +783,18 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
 
         if (configuredPath == null || configuredPath.isBlank())
         {
-            configuredPath = "C:\\OSRSFlipper\\runtime\\runelite_state.json";
+            return defaultTelemetryOutputPath();
         }
 
         return Path.of(configuredPath.trim()).toAbsolutePath();
+    }
+
+    private Path defaultTelemetryOutputPath()
+    {
+        return RuneLite.RUNELITE_DIR.toPath()
+            .resolve(PLUGIN_DATA_DIR)
+            .resolve(TELEMETRY_FILE_NAME)
+            .toAbsolutePath();
     }
 
     private Path safeOutputPath()
@@ -794,7 +805,7 @@ public class OsrsFlipperTelemetryPlugin extends Plugin
         }
         catch (Exception ex)
         {
-            return Path.of("C:\\OSRSFlipper\\runtime\\runelite_state.json").toAbsolutePath();
+            return defaultTelemetryOutputPath();
         }
     }
 

@@ -19,12 +19,12 @@ public interface OsrsFlipperTelemetryConfig extends Config
 
     @ConfigItem(
         keyName = "outputPath",
-        name = "Output path",
-        description = "Local JSON file OSRSFlipper will import."
+        name = "Custom output path",
+        description = "Optional local JSON file OSRSFlipper will import. Leave blank to write under .runelite/osrsflipper-telemetry/."
     )
     default String outputPath()
     {
-        return "C:\\OSRSFlipper\\runtime\\runelite_state.json";
+        return "";
     }
 
     @ConfigItem(

@@ -39,6 +39,17 @@ Before submitting, confirm the repository contains:
 The plugin is intentionally read-only. It must not click, buy, sell, cancel,
 reprice, automate trading, or send OSRS data to a remote service.
 
+By default, all plugin file I/O must stay under RuneLite's plugin-specific
+data folder:
+
+```text
+%USERPROFILE%\.runelite\osrsflipper-telemetry
+```
+
+The output path may remain user-configurable, but a blank/fresh setting must
+write `runelite_state.json`, its temporary file, status file, and startup marker
+inside that folder.
+
 ## Plugin Hub Marker
 
 After publishing the companion plugin repository, copy the generated marker
